@@ -1,0 +1,39 @@
+[project]
+name = "pyrlmala"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Congye Wang", email = "congye.wang@outlook.com" }
+]
+dependencies = [
+    "torch==2.4.0+cu124",
+    "torchvision==0.19.0+cu124",
+    "torchaudio==2.4.0+cu124",
+    "gymnasium>=0.29.1",
+    "stable-baselines3>=2.3.2",
+    "pyyaml>=6.0.2",
+    "scipy>=1.14.1",
+]
+readme = "README.md"
+requires-python = ">= 3.8"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = [
+    "ipykernel>=6.29.5",
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pyrlmala"]
+
+[[tool.rye.sources]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu124"
+
