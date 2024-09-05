@@ -14,7 +14,7 @@ scipy.linalg.cholesky = cast(
 )
 
 
-class RLMALAEnvBase(gym.Env, ABC):
+class RLMALAEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
