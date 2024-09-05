@@ -12,6 +12,15 @@
 -e file:.
 asttokens==2.4.1
     # via stack-data
+bridgestan==2.5.0
+    # via pyrlmala
+certifi==2022.12.7
+    # via requests
+    # via sentry-sdk
+charset-normalizer==2.1.1
+    # via requests
+click==8.1.7
+    # via wandb
 cloudpickle==3.0.0
     # via gymnasium
     # via stable-baselines3
@@ -25,6 +34,10 @@ debugpy==1.8.5
     # via ipykernel
 decorator==5.1.1
     # via ipython
+dllist==1.2.0
+    # via bridgestan
+docker-pycreds==0.4.0
+    # via wandb
 executing==2.1.0
     # via stack-data
 farama-notifications==0.0.4
@@ -36,9 +49,15 @@ fonttools==4.53.1
     # via matplotlib
 fsspec==2024.2.0
     # via torch
+gitdb==4.0.11
+    # via gitpython
+gitpython==3.1.43
+    # via wandb
 gymnasium==0.29.1
     # via pyrlmala
     # via stable-baselines3
+idna==3.4
+    # via requests
 ipykernel==6.29.5
 ipython==8.27.0
     # via ipykernel
@@ -67,6 +86,7 @@ nest-asyncio==1.6.0
 networkx==3.2.1
     # via torch
 numpy==1.26.3
+    # via bridgestan
     # via contourpy
     # via gymnasium
     # via matplotlib
@@ -117,10 +137,16 @@ pillow==10.2.0
     # via torchvision
 platformdirs==4.2.2
     # via jupyter-core
+    # via wandb
+posteriordb==0.2.0
+    # via pyrlmala
 prompt-toolkit==3.0.47
     # via ipython
+protobuf==5.28.0
+    # via wandb
 psutil==6.0.0
     # via ipykernel
+    # via wandb
 ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
@@ -137,16 +163,28 @@ pytz==2024.1
     # via pandas
 pyyaml==6.0.2
     # via pyrlmala
+    # via wandb
 pyzmq==26.2.0
     # via ipykernel
     # via jupyter-client
+requests==2.28.1
+    # via posteriordb
+    # via wandb
 scipy==1.14.1
     # via pyrlmala
+sentry-sdk==2.13.0
+    # via wandb
+setproctitle==1.3.3
+    # via wandb
 setuptools==70.0.0
     # via torch
+    # via wandb
 six==1.16.0
     # via asttokens
+    # via docker-pycreds
     # via python-dateutil
+smmap==5.0.1
+    # via gitdb
 stable-baselines3==2.3.2
     # via pyrlmala
 stack-data==0.6.3
@@ -179,5 +217,10 @@ typing-extensions==4.9.0
     # via torch
 tzdata==2024.1
     # via pandas
+urllib3==1.26.13
+    # via requests
+    # via sentry-sdk
+wandb==0.17.9
+    # via pyrlmala
 wcwidth==0.2.13
     # via prompt-toolkit
