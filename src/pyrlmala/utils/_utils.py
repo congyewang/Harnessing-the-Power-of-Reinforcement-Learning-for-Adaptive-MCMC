@@ -2,29 +2,21 @@ import json
 import os
 import re
 from dataclasses import dataclass, fields
-from typing import Callable, Dict, List, Tuple, Union
+from typing import Callable, Dict, Union
 
 import bridgestan as bs
 import gymnasium as gym
-import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
-import torch
 from gymnasium.envs.registration import EnvSpec
-from matplotlib import patches
-from matplotlib.animation import FuncAnimation, MovieWriter
-from matplotlib.patches import Ellipse
 from numpy.typing import NDArray
 from posteriordb import PosteriorDatabase
 from scipy.stats._multivariate import _PSD
-from torch import nn
 
 
 @dataclass
 class Args:
-    exp_name: str = "RLMALA"
+    exp_name: str = "RLBarker"
     """the name of this experiment"""
     seed: int = 1
     """seed of the experiment"""
@@ -34,7 +26,7 @@ class Args:
     """if toggled, cuda will be enabled by default"""
     track: bool = False
     """if toggled, this experiment will be tracked with Weights and Biases"""
-    wandb_project_name: str = "RLMALA"
+    wandb_project_name: str = "RLBarker"
     """the wandb's project name"""
     wandb_entity: str = ""
     """the entity (team) of wandb's project"""
@@ -48,7 +40,7 @@ class Args:
     """the user or org name of the model repository from the Hugging Face Hub"""
 
     # Algorithm specific arguments
-    env_id: str = "RLMHEnv-v3.1"
+    env_id: str = "BarkerEnv-v1.0"
     """the environment id of the Atari game"""
     total_timesteps: int = int(1e3)
     """total timesteps of the experiments"""
@@ -73,9 +65,6 @@ class Args:
     noise_clip: float = 0.5
     """noise clip parameter of the Target Policy Smoothing Regularization"""
 
-    sample_dim: int = 2
-    """the dimension of the sample"""
-
     def get_all_attributes(self):
         """
         get all attributes of this class
@@ -87,7 +76,6 @@ class Toolbox:
     @staticmethod
     def make_env(
         env_id: Union[str, EnvSpec],
-        seed: int,
         log_target_pdf: Callable[
             [Union[float, np.float64, npt.NDArray[np.float64]]],
             Union[float, np.float64],
@@ -98,6 +86,9 @@ class Toolbox:
         ],
         initial_sample: Union[np.float64, npt.NDArray[np.float64]],
         initial_covariance: Union[np.float64, npt.NDArray[np.float64], None] = None,
+        total_timesteps: int = 500_000,
+        log_mode: bool = True,
+        seed: int = 42,
     ):
         def thunk():
             env = gym.make(
@@ -106,6 +97,8 @@ class Toolbox:
                 grad_log_target_pdf_unsafe=grad_log_target_pdf,
                 initial_sample=initial_sample,
                 initial_covariance=initial_covariance,
+                total_timesteps=total_timesteps,
+                log_mode=log_mode,
             )
             env = gym.wrappers.RecordEpisodeStatistics(env)
             env.action_space.seed(seed)
@@ -210,248 +203,7 @@ class Toolbox:
         return model.log_density
 
     @staticmethod
-    def plot_action(
-        x: Union[List[Union[float, int]], NDArray[np.float64]],
-        a: NDArray[np.float64],
-        msd: Union[float, np.float64],
-        ax: matplotlib.axes.Axes,
-        alpha: float = 0.7,
-    ) -> None:
-        l, v = np.linalg.eig(a)
-        wh = msd * np.sqrt(l)
-        t = np.arctan2(v[1, 0], v[0, 0])
-        deg = t * (180 / np.pi)
-        ell = Ellipse(
-            (x[0], x[1]),
-            width=wh[0],
-            height=wh[1],
-            angle=deg,
-            edgecolor="r",
-            facecolor="none",
-            alpha=alpha,
-        )
-        ax.add_patch(ell)
-
-    @staticmethod
     def create_folder(file_path: str) -> None:
         folder_path = os.path.dirname(file_path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-
-
-class MCMCAnimation:
-    def __init__(
-        self,
-        log_target_pdf: Callable[NDArray[np.float64], np.float64],
-        dataframe: pd.DataFrame,
-        xlim: Tuple[float, float],
-        ylim: Tuple[float, float],
-        ellipse_num: int = 10,
-        target: bool = True,
-    ) -> None:
-        self.log_target_pdf = log_target_pdf
-        self.dataframe = dataframe.reset_index(drop=True)
-        self.xlim = xlim
-        self.ylim = ylim
-
-        self.target = target
-        self.ellipse_num = ellipse_num
-
-        self.fig, self.ax = plt.subplots()
-        self.ellipse_list = []  # List to track the ellipses
-
-        self.setup_plot()
-
-    def create_cov_ellipse(
-        self,
-        covariance: NDArray[np.float64],
-        position: NDArray[np.float64],
-        msd: Union[float, np.float64] = 1.0,
-        **kwargs,
-    ):
-        """
-        Create a covariance ellipse based on the covariance matrix and position.
-        """
-        eig_vals, eig_vecs = np.linalg.eigh(covariance)
-        angle = np.degrees(np.arctan2(*eig_vecs[:, 0][::-1]))
-        width, height = msd * np.sqrt(eig_vals)
-        ellipse = patches.Ellipse(position, width, height, angle, **kwargs)
-        return ellipse
-
-    def plot_target_distribution(self, num: int = 1_000):
-        """
-        Plot target distribution.
-        """
-        x = np.linspace(self.xlim[0], self.xlim[1], num)
-        y = np.linspace(self.ylim[0], self.ylim[1], num)
-        grid_x, grid_y = np.meshgrid(x, y)
-
-        pdf_res = np.zeros((num, num))
-
-        for i in range(len(x)):
-            for j in range(len(y)):
-                pdf_res[i, j] = np.exp(self.log_target_pdf(np.array([x[i], y[j]])))
-
-        self.ax.contour(grid_x, grid_y, pdf_res.T)
-
-    def setup_plot(self):
-        """
-        Setup the plot for the animation.
-        """
-        self.ax.set_xlim(*self.xlim)
-        self.ax.set_ylim(*self.ylim)
-        if self.target:
-            self.plot_target_distribution()
-
-        # Initialize elements in the plot for the animation
-        (self.accepted_trace,) = self.ax.plot(
-            [],
-            [],
-            "o-",
-            markersize=3,
-            color="black",
-            alpha=0.01,
-            label="Accepted Trace",
-        )  # Line trace for accepted samples
-        (self.current_point,) = self.ax.plot(
-            [], [], "o", markerfacecolor="black", markersize=10, label="Current Point"
-        )  # Solid black point for the current accepted position
-        (self.proposed_point,) = self.ax.plot(
-            [], [], "o", markerfacecolor="none", markersize=10, markeredgecolor="red"
-        )  # Solid red point for the proposed position
-
-    def update(self, frame: int):
-        """
-        Function to update the animation for each frame
-        """
-        # Remove the oldest ellipse if more than ellipse_num ellipses are present
-        if len(self.ellipse_list) > self.ellipse_num:
-            self.ellipse_list.pop(0).remove()
-
-        # Getting data for the current frame
-        row = self.dataframe.iloc[frame]
-        cov_matrix = [[row["cov1"], row["cov2"]], [row["cov3"], row["cov4"]]]
-
-        # Update the trace of accepted samples
-        self.accepted_trace.set_data(
-            self.dataframe["x"][: frame + 1], self.dataframe["y"][: frame + 1]
-        )
-
-        # Update the current accepted point and the proposed point
-        self.current_point.set_data(
-            self.dataframe["x"][frame], self.dataframe["y"][frame]
-        )
-        self.proposed_point.set_data(row["proposed_x"], row["proposed_y"])
-
-        # Draw the covariance ellipse for the current position
-        ellipse = self.create_cov_ellipse(
-            cov_matrix,
-            (row["x"], row["y"]),
-            edgecolor="blue",
-            facecolor="none",
-            alpha=1.0,
-        )
-        self.ax.add_patch(ellipse)
-        self.ellipse_list.append(ellipse)
-
-        # Set the title of the plot
-        self.ax.set_title(f"2D MCMC Trajectory Animation - Iteration: {frame + 1}")
-
-        return [self.accepted_trace, self.current_point, self.proposed_point, ellipse]
-
-    def make(self, interval: int = 100, blit: bool = True, repeat: bool = False):
-        """
-        Creating the animation with the trace of accepted samples
-        """
-        self.anim = FuncAnimation(
-            self.fig,
-            self.update,
-            frames=len(self.dataframe),
-            interval=interval,
-            blit=blit,
-            repeat=repeat,
-        )
-        return self
-
-    def save(
-        self, anim_file_path: str, writer: Union[MovieWriter, str, None] = "ffmpeg"
-    ):
-        """
-        Save the animation
-        """
-        Toolbox.create_folder(anim_file_path)
-        self.anim.save(anim_file_path, writer=writer)
-
-
-class KernelRidgeRegression(nn.Module):
-    """
-    Kernel Ridge Regression Model
-    """
-
-    def __init__(
-        self,
-        kernel: str = "rbf",
-        lambda_param: float = 1.0,
-        **kwargs: Union[float, None],
-    ):
-        super(KernelRidgeRegression, self).__init__()
-
-        self.kernel_func = self.make_kernel(kernel=kernel)
-
-        self.lambda_param = lambda_param
-        self.alpha_: Union[torch.Tensor, None] = None  # Dual coefficients
-
-        self.gamma: Union[float, None] = kwargs.get("gamma", None)
-        self.c: Union[float, None] = kwargs.get("c", 1.0)
-
-    def fit(self, X_train: torch.Tensor, y_train: torch.Tensor):
-        """
-        Fit the model with the given training data.
-        """
-        self.X_train = X_train
-        K_mat = self.kernel_func(X_train, X_train)  # Compute the kernel matrix
-        n_samples = K_mat.size(0)
-
-        # Adding lambda * I to the diagonal (Ridge Regression)
-        K_mat += torch.eye(n_samples) * self.lambda_param
-
-        # Solve for alpha (dual coefficients)
-        self.alpha_ = torch.linalg.solve(K_mat, y_train)
-
-    def predict(self, X_test: torch.Tensor):
-        """
-        Predict the target values for the given test data.
-        """
-        K_test = self.kernel_func(X_test, self.X_train)
-        return K_test @ self.alpha_
-
-    def make_kernel(self, kernel: str = "rbf"):
-        """
-        Make the kernel function.
-        """
-        if kernel == "rbf":
-            return self.rbf_kernel
-        elif kernel == "imq":
-            return self.imq_kernel
-        else:
-            raise ValueError("Invalid kernel function")
-
-    def rbf_kernel(self, X1: torch.Tensor, X2: torch.Tensor):
-        """
-        Radial Basis Function (RBF) Kernel
-        """
-        if self.gamma is None:
-            self.gamma = 1.0 / X1.size(1)
-
-        dist = torch.cdist(X1, X2) ** 2
-        return torch.exp(-self.gamma * dist)
-
-    def imq_kernel(self, X1: torch.Tensor, X2: torch.Tensor):
-        """
-        Inverse Multi-Quadratic (IMQ) Kernel
-        """
-        if self.c is None:
-            self.c = 1.0
-
-        dist = torch.cdist(X1, X2) ** 2
-        return 1.0 / torch.sqrt(dist + self.c**2)

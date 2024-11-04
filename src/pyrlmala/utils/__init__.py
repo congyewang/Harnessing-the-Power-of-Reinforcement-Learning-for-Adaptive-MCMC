@@ -1,4 +1,4 @@
-from ._utils import Args, KernelRidgeRegression, MCMCAnimation, Toolbox
+from ._utils import Args, Toolbox
 
 
-__all__ = ["Args", "KernelRidgeRegression", "MCMCAnimation", "Toolbox"]
+__all__ = ["Args", "Toolbox"]
