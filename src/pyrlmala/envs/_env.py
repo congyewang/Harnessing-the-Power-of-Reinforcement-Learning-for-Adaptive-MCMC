@@ -9,30 +9,39 @@ import scipy
 from gymnasium.utils import seeding
 from scipy.stats import multivariate_normal
 
-scipy.linalg.cholesky = cast(
-    Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], scipy.linalg.cholesky
-)
 
-
-class RLMALAEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
+class RLMCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
-            [Union[float, np.float64, npt.NDArray[np.float64]]],
-            Union[float, np.float64],
+            [npt.NDArray[np.float64]], npt.NDArray[np.float64]
         ],
         grad_log_target_pdf_unsafe: Callable[
-            [Union[float, np.float64, npt.NDArray[np.float64]]],
-            Union[float, np.float64],
+            [npt.NDArray[np.float64]], npt.NDArray[np.float64]
         ],
-        initial_sample: Union[np.float64, npt.NDArray[np.float64]],
-        initial_covariance: Union[np.float64, npt.NDArray[np.float64], None] = None,
+        initial_sample: npt.NDArray[np.float64],
+        initial_covariance: Union[npt.NDArray[np.float64], None] = None,
+        total_timesteps: int = 500_000,
+        log_mode: bool = True,
     ) -> None:
+        """Initialize the Environment
+
+        Args:
+            log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+                Function to compute the log target probability density function without numerical stabilization.
+            grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+                Function to compute the gradient of the log target probability density function without numerical stabilization.
+            initial_sample (npt.NDArray[np.float64]): Initial Sample.
+            initial_covariance (Union[npt.NDArray[np.float64], None], optional): Initial Covariance. Defaults to Identity Matrix.
+            total_timesteps (int, optional): The number of the total time steps in the whole episode. Defaults to 500_000.
+            log_mode (bool, optional): The controller if reward function returns the logarithmic form. Defaults to True.
+        """
         super().__init__()
 
-        self.sample_dim: int = int(np.prod(initial_sample.shape))  # sample dimension
-        self.steps: int = 1  # iteration time
-        # log target probability density function without numerical stabilization
+        self.sample_dim: int = int(np.prod(initial_sample.shape))  # Sample Dimension
+        self.steps: int = 1  # Iteration Time
+
+        # Log Target Probability Density Functions without Numerical Stabilization
         self.log_target_pdf_unsafe = log_target_pdf_unsafe
         self.grad_log_target_pdf_unsafe = grad_log_target_pdf_unsafe
 
@@ -41,6 +50,8 @@ class RLMALAEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], A
                 self.sample_dim
             )
         self.initial_covariance = initial_covariance
+        self.covariance = initial_covariance
+        self.log_mode = log_mode
 
         # Observation specification
         self.observation_space = gym.spaces.Box(
@@ -63,87 +74,201 @@ class RLMALAEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], A
         ).flatten()
         self.state = np.concatenate(
             (initial_sample, initial_next_proposed_sample)
-        )  # state at this time, s_{t}
+        )  # state at self time, s_{t}
 
         # Store
-        self.store_observation: List[npt.NDArray[np.float64]] = []
-        self.store_action: List[npt.NDArray[np.float64]] = []
-        self.store_log_acceptance_rate: List[Union[np.float64, float]] = []
-        self.store_accepted_status: List[bool] = []
-        self.store_reward: List[Union[np.float64, float]] = []
+        self.store_observation: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
+        self.store_action: npt.NDArray[np.float64] = np.empty((total_timesteps, 2))
+        self.store_log_acceptance_rate: npt.NDArray[np.float64] = np.empty(
+            total_timesteps
+        )
+        self.store_accepted_status: npt.NDArray[np.bool] = np.full(
+            total_timesteps, False, dtype=bool
+        )
+        self.store_reward: npt.NDArray[np.float64] = np.empty(total_timesteps)
 
-        self.store_current_sample: List[npt.NDArray[np.float64]] = []
-        self.store_proposed_sample: List[npt.NDArray[np.float64]] = []
+        self.store_current_sample: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
+        self.store_proposed_sample: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
 
-        self.store_current_mean: List[npt.NDArray[np.float64]] = []
-        self.store_proposed_mean: List[npt.NDArray[np.float64]] = []
+        self.store_current_mean: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
+        self.store_proposed_mean: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
 
-        self.store_current_covariance: List[npt.NDArray[np.float64]] = []
-        self.store_proposed_covariance: List[npt.NDArray[np.float64]] = []
+        self.store_current_covariance: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim, self.sample_dim)
+        )
+        self.store_proposed_covariance: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim, self.sample_dim)
+        )
 
-        self.store_log_target_proposed: List[Union[np.float64, float]] = []
-        self.store_log_target_current: List[Union[np.float64, float]] = []
-        self.store_log_proposal_proposed: List[Union[np.float64, float]] = []
-        self.store_log_proposal_current: List[Union[np.float64, float]] = []
+        self.store_log_target_proposed: npt.NDArray[np.float64] = np.empty(
+            total_timesteps
+        )
+        self.store_log_target_current: npt.NDArray[np.float64] = np.empty(
+            total_timesteps
+        )
+        self.store_log_proposal_proposed: npt.NDArray[np.float64] = np.empty(
+            total_timesteps
+        )
+        self.store_log_proposal_current: npt.NDArray[np.float64] = np.empty(
+            total_timesteps
+        )
 
-        self.store_accepted_mean: List[npt.NDArray[np.float64]] = []
-        self.store_accepted_sample: List[npt.NDArray[np.float64]] = []
-        self.store_accepted_covariance: List[npt.NDArray[np.float64]] = []
+        self.store_accepted_mean: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
+        self.store_accepted_sample: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim)
+        )
+        self.store_accepted_covariance: npt.NDArray[np.float64] = np.empty(
+            (total_timesteps, self.sample_dim, self.sample_dim)
+        )
 
-    def log_target_pdf(self, x: Union[float, np.float64, npt.NDArray[np.float64]]):
+    def expected_entropy_reward(
+        self,
+        log_target_current: npt.NDArray[np.float64],
+        log_target_accepted: npt.NDArray[np.float64],
+        log_proposal_current: npt.NDArray[np.float64],
+        log_alpha: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """Expected Entropy Reward
+
+        Args:
+            log_target_current (npt.NDArray[np.float64]): Log target density at current sample
+            log_target_accepted (npt.NDArray[np.float64]): Log target density at accepted sample
+            log_proposal_current (npt.NDArray[np.float64]): Log proposal density at current sample
+            log_alpha (npt.NDArray[np.float64]): Log acceptance rate
+
+        Returns:
+            npt.NDArray[np.float64]: Expected Entropy Reward
+        """
+        log_one_minus_alpha = np.log1p(-np.exp(log_alpha))
+        if np.isinf(log_one_minus_alpha) or np.isnan(log_one_minus_alpha):
+            log_one_minus_alpha = -np.finfo(np.float64).max
+
+        transient_item = log_target_accepted - log_target_current
+        entropy_item = (
+            -np.exp(log_one_minus_alpha) * log_one_minus_alpha
+            - np.exp(log_alpha) * log_alpha
+        )
+        expected_square_jump_distance_item = -np.exp(log_alpha) * log_proposal_current
+
+        if self.log_mode:
+            res = transient_item + entropy_item + expected_square_jump_distance_item
+        else:
+            res = np.exp(
+                transient_item + entropy_item + expected_square_jump_distance_item
+            )
+
+        return res
+
+    def log_target_pdf(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Log Target Probability Density Function
+
+        Args:
+            x (npt.NDArray[np.float64]): Sample
+
+        Returns:
+            npt.NDArray[np.float64]: Log Target Probability Density at x
+        """
         res = self.log_target_pdf_unsafe(x)
 
-        # Numerical stability
-        if np.any(np.isinf(res)) or np.any(np.isnan(res)):
+        if np.isinf(res):
             res = -np.finfo(np.float64).max
-            warnings.warn(f"log_target_pdf has inf or -inf.", UserWarning)
-
+            warnings.warn(f"log_target_pdf is inf or -inf, where x: {x}.")
         return res
 
-    def grad_log_target_pdf(self, x: Union[float, np.float64, npt.NDArray[np.float64]]):
+    def grad_log_target_pdf(
+        self, x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """Gradient of Log Target Probability Density Function
+
+        Args:
+            x (npt.NDArray[np.float64]): Sample
+
+        Returns:
+            npt.NDArray[np.float64]: Gradient of Log Target Probability Density at x
+        """
         res = self.grad_log_target_pdf_unsafe(x)
 
-        # Numerical stability
-        if np.any(np.isinf(res)) or np.any(np.isnan(res)):
-            nan_or_inf_indices = np.isnan(res) | np.isinf(res)
-            res = np.where(nan_or_inf_indices, -np.finfo(np.float64).max, res)
-            warnings.warn(f"grad_log_target_pdf has inf or -inf.", UserWarning)
-
+        if np.isinf(res).any():
+            res = np.where(np.isinf(res), 0, res)
+            warnings.warn(f"grad_log_target_pdf is inf or -inf, where x: {x}.")
         return res
 
+    @abstractmethod
     def log_proposal_pdf(
-        self,
-        x: npt.NDArray[np.float64],
-        mean: npt.NDArray[np.float64],
-        cov: npt.NDArray[np.float64],
+        self, x: npt.NDArray[np.float64], *args, **kwargs
     ) -> np.float64:
-        return multivariate_normal.logpdf(x, mean=mean, cov=cov)
+        """Log Proposal Probability Density Function
 
-    def mcmc_noise(
-        self, mean: npt.NDArray[np.float64], cov: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
-        return self.np_random.multivariate_normal(mean=mean, cov=cov, size=1).flatten()
+        Args:
+            x (npt.NDArray[np.float64]): Sample
 
-    def reward_function(
+        Raises:
+            NotImplementedError: log_proposal_pdf is not implemented.
+
+        Returns:
+            np.float64: Log Proposal Probability Density
+        """
+        raise NotImplementedError("log_proposal_pdf is not implemented.")
+
+    @abstractmethod
+    def log_proposal_process(
+        self,
+        current_sample: Union[np.float64, npt.NDArray[np.float64]],
+        proposed_sample: Union[np.float64, npt.NDArray[np.float64]],
+        *args,
+        **kwargs,
+    ) -> Tuple[np.float64, np.float64, np.float64]:
+        """Log Proposal Process
+
+        Args:
+            current_sample (Union[np.float64, npt.NDArray[np.float64]]): Current Sample
+            proposed_sample (Union[np.float64, npt.NDArray[np.float64]]): Proposed Sample
+
+        Raises:
+            NotImplementedError: log_proposal_process is not implemented.
+
+        Returns:
+            Tuple[np.float64, np.float64, np.float64]:
+            Log Proposal Current, Log Proposal Proposed, Log Proposal Ratio
+        """
+        raise NotImplementedError("log_proposal_process is not implemented.")
+
+    def log_target_process(
         self,
         current_sample: npt.NDArray[np.float64],
         proposed_sample: npt.NDArray[np.float64],
-        log_alpha: Union[np.float64, float],
-        log_mode: bool = True,
-    ) -> np.float64:
-        if log_mode:
-            res = (
-                2 * np.log(np.linalg.norm(current_sample - proposed_sample, 2))
-                + log_alpha
-            )
-        else:
-            res = np.power(
-                np.linalg.norm(current_sample - proposed_sample, 2), 2
-            ) * np.exp(log_alpha)
+    ) -> Tuple[
+        npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+    ]:
+        """Log Target Process
 
-        return res.item()
+        Args:
+            current_sample (npt.NDArray[np.float64]): Current Sample
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample
 
-    def accepted_process(
+        Returns:
+            Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+            Log Target Current, Log Target Proposed, Log Target Ratio
+        """
+        log_target_current = self.log_target_pdf(current_sample)
+        log_target_proposed = self.log_target_pdf(proposed_sample)
+        log_target_ratio = log_target_proposed - log_target_current
+
+        return log_target_current, log_target_proposed, log_target_ratio
+
+    def store_process(
         self,
         current_sample: npt.NDArray[np.float64],
         proposed_sample: npt.NDArray[np.float64],
@@ -151,194 +276,87 @@ class RLMALAEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], A
         proposed_mean: npt.NDArray[np.float64],
         current_covariance: npt.NDArray[np.float64],
         proposed_covariance: npt.NDArray[np.float64],
-    ) -> Tuple[
-        bool,
-        npt.NDArray[np.float64],
-        npt.NDArray[np.float64],
-        npt.NDArray[np.float64],
-        np.float64,
-    ]:
-        # Calculate Log Target Density
-        log_target_current = self.log_target_pdf(current_sample)
-        log_target_proposed = self.log_target_pdf(proposed_sample)
-
-        # Calculate Log Proposal Densitys
-        log_proposal_current = self.log_proposal_pdf(
-            current_sample, proposed_mean, proposed_covariance
-        )
-        log_proposal_proposed = self.log_proposal_pdf(
-            proposed_sample, current_mean, current_covariance
-        )
-
-        # Calculate Log Acceptance Rate
-        log_alpha = np.minimum(
-            0.0,
-            log_target_proposed
-            - log_target_current
-            + log_proposal_current
-            - log_proposal_proposed,
-        )
-
-        # Accept or Reject
-        if np.log(self.np_random.random()) < log_alpha:
-            accepted_status = True
-            accepted_sample = proposed_sample
-            accepted_mean = proposed_mean
-            accepted_covariance = proposed_covariance
-        else:
-            accepted_status = False
-            accepted_sample = current_sample
-            accepted_mean = current_mean
-            accepted_covariance = current_covariance
-
-        # Store
-        # Store Sample
-        self.store_current_sample.append(current_sample)
-        self.store_proposed_sample.append(proposed_sample)
-
-        # Store Mean
-        self.store_current_mean.append(current_mean)
-        self.store_proposed_mean.append(proposed_mean)
-
-        # Store Covariance
-        self.store_current_covariance.append(current_covariance)
-        self.store_proposed_covariance.append(proposed_covariance)
-
-        # Store Log Densities
-        self.store_log_target_current.append(log_target_current)
-        self.store_log_target_proposed.append(log_target_proposed)
-
-        self.store_log_proposal_current.append(log_proposal_current)
-        self.store_log_proposal_proposed.append(log_proposal_proposed)
-
-        # Store Acceptance
-        self.store_accepted_status.append(accepted_status)
-        self.store_log_acceptance_rate.append(log_alpha)
-
-        self.store_accepted_sample.append(accepted_sample)
-        self.store_accepted_mean.append(accepted_mean)
-        self.store_accepted_covariance.append(accepted_covariance)
-
-        return (
-            accepted_status,
-            accepted_sample,
-            accepted_mean,
-            accepted_covariance,
-            log_alpha,
-        )
-
-    def reset(
-        self, *, seed: int | None = None, options: dict[str, Any] | None = None
-    ) -> tuple[Any, dict[str, Any]]:
-        """
-        Reset environment to initial state and return initial observation.
+        log_target_current: np.float64,
+        log_target_proposed: np.float64,
+        log_proposal_current: np.float64,
+        log_proposal_proposed: np.float64,
+        accepted_status: bool,
+        log_alpha: np.float64,
+        accepted_sample: npt.NDArray[np.float64],
+        accepted_mean: npt.NDArray[np.float64],
+        accepted_covariance: npt.NDArray[np.float64],
+    ) -> None:
+        """Store Process
 
         Args:
-            seed (int | None, optional): Random seed. Defaults to None.
-            options (dict[str, Any] | None, optional): Defaults to None.
+            current_sample (npt.NDArray[np.float64]): Current Sample
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample
+            current_mean (npt.NDArray[np.float64]): Current Mean
+            proposed_mean (npt.NDArray[np.float64]): Proposed Mean
+            current_covariance (npt.NDArray[np.float64]): Current Covariance
+            proposed_covariance (npt.NDArray[np.float64]): Proposed Covariance
+            log_target_current (np.float64): Log Target Probability Density at Current Sample
+            log_target_proposed (np.float64): Log Target Probability Density at Proposed Sample
+            log_proposal_current (np.float64): Log Proposal Probability Density at Current Sample
+            log_proposal_proposed (np.float64): Log Proposal Probability Density at Proposed Sample
+            accepted_status (bool): Whether the proposed sample is accepted
+            log_alpha (np.float64): Log Acceptance Rate
+            accepted_sample (npt.NDArray[np.float64]): Accepted Sample
+            accepted_mean (npt.NDArray[np.float64]): Accepted Mean
+            accepted_covariance (npt.NDArray[np.float64]): Accepted Covariance
+        """
+        # Store Sample
+        self.store_current_sample[self.step, :] = current_sample
+        self.store_proposed_sample[self.step, :] = proposed_sample
+
+        # Store Mean
+        self.store_current_mean[self.step, :] = current_mean
+        self.store_proposed_mean[self.step, :] = proposed_mean
+
+        # Store Covariance
+        self.store_current_covariance[self.step, :, :] = current_covariance
+        self.store_proposed_covariance[self.step, :, :] = proposed_covariance
+
+        # Store Log Densities
+        self.store_log_target_current[self.step] = log_target_current
+        self.store_log_target_proposed[self.step] = log_target_proposed
+
+        self.store_log_proposal_current[self.step] = log_proposal_current
+        self.store_log_proposal_proposed[self.step] = log_proposal_proposed
+
+        # Store Acceptance
+        self.store_accepted_status[self.step] = accepted_status
+        self.store_log_acceptance_rate[self.step] = log_alpha
+
+        self.store_accepted_sample[self.step, :] = accepted_sample
+        self.store_accepted_mean[self.step, :] = accepted_mean
+        self.store_accepted_covariance[self.step, :, :] = accepted_covariance
+
+    @abstractmethod
+    def sample_generator(self, *args, **kwargs) -> npt.NDArray[np.float64]:
+        """Sample generator, which is used to generate the next proposed sample.
+
+        Raises:
+            NotImplementedError: mcmc_noise is not implemented.
 
         Returns:
-            tuple[Any, dict[str, Any]]
+            npt.NDArray[np.float64]: Next Proposed Sample.
         """
-        # Gym Recommandation
-        super().reset(seed=seed, options=options)
-
-        # Set Random Seed
-        if seed is not None:
-            self._np_random, seed = seeding.np_random(seed)
-
-        return self.state, {}
+        raise NotImplementedError("mcmc_noise is not implemented.")
 
     @abstractmethod
     def step(
-        self, action: Any
-    ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
-        raise NotImplementedError("step is not implemented.")
-
-
-class RLMALAEnv(RLMALAEnvBase):
-    def __init__(
-        self,
-        log_target_pdf_unsafe: Callable[
-            [Union[float, np.float64, npt.NDArray[np.float64]]],
-            Union[float, np.float64],
-        ],
-        grad_log_target_pdf_unsafe: Callable[
-            [Union[float, np.float64, npt.NDArray[np.float64]]],
-            Union[float, np.float64],
-        ],
-        initial_sample: Union[np.float64, npt.NDArray[np.float64]],
-        initial_covariance: Union[np.float64, npt.NDArray[np.float64], None] = None,
-    ) -> None:
-        super().__init__(
-            log_target_pdf_unsafe,
-            grad_log_target_pdf_unsafe,
-            initial_sample,
-            initial_covariance,
-        )
-
-    def softplus(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        return np.log(1 + np.exp(x))
-
-    def step(
         self, action: npt.NDArray[np.float64]
-    ) -> Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]:
-        # Unpack state
-        current_sample, proposed_sample = np.split(self.state, 2)
+    ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
+        """Step Function for Environment
 
-        # Unpack action
-        current_psi, proposed_psi = np.split(action, 2)
+        Args:
+            action (npt.NDArray[np.float64]): Step Size Before Softplus Function
 
-        # Calculate phi
-        current_phi = self.softplus(current_psi)
-        proposed_phi = self.softplus(proposed_psi)
-
-        # Mean and Coveriance
-        print(current_sample)
-        current_grad_log_pdf = self.grad_log_target_pdf(current_sample)
-        proposed_grad_log_pdf = self.grad_log_target_pdf(proposed_sample)
-
-        current_mean = (
-            current_sample
-            + current_phi * self.initial_covariance @ current_grad_log_pdf
-        )
-        proposed_mean = (
-            proposed_sample
-            + proposed_phi * self.initial_covariance @ proposed_grad_log_pdf
-        )
-
-        current_covariance = 2 * current_phi**2 * self.initial_covariance
-        proposed_covariance = 2 * proposed_phi**2 * self.initial_covariance
-
-        # Accept or Reject
-        _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
-            self.accepted_process(
-                current_sample,
-                proposed_sample,
-                current_mean,
-                proposed_mean,
-                current_covariance,
-                proposed_covariance,
-            )
-        )
-
-        # Update Observation
-        next_proposed_sample = self.mcmc_noise(accepted_mean, accepted_covariance)
-        observation = np.concatenate((accepted_sample, next_proposed_sample))
-        self.state = observation
-
-        # Store
-        self.store_observation.append(observation)
-        self.store_action.append(action)
-
-        # Calculate Reward
-        reward = self.reward_function(current_sample, proposed_sample, log_alpha)
-        self.store_reward.append(reward)
-
-        # Update Steps
-        self.steps += 1
-        terminated: bool = False
-        truncated: bool = False
-        info: Dict[None, None] = {}
-
-        return self.state, reward, terminated, truncated, info
+        Raises:
+            NotImplementedError: step is not implemented.
+        Returns:
+            tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
+            State, Reward, Terminated, Truncated, Info
+        """
+        raise NotImplementedError("step is not implemented.")
