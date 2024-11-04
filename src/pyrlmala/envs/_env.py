@@ -635,10 +635,7 @@ class BarkerEnv(RLMCMCEnvBase):
         )
 
         # Update Observation
-        if accepted_status:
-            accepted_phi = proposed_phi
-        else:
-            accepted_phi = current_phi
+        accepted_phi = proposed_phi if accepted_status else current_phi
 
         accepted_grad_log_pdf = self.grad_log_target_pdf(accepted_sample)
         next_proposed_sample = self.sample_generator(
