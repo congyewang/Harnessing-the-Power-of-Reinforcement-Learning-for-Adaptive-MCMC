@@ -9,7 +9,7 @@ from gymnasium.utils import seeding
 from scipy.stats import multivariate_normal
 
 
-class RLMCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
+class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
@@ -385,7 +385,7 @@ class RLMCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], A
         return self.state, {}
 
 
-class BarkerEnv(RLMCMCEnvBase):
+class BarkerEnv(MCMCEnvBase):
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[

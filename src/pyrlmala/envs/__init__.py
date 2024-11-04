@@ -1,10 +1,10 @@
 from gymnasium.envs.registration import register
 
-from ._env import RLMALAEnv
+from ._env import BarkerEnv
 
 register(
-    id="RLMALAEnv-v1.0",
-    entry_point="src.pyrlmala.envs._env:RLMALAEnv",
+    id="BarkerEnv-v1.0",
+    entry_point="src.pyrlmala.envs._env:BarkerEnv",
 )
 
-__all__ = ["RLMALAEnv"]
+__all__ = ["BarkerEnv"]
