@@ -1,13 +1,11 @@
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, SupportsFloat, Tuple, Union, cast
+from typing import Any, Callable, Dict, SupportsFloat, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-import scipy
 from gymnasium.utils import seeding
-import scipy.special
 from scipy.stats import multivariate_normal
 
 
@@ -360,9 +358,31 @@ class RLMCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], A
             NotImplementedError: step is not implemented.
         Returns:
             tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
-            State, Reward, Terminated, Truncated, Info
+                State, Reward, Terminated, Truncated, Info
         """
         raise NotImplementedError("step is not implemented.")
+
+    def reset(
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[Any, dict[str, Any]]:
+        """
+        Reset environment to initial state and return initial observation.
+
+        Args:
+            seed (int | None, optional): Random seed. Defaults to None.
+            options (dict[str, Any] | None, optional): Defaults to None.
+
+        Returns:
+            tuple[Any, dict[str, Any]]: Initial Observation, Info
+        """
+        # Gym Recommandation
+        super().reset(seed=seed, options=options)
+
+        # Set Random Seed
+        if seed is not None:
+            self._np_random, seed = seeding.np_random(seed)
+
+        return self.state, {}
 
 
 class BarkerEnv(RLMCMCEnvBase):
