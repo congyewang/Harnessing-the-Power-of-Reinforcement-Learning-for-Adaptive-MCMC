@@ -427,7 +427,7 @@ class BarkerEnv(MCMCEnvBase):
             npt.NDArray[np.float64]: Next Proposed Sample
         """
         z = self.np_random.normal(0, step_size, self.sample_dim)
-        u = self.np_random.uniform(self.sample_dim)
+        u = self.np_random.uniform(size=self.sample_dim)
         b = 2 * (u < 1 / (1 + np.exp(-grad_x * z))) - 1
 
         return x + z * b
