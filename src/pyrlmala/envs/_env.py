@@ -307,31 +307,31 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             accepted_covariance (npt.NDArray[np.float64]): Accepted Covariance
         """
         # Store Sample
-        self.store_current_sample[self.step, :] = current_sample
-        self.store_proposed_sample[self.step, :] = proposed_sample
+        self.store_current_sample[self.steps, :] = current_sample
+        self.store_proposed_sample[self.steps, :] = proposed_sample
 
         # Store Mean
-        self.store_current_mean[self.step, :] = current_mean
-        self.store_proposed_mean[self.step, :] = proposed_mean
+        self.store_current_mean[self.steps, :] = current_mean
+        self.store_proposed_mean[self.steps, :] = proposed_mean
 
         # Store Covariance
-        self.store_current_covariance[self.step, :, :] = current_covariance
-        self.store_proposed_covariance[self.step, :, :] = proposed_covariance
+        self.store_current_covariance[self.steps, :, :] = current_covariance
+        self.store_proposed_covariance[self.steps, :, :] = proposed_covariance
 
         # Store Log Densities
-        self.store_log_target_current[self.step] = log_target_current
-        self.store_log_target_proposed[self.step] = log_target_proposed
+        self.store_log_target_current[self.steps] = log_target_current
+        self.store_log_target_proposed[self.steps] = log_target_proposed
 
-        self.store_log_proposal_current[self.step] = log_proposal_current
-        self.store_log_proposal_proposed[self.step] = log_proposal_proposed
+        self.store_log_proposal_current[self.steps] = log_proposal_current
+        self.store_log_proposal_proposed[self.steps] = log_proposal_proposed
 
         # Store Acceptance
-        self.store_accepted_status[self.step] = accepted_status
-        self.store_log_acceptance_rate[self.step] = log_alpha
+        self.store_accepted_status[self.steps] = accepted_status
+        self.store_log_acceptance_rate[self.steps] = log_alpha
 
-        self.store_accepted_sample[self.step, :] = accepted_sample
-        self.store_accepted_mean[self.step, :] = accepted_mean
-        self.store_accepted_covariance[self.step, :, :] = accepted_covariance
+        self.store_accepted_sample[self.steps, :] = accepted_sample
+        self.store_accepted_mean[self.steps, :] = accepted_mean
+        self.store_accepted_covariance[self.steps, :, :] = accepted_covariance
 
     @abstractmethod
     def sample_generator(self, *args, **kwargs) -> npt.NDArray[np.float64]:
