@@ -38,7 +38,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         super().__init__()
 
         self.sample_dim: int = int(np.prod(initial_sample.shape))  # Sample Dimension
-        self.steps: int = 1  # Iteration Time
+        self.steps: int = 0  # Iteration Time
+        self.total_timesteps = total_timesteps  # Total Time Steps
 
         # Log Target Probability Density Functions without Numerical Stabilization
         self.log_target_pdf_unsafe = log_target_pdf_unsafe
@@ -77,7 +78,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
 
         # Store
         self.store_observation: npt.NDArray[np.float64] = np.empty(
-            (total_timesteps, self.sample_dim)
+            (total_timesteps, self.sample_dim << 1)
         )
         self.store_action: npt.NDArray[np.float64] = np.empty((total_timesteps, 2))
         self.store_log_acceptance_rate: npt.NDArray[np.float64] = np.empty(
@@ -131,6 +132,29 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         self.store_accepted_covariance: npt.NDArray[np.float64] = np.empty(
             (total_timesteps, self.sample_dim, self.sample_dim)
         )
+
+    def softplus(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Softplus Function for Numerical Stability.
+
+        Args:
+            x (npt.NDArray[np.float64]): Input array.
+
+        Returns:
+            npt.NDArray[np.float64]: Softplus of the input with numerical stabilization.
+        """
+        return np.logaddexp(x, 0)
+
+    def inverse_softplus(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Inverse softplus Function for Numerical Stability.
+        y = log(exp(x) - 1).
+
+        Args:
+            x (npt.NDArray[np.float64]): Input array.
+
+        Returns:
+            npt.NDArray[np.float64]: Inverse softplus of the input with numerical stabilization.
+        """
+        return x + np.log1p(-np.exp(-x))
 
     def expected_entropy_reward(
         self,
@@ -453,27 +477,6 @@ class BarkerEnv(MCMCEnvBase):
         return -self.sample_dim * np.log(step_size) + multivariate_normal.logpdf(
             position, np.zeros(self.sample_dim), np.eye(self.sample_dim)
         )
-
-    def softplus(
-        self, x: npt.NDArray[np.float64], threshold: float = 20
-    ) -> npt.NDArray[np.float64]:
-        """Softplus Function for Numerical Stability.
-
-        Args:
-            x (npt.NDArray[np.float64]): Input array.
-
-        Returns:
-            npt.NDArray[np.float64]: Softplus of the input with numerical stabilization.
-        """
-        res = np.where(
-            x > threshold,
-            x,  # For large x, softplus(x) = x
-            np.where(
-                x < -threshold, np.exp(x), np.log1p(np.exp(x))
-            ),  # For small x, softplus(x) = exp(x)
-        )
-
-        return res
 
     def log_proposal_pdf(
         self,
