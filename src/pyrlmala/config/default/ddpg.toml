@@ -1,0 +1,51 @@
+[experiments]
+# the name of this experiment
+exp_name = "RLBarker"
+# seed of the experiment
+seed = 42
+# if toggled, `torch.backends.cudnn.deterministic=false`
+torch_deterministic = true
+# if toggled, cuda will be enabled by default
+cuda = false
+# if toggled, this experiment will be tracked with Weights and Biases
+track = false
+# the wandb's project name
+wandb_project_name = "RLBarker"
+# the entity (team) of wandb's project
+wandb_entity = ""
+# whether to capture videos of the agent performances (check out `videos` folder)
+capture_video = false
+# whether to save model into the `runs/{run_name}` folder
+save_model = false
+# whether to upload the saved model to huggingface
+upload_model = false
+# the user or org name of the model repository from the Hugging Face Hub
+hf_entity = ""
+
+[algorithm.general]
+# the environment id of the Atari game
+env_id = "BarkerEnv-v1.0"
+# total timesteps of the experiments
+total_timesteps = 500_000
+# timestep to start learning
+learning_starts = 4
+# the learning rate of the optimizer
+learning_rate = 3e-4
+# the replay memory buffer size
+buffer_size = 500_000
+# the batch size of sample from the reply memory
+batch_size = 24
+# the discount factor gamma
+gamma = 0.99
+
+[algorithm.ddpg]
+# target smoothing coefficient (default.005)
+tau = 0.005
+# the scale of policy noise
+policy_noise = 0.2
+# the scale of exploration noise
+exploration_noise = 0.1
+# the frequency of training policy (delayed)
+policy_frequency = 2
+# noise clip parameter of the Target Policy Smoothing Regularization
+noise_clip = 0.5
