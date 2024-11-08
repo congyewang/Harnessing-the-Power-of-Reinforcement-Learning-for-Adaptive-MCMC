@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -47,3 +47,15 @@ class AlgorithmConfig:
 class Config:
     experiments: ExperimentConfig
     algorithm: AlgorithmConfig
+
+
+@dataclass
+class PolicyNetworkConfig:
+    hidden_layers: List[int]
+    activation_function: str
+
+
+@dataclass
+class QNetworkConfig:
+    hidden_layers: List[int]
+    activation_function: str
