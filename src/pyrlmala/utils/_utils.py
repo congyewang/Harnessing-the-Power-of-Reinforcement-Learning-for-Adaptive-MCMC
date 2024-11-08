@@ -1,7 +1,6 @@
 import json
 import os
 import re
-from dataclasses import dataclass, fields
 from typing import Callable, Dict, Union
 
 import bridgestan as bs
@@ -12,64 +11,6 @@ from gymnasium.envs.registration import EnvSpec
 from numpy.typing import NDArray
 from posteriordb import PosteriorDatabase
 from scipy.stats._multivariate import _PSD
-
-
-@dataclass
-class Args:
-    exp_name: str = "RLBarker"
-    """the name of this experiment"""
-    seed: int = 1
-    """seed of the experiment"""
-    torch_deterministic: bool = True
-    """if toggled, `torch.backends.cudnn.deterministic=False`"""
-    cuda: bool = False
-    """if toggled, cuda will be enabled by default"""
-    track: bool = False
-    """if toggled, this experiment will be tracked with Weights and Biases"""
-    wandb_project_name: str = "RLBarker"
-    """the wandb's project name"""
-    wandb_entity: str = ""
-    """the entity (team) of wandb's project"""
-    capture_video: bool = False
-    """whether to capture videos of the agent performances (check out `videos` folder)"""
-    save_model: bool = False
-    """whether to save model into the `runs/{run_name}` folder"""
-    upload_model: bool = False
-    """whether to upload the saved model to huggingface"""
-    hf_entity: str = ""
-    """the user or org name of the model repository from the Hugging Face Hub"""
-
-    # Algorithm specific arguments
-    env_id: str = "BarkerEnv-v1.0"
-    """the environment id of the Atari game"""
-    total_timesteps: int = int(1e3)
-    """total timesteps of the experiments"""
-    learning_rate: float = 3e-4
-    """the learning rate of the optimizer"""
-    buffer_size: int = int(1e6)
-    """the replay memory buffer size"""
-    gamma: float = 0.99
-    """the discount factor gamma"""
-    tau: float = 0.005
-    """target smoothing coefficient (default: 0.005)"""
-    batch_size: int = 24
-    """the batch size of sample from the reply memory"""
-    policy_noise: float = 0.2
-    """the scale of policy noise"""
-    exploration_noise: float = 0.1
-    """the scale of exploration noise"""
-    learning_starts: int = 4
-    """timestep to start learning"""
-    policy_frequency: int = 2
-    """the frequency of training policy (delayed)"""
-    noise_clip: float = 0.5
-    """noise clip parameter of the Target Policy Smoothing Regularization"""
-
-    def get_all_attributes(self):
-        """
-        get all attributes of this class
-        """
-        return {field.name: getattr(self, field.name) for field in fields(self)}
 
 
 class Toolbox:
