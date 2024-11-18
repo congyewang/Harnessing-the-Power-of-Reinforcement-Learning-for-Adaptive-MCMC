@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ..utils import MCMCAnimation, Toolbox
+from ..utils import Toolbox
 from . import LearningFactory
 
 from typing import Union, Callable
