@@ -9,7 +9,7 @@ class PolicyNetwork(nn.Module):
     def __init__(self, envs: SyncVectorEnv):
         super().__init__()
         self.input_layer = nn.Linear(
-            np.array(envs.single_observation_space.shape).prod(), 8
+            np.array(envs.single_observation_space.shape).prod() >> 1, 8
         )
         self.hidden_layer = nn.Linear(8, 8)
         self.output_layer = nn.Linear(8, 1)
@@ -22,7 +22,7 @@ class PolicyNetwork(nn.Module):
         return x
 
     def forward(self, observation: torch.Tensor):
-        current_sample, proposed_sample = torch.split(observation, 2)
+        current_sample, proposed_sample = torch.tensor_split(observation, 2, dim=1)
 
         current_phi = self.phi(current_sample)
         proposed_phi = self.phi(proposed_sample)
