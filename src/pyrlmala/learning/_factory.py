@@ -14,9 +14,8 @@ from posteriordb import PosteriorDatabase
 from gymnasium.envs.registration import EnvSpec
 from typing import Union, Dict
 
-from . import LearningDDPG, LearningDDPGRandom
-from ..utils import Args
-from ..envs import RLMALAEnv
+from . import LearningDDPG
+from ..envs import BarkerEnv
 from ..agent import PolicyNetwork, QNetwork
 
 
@@ -188,8 +187,6 @@ class LearningFactory(LearningFactoryInterface):
     def create(self, mode="ddpg"):
         if mode == "ddpg":
             learning = self.make_DDPG()
-        elif mode == "ddpg_random":
-            learning = self.make_DDPGRandom()
         elif mode == "td3":
             learning = self.make_TD3()
         else:
@@ -201,28 +198,6 @@ class LearningFactory(LearningFactoryInterface):
 
     def make_DDPG(self):
         learning = LearningDDPG(
-            env=self.envs,
-            actor=self.actor,
-            target_actor=self.target_actor,
-            critic=self.qf1,
-            target_critic=self.target_qf1,
-            actor_optimizer=self.actor_optimizer,
-            critic_optimizer=self.q_optimizer,
-            replay_buffer=self.replay_buffer,
-            total_timesteps=self.args.total_timesteps,
-            learning_starts=self.args.learning_starts,
-            batch_size=self.args.batch_size,
-            exploration_noise=self.args.exploration_noise,
-            gamma=self.args.gamma,
-            policy_frequency=self.args.policy_frequency,
-            tau=self.args.tau,
-            seed=self.args.seed,
-            device=self.device,
-        )
-        return learning
-
-    def make_DDPGRandom(self):
-        learning = LearningDDPGRandom(
             env=self.envs,
             actor=self.actor,
             target_actor=self.target_actor,
