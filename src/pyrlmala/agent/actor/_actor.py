@@ -27,6 +27,6 @@ class PolicyNetwork(nn.Module):
         current_phi = self.phi(current_sample)
         proposed_phi = self.phi(proposed_sample)
 
-        action = torch.concatenate([current_phi, proposed_phi])
+        action = torch.concatenate([current_phi, proposed_phi], dim=1)
 
         return action
