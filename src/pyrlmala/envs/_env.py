@@ -20,6 +20,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         ],
         initial_sample: npt.NDArray[np.float64],
         initial_covariance: Union[npt.NDArray[np.float64], None] = None,
+        initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         total_timesteps: int = 500_000,
         log_mode: bool = True,
     ) -> None:
@@ -32,6 +33,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
                 Function to compute the gradient of the log target probability density function without numerical stabilization.
             initial_sample (npt.NDArray[np.float64]): Initial Sample.
             initial_covariance (Union[npt.NDArray[np.float64], None], optional): Initial Covariance. Defaults to Identity Matrix.
+            initial_step_size (npt.NDArray[np.float64], optional): Initial Step Size. Defaults to 1.0.
             total_timesteps (int, optional): The number of the total time steps in the whole episode. Defaults to 500_000.
             log_mode (bool, optional): The controller if reward function returns the logarithmic form. Defaults to True.
         """
@@ -51,6 +53,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             )
         self.initial_covariance: npt.NDArray[np.float64] = initial_covariance
         self.covariance: npt.NDArray[np.float64] = initial_covariance
+        self.initial_step_size: npt.NDArray[np.float64] = initial_step_size
         self.log_mode = log_mode
 
         # Observation specification
@@ -420,6 +423,7 @@ class BarkerEnv(MCMCEnvBase):
         ],
         initial_sample: npt.NDArray[np.float64],
         initial_covariance: Union[npt.NDArray[np.float64], None] = None,
+        initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         total_timesteps: int = 500_000,
         log_mode: bool = True,
     ) -> None:
@@ -428,6 +432,7 @@ class BarkerEnv(MCMCEnvBase):
             grad_log_target_pdf_unsafe,
             initial_sample,
             initial_covariance,
+            initial_step_size,
             total_timesteps,
             log_mode,
         )
