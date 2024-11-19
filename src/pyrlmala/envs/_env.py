@@ -1,6 +1,6 @@
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, SupportsFloat, Tuple, Union
+from typing import Any, Callable, Dict, SupportsFloat, Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -19,7 +19,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             [npt.NDArray[np.float64]], npt.NDArray[np.float64]
         ],
         initial_sample: npt.NDArray[np.float64],
-        initial_covariance: Union[npt.NDArray[np.float64], None] = None,
+        initial_covariance: npt.NDArray[np.float64] | None = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         total_timesteps: int = 500_000,
         log_mode: bool = True,
@@ -32,7 +32,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
                 Function to compute the gradient of the log target probability density function without numerical stabilization.
             initial_sample (npt.NDArray[np.float64]): Initial Sample.
-            initial_covariance (Union[npt.NDArray[np.float64], None], optional): Initial Covariance. Defaults to Identity Matrix.
+            initial_covariance (npt.NDArray[np.float64] | None, optional): Initial Covariance. Defaults to Identity Matrix.
             initial_step_size (npt.NDArray[np.float64], optional): Initial Step Size. Defaults to 1.0.
             total_timesteps (int, optional): The number of the total time steps in the whole episode. Defaults to 500_000.
             log_mode (bool, optional): The controller if reward function returns the logarithmic form. Defaults to True.
@@ -284,8 +284,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         """Log Proposal Process
 
         Args:
-            current_sample (Union[np.float64, npt.NDArray[np.float64]]): Current Sample
-            proposed_sample (Union[np.float64, npt.NDArray[np.float64]]): Proposed Sample
+            current_sample (npt.NDArray[np.float64]): Current Sample
+            proposed_sample (np.float64, npt.NDArray[np.float64]): Proposed Sample
 
         Raises:
             NotImplementedError: log_proposal_process is not implemented.
@@ -422,7 +422,7 @@ class BarkerEnv(MCMCEnvBase):
             [npt.NDArray[np.float64]], npt.NDArray[np.float64]
         ],
         initial_sample: npt.NDArray[np.float64],
-        initial_covariance: Union[npt.NDArray[np.float64], None] = None,
+        initial_covariance: npt.NDArray[np.float64] | None = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         total_timesteps: int = 500_000,
         log_mode: bool = True,
