@@ -4,10 +4,10 @@ from typing import List
 
 import gymnasium as gym
 import numpy as np
+import numpy.typing as npt
 import torch
 import torch.nn.functional as F
 from jaxtyping import Float
-from numpy.typing import NDArray
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.optim.optimizer import Optimizer as Optimizer
 from tqdm.auto import trange
@@ -50,11 +50,11 @@ class LearningInterface(ABC):
         else:
             self.sample_dim: int = np.prod(env.single_observation_space.shape) >> 1
         if hasattr(_single_envs[0].unwrapped, "initial_step_size"):
-            self.initial_step_size: NDArray[np.float64] = _single_envs[
+            self.initial_step_size: npt.NDArray[np.float64] = _single_envs[
                 0
             ].unwrapped.initial_step_size
         else:
-            self.initial_step_size: NDArray[np.float64] = np.array([1.0])
+            self.initial_step_size: npt.NDArray[np.float64] = np.array([1.0])
         if hasattr(_single_envs[0].unwrapped, "total_timesteps"):
             self.total_timesteps: int = _single_envs[0].unwrapped.total_timesteps
         else:
@@ -87,9 +87,9 @@ class LearningInterface(ABC):
         self.critic_loss: List[float] = []
         self.actor_loss: List[float] = []
 
-        self.predicted_observation: List[NDArray[np.float64]] = []
-        self.predicted_action: List[NDArray[np.float64]] = []
-        self.predicted_reward: List[NDArray[np.float64]] = []
+        self.predicted_observation: List[npt.NDArray[np.float64]] = []
+        self.predicted_action: List[npt.NDArray[np.float64]] = []
+        self.predicted_reward: List[npt.NDArray[np.float64]] = []
 
     def soft_clipping(
         self, g: Float[torch.Tensor, "sample_dim"], t: float = 1.0, p: int = 2
@@ -132,9 +132,9 @@ class LearningInterface(ABC):
         predicted_obs, _ = predicted_env.reset(seed=self.random_seed)
 
         # Store predicted obs, action, and reward
-        predicted_observation: List[NDArray[np.float64]] = []
-        predicted_action: List[NDArray[np.float64]] = []
-        predicted_reward: List[NDArray[np.float64]] = []
+        predicted_observation: List[npt.NDArray[np.float64]] = []
+        predicted_action: List[npt.NDArray[np.float64]] = []
+        predicted_reward: List[npt.NDArray[np.float64]] = []
 
         for _ in trange(self.predicted_timesteps, disable=not self.verbose):
             with torch.no_grad():
