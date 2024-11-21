@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Type, Union
 
 import tomllib
 
-from ._config_tamplate import Config, PolicyNetworkConfig, QNetworkConfig
+from .config_tamplate import Config, PolicyNetworkConfig, QNetworkConfig
 
 
 class BaseConfigParser(ABC):

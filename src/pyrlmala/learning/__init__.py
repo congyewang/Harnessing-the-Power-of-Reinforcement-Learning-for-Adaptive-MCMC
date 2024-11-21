@@ -1,6 +1,6 @@
-from ._learning import LearningDDPG, LearningTD3
-from ._factory import LearningFactory
-from ._running import RunningFactory
+from .learning import LearningDDPG, LearningTD3
+from .factory import LearningFactory
+from .running import RunningFactory
 
 
 __all__ = [

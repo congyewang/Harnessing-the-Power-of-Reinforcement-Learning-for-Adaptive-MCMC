@@ -1,41 +1,65 @@
-from abc import ABC, abstractmethod
-
+import json
 import random
+from abc import ABC, abstractmethod
+from typing import Callable, Dict
+
+import bridgestan as bs
+import gymnasium as gym
+import numpy as np
+import numpy.typing as npt
 import torch
 import torch.optim as optim
-import numpy as np
-import gymnasium as gym
+from gymnasium.envs.registration import EnvSpec
+from posteriordb import PosteriorDatabase
 from stable_baselines3.common.buffers import ReplayBuffer
 
-import json
-import bridgestan as bs
-from posteriordb import PosteriorDatabase
-
-from gymnasium.envs.registration import EnvSpec
-from typing import Union, Dict
-
-from . import LearningDDPG
-from ..envs import BarkerEnv
 from ..agent import PolicyNetwork, QNetwork
+from ..envs import BarkerEnv
+from . import LearningDDPG
 
 
 class LearningFactoryInterface(ABC):
-    """
-    Factory class for Learning.
+    """Factory class for Learning.
+
+    Args:
+        log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str): Log target pdf.
+        grad_log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str): Gradient of log target pdf.
+        posterior_name (str): Posterior name.
+        posteriordb_path (str): Posterior database path.
+        compile (bool, optional): Compile model. Defaults to False.
+
+    Returns:
+        None
     """
 
     def __init__(
         self,
-        posterior_name: str,
-        posteriordb_path: str,
+        log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str
+        ),
+        grad_log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str
+        ),
+        posteriordb_path: str | None = None,
         compile: bool = False,
         **kwargs,
-    ):
+    ) -> None:
         # Make log target pdf
-        self.log_target_pdf = self.make_log_target_pdf(
-            posterior_name=posterior_name,
+        self.target_funs_factory(
+            function=log_target_pdf,
+            function_name="log_target_pdf",
             posteriordb_path=posteriordb_path,
-            posterior_data=kwargs.get("posterior_data"),
+            make_function=self.make_log_target_pdf,
+            **kwargs,
+        )
+
+        # Make grad log target pdf
+        self.target_funs_factory(
+            function=grad_log_target_pdf,
+            function_name="grad_log_target_pdf",
+            posteriordb_path=posteriordb_path,
+            make_function=self.make_grad_log_target_pdf,
+            **kwargs,
         )
 
         # Make Args
@@ -68,14 +92,64 @@ class LearningFactoryInterface(ABC):
         torch.manual_seed(self.args.seed)
         torch.backends.cudnn.deterministic = self.args.torch_deterministic
 
+    def target_funs_factory(
+        self,
+        function: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str,
+        function_name: str,
+        posteriordb_path: str,
+        make_function: Callable[
+            [str, str, Dict[str, float | int] | None],
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        ],
+        **kwargs,
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """Factory function to create or return a target function (e.g., log target PDF or gradient log target PDF).
+
+        Args:
+            func (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str): A callable representing the target function or
+                a string representing the name of the posterior in PosteriorDB.
+            func_name (str): The name of the function being processed, used for error messages.
+            posteriordb_path (str): The path to the PosteriorDB database.
+            make_function (Callable[[str, str, Dict[str, float | int] | None], Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]):
+                A function used to create the target function from the posterior name.
+
+        Raises:
+            ValueError: If `func` is neither a callable nor a valid posterior name string.
+
+        Returns:
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: The callable target function.
+        """
+        if callable(function):
+            return function
+        elif isinstance(function, str):
+            if posteriordb_path is None:
+                raise ValueError(f"{function_name}: posteriordb_path must be provided.")
+            else:
+                return make_function(
+                    posterior_name=function,
+                    posteriordb_path=posteriordb_path,
+                    posterior_data=kwargs.get("posterior_data"),
+                )
+        else:
+            raise ValueError(f"{function_name} must be callable or str.")
+
     def make_log_target_pdf(
         self,
         posterior_name: str,
         posteriordb_path: str,
-        posterior_data: Union[Dict[str, Union[float, int]], None] = None,
-    ):
-        """
-        Make log target pdf.
+        posterior_data: Dict[str, float | int] | None = None,
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """Creates a log target probability density function (PDF) for the given posterior.
+
+        Parameters:
+        - posterior_name (str): Name of the posterior in the PosteriorDB.
+        - posteriordb_path (str): Path to the PosteriorDB database.
+        - posterior_data (Dict[str, float | int] | None, optional): Custom posterior data to be used.
+            If None, the default data from PosteriorDB will be used.
+
+        Returns:
+        - Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: A callable that computes the
+            log density for given input.
         """
 
         # Load DataBase Locally
@@ -93,6 +167,32 @@ class LearningFactoryInterface(ABC):
         model = bs.StanModel.from_stan_file(stan_code, stan_data)
 
         return model.log_density
+
+    def make_grad_log_target_pdf(
+        self,
+        posterior_name: str,
+        posteriordb_path: str,
+        posterior_data: Dict[str, float | int] | None = None,
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Make the gradient of log target pdf.
+        """
+
+        # Load DataBase Locally
+        pdb = PosteriorDatabase(posteriordb_path)
+
+        # Load Dataset
+        posterior = pdb.posterior(posterior_name)
+        stan_code = posterior.model.stan_code_file_path()
+        if posterior_data is None:
+            stan_data = json.dumps(posterior.data.values())
+        else:
+            stan_data = json.dumps(posterior_data)
+
+        # Return log_target_pdf
+        model = bs.StanModel.from_stan_file(stan_code, stan_data)
+
+        return lambda x: model.log_density_gradient(x)[1]
 
     def make_args(self, **kwargs) -> None:
         """
@@ -114,7 +214,7 @@ class LearningFactoryInterface(ABC):
 
     def init_env(
         self,
-        env_id: Union[str, EnvSpec],
+        env_id: str | EnvSpec,
     ):
         def thunk():
             env = gym.make(
@@ -185,14 +285,15 @@ class LearningFactoryInterface(ABC):
 
 class LearningFactory(LearningFactoryInterface):
     def create(self, mode="ddpg"):
-        if mode == "ddpg":
-            learning = self.make_DDPG()
-        elif mode == "td3":
-            learning = self.make_TD3()
-        else:
-            raise NotImplementedError(
-                f"{mode} is not implemented, can only be ddpg, td3, or ddpg_random."
-            )
+        match mode:
+            case "ddpg":
+                learning = self.make_DDPG()
+            case "td3":
+                learning = self.make_TD3()
+            case _:
+                raise NotImplementedError(
+                    f"{mode} is not implemented, can only be ddpg or td3."
+                )
 
         return learning
 

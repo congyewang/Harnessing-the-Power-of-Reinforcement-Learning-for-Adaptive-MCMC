@@ -1,3 +1,3 @@
-from ._actor import PolicyNetwork
+from .actor import PolicyNetwork
 
 __all__ = ["PolicyNetwork"]

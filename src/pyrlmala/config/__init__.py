@@ -1,4 +1,4 @@
-from ._config_parser import (
+from .config_parser import (
     HyperparameterConfigParser,
     PolicyNetworkConfigParser,
     QNetworkConfigParser,

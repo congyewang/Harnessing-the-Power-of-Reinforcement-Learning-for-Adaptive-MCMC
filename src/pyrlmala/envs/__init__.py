@@ -1,6 +1,6 @@
 from gymnasium.envs.registration import register
 
-from ._env import MCMCEnvBase, BarkerEnv
+from .env import MCMCEnvBase, BarkerEnv
 
 register(
     id="BarkerEnv-v1.0",
