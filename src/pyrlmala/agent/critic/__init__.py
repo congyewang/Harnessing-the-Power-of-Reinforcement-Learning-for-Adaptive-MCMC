@@ -1,3 +1,3 @@
-from .critics import QNetwork
+from .critic import QNetwork
 
 __all__ = ["QNetwork"]

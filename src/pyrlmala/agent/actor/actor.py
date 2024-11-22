@@ -1,32 +1,30 @@
+from typing import Dict, List, Union
+
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from gymnasium.vector import SyncVectorEnv
+from jaxtyping import Float
+
+from ..agent_network import AgentNetworkBase
 
 
-class PolicyNetwork(nn.Module):
-    def __init__(self, envs: SyncVectorEnv):
-        super().__init__()
-        self.input_layer = nn.Linear(
-            np.array(envs.single_observation_space.shape).prod() >> 1, 8
-        )
-        self.hidden_layer = nn.Linear(8, 8)
-        self.output_layer = nn.Linear(8, 1)
+class PolicyNetwork(AgentNetworkBase):
+    def __init__(
+        self, envs: SyncVectorEnv, config: Dict[str, Union[List[int], str]]
+    ) -> None:
+        super().__init__(envs=envs, config=config)
 
-    def phi(self, x: torch.Tensor):
-        x = F.relu(self.input_layer(x))
-        x = F.relu(self.hidden_layer(x))
-        x = self.output_layer(x)
+    def _get_input_size(self) -> int:
+        return int(np.array(self.envs.single_observation_space.shape).prod())
 
-        return x
+    def forward(
+        self, observation: Float[torch.Tensor, "current_sample, proposed_sample"]
+    ) -> Float[torch.Tensor, "current_step_size, proposed_step_size"]:
+        current_sample, proposed_sample = torch.split(observation, 2)
 
-    def forward(self, observation: torch.Tensor):
-        current_sample, proposed_sample = torch.tensor_split(observation, 2, dim=1)
+        current_phi = self.network(current_sample)
+        proposed_phi = self.network(proposed_sample)
 
-        current_phi = self.phi(current_sample)
-        proposed_phi = self.phi(proposed_sample)
-
-        action = torch.concatenate([current_phi, proposed_phi], dim=1)
+        action = torch.concatenate([current_phi, proposed_phi])
 
         return action
