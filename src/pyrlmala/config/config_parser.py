@@ -1,31 +1,26 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import is_dataclass
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Protocol, Type, TypeVar, Union
 
 import tomllib
 
 from .config_tamplate import Config, PolicyNetworkConfig, QNetworkConfig
 
+# Define Generic Type
+T = TypeVar("T", covariant=True)
+TOMLData = Dict[str, str | int | float | bool | List[int]]
 
-class BaseConfigParser(ABC):
+
+class BaseConfigParser(Protocol[T]):
+    def __call__(self) -> T: ...
+
+
+class AbstractConfigParser(ABC):
     def __init__(self, config_file: str):
-        """Initializing the parser and load the configuration file.
-
-        Args:
-            config_file (str): Path to the configuration file.
-        """
         self.config_file = config_file
 
     @staticmethod
-    def load_toml(file_path: str) -> Dict[str, str | int | float | bool | List[int]]:
-        """Loading a TOML file as a dictionary.
-
-        Args:
-            file_path (str): File path to the TOML file.
-
-        Returns:
-            Dictionary of the TOML file.
-        """
+    def load_toml(file_path: str) -> TOMLData:
         try:
             with open(file_path, "rb") as f:
                 return tomllib.load(f)
@@ -34,103 +29,111 @@ class BaseConfigParser(ABC):
         except tomllib.TOMLDecodeError as e:
             raise ValueError(f"Error decoding TOML file: {e}")
 
-    def dict_to_dataclass(
-        self,
-        config: Type[Any],
-        data: Dict[str, str | int | float | bool | List[int]],
-    ) -> Any:
-        """Converts a dictionary recursively to the specified data class.
+    def dict_to_field(self, field_type: Type[Any], value: Any) -> Any:
+        if is_dataclass(field_type):
+            return self.dict_to_dataclass(field_type, value)
+        return value
 
-        Args:
-            config (Type[Any]): Data class on Config.
-            data (Dict[str, str | int | float | bool | List[int]]): Configuration dictionary.
-
-        Returns:
-            Any: Data class instance.
-        """
+    def dict_to_dataclass(self, config: Type[T], data: TOMLData) -> T:
         if not is_dataclass(config):
             raise TypeError(f"{config} is not a dataclass.")
 
         return config(
             **{
-                field.name: (
-                    self.dict_to_dataclass(field.type, data[field.name])
-                    if is_dataclass(field.type) and field.name in data
-                    else data.get(field.name)
-                )
+                field.name: self.dict_to_field(field.type, data.get(field.name))
                 for field in config.__dataclass_fields__.values()
             }
         )
 
-    @abstractmethod
-    def parse_toml_to_dataclass(
-        self,
-    ) -> Config | PolicyNetworkConfig | QNetworkConfig:
-        """Parsing and converting from TOML files to Config data classes.
+    def parse_toml_to_dataclass(self, config_type: Type[T]) -> T:
+        config_dict = self.load_toml(self.config_file)
+        return self.dict_to_dataclass(config_type, config_dict)
+
+
+class ConfigParser(AbstractConfigParser, BaseConfigParser[T]):
+    def __init__(self, config_file: str, config_type: Type[T]):
+        super().__init__(config_file)
+        self.config_type = config_type
+
+    def __call__(self) -> T:
+        return self.parse_toml_to_dataclass(self.config_type)
+
+
+class ConfigParserFactory:
+    PARSER_MAPPING: Dict[
+        str, Type[Union[Config, PolicyNetworkConfig, QNetworkConfig]]
+    ] = {
+        "config": Config,
+        "policy_network": PolicyNetworkConfig,
+        "q_network": QNetworkConfig,
+    }
+
+    @staticmethod
+    def create_parser(config_file: str, config_type: str) -> Any:
+        """Create and return the parsed config instance.
+
+        Args:
+            config_file (str): Path to the configuration file.
+            config_type (str): Type of the configuration.
+
+        Returns:
+            Parsed configuration instance.
+        """
+        if config_type not in ConfigParserFactory.PARSER_MAPPING:
+            raise ValueError(f"Unknown config type: {config_type}")
+
+        config_class = ConfigParserFactory.PARSER_MAPPING[config_type]
+        parser = ConfigParser(config_file, config_class)
+        return parser()  # Directly return the parsed instance
+
+
+class BaseInstanceConfigParser:
+    def __init__(self, config_file: str, config_type: str):
+        """Initializing the parser and load the configuration file.
+
+        Args:
+            config_file (str): Path to the configuration file.
 
         Returns:
             Instance of config data class.
         """
-        raise NotImplementedError(
-            "Method 'parse_toml_to_dataclass' must be implemented."
+        self.config_file = config_file
+        self.config_type = config_type
+        self.config_instance = ConfigParserFactory.create_parser(
+            self.config_file, self.config_type
         )
 
-
-class HyperparameterConfigParser(BaseConfigParser):
-    def __init__(self, config_file: str):
-        """Initializing the parser and load the configuration file.
-
-        Args:
-            config_file (str): Path to the configuration file.
-        """
-        super().__init__(config_file)
-
-    def parse_toml_to_dataclass(self) -> Config:
-        """Parsing and converting from TOML files to Config data classes.
+    def get_config(self):
+        """Access the parsed configuration instance.
 
         Returns:
-            Instance of config data class.
+            The parsed configuration instance.
         """
-        config_dict = self.load_toml(self.config_file)
+        return self.config_instance
 
-        return self.dict_to_dataclass(Config, config_dict)
+    def __getattr__(self, item: str) -> List[int] | str | None:
+        """Delegate attribute access to the config instance."""
+        return getattr(self.config_instance, item)
 
-
-class PolicyNetworkConfigParser(BaseConfigParser):
-    def __init__(self, config_file: str):
-        """Initializing the parser and load the configuration file.
-
-        Args:
-            config_file (str): Path to the configuration file.
-        """
-        super().__init__(config_file)
-
-    def parse_toml_to_dataclass(self) -> PolicyNetworkConfig:
-        """Parsing and converting from TOML files to Config data classes.
+    def __repr__(self) -> str:
+        """Return a developer-friendly string representation of the object.
 
         Returns:
-            Instance of config data class.
+            str: A string representing the configuration parser and its content.
         """
-        config_dict = self.load_toml(self.config_file)
-
-        return self.dict_to_dataclass(PolicyNetworkConfig, config_dict)
+        return repr(self.config_instance)
 
 
-class QNetworkConfigParser(BaseConfigParser):
+class HyperparameterConfigParser(BaseInstanceConfigParser):
     def __init__(self, config_file: str):
-        """Initializing the parser and load the configuration file.
+        super().__init__(config_file, "config")
 
-        Args:
-            config_file (str): Path to the configuration file.
-        """
-        super().__init__(config_file)
 
-    def parse_toml_to_dataclass(self) -> QNetworkConfig:
-        """Parsing and converting from TOML files to Config data classes.
+class PolicyNetworkConfigParser(BaseInstanceConfigParser):
+    def __init__(self, config_file: str):
+        super().__init__(config_file, "policy_network")
 
-        Returns:
-            Instance of config data class.
-        """
-        config_dict = self.load_toml(self.config_file)
 
-        return self.dict_to_dataclass(QNetworkConfig, config_dict)
+class QNetworkConfigParser(BaseInstanceConfigParser):
+    def __init__(self, config_file: str):
+        super().__init__(config_file, "q_network")
