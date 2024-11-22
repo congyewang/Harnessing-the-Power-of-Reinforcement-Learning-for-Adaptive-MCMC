@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List, Type
 
 import tomllib
 
@@ -17,7 +17,7 @@ class BaseConfigParser(ABC):
         self.config_file = config_file
 
     @staticmethod
-    def load_toml(file_path: str) -> Dict[str, Union[str, int, float, bool, List[int]]]:
+    def load_toml(file_path: str) -> Dict[str, str | int | float | bool | List[int]]:
         """Loading a TOML file as a dictionary.
 
         Args:
@@ -37,13 +37,13 @@ class BaseConfigParser(ABC):
     def dict_to_dataclass(
         self,
         config: Type[Any],
-        data: Dict[str, Union[str, int, float, bool, List[int]]],
+        data: Dict[str, str | int | float | bool | List[int]],
     ) -> Any:
         """Converts a dictionary recursively to the specified data class.
 
         Args:
             config (Type[Any]): Data class on Config.
-            data (Dict[str, Union[str, int, float, bool]]): Configuration dictionary.
+            data (Dict[str, str | int | float | bool | List[int]]): Configuration dictionary.
 
         Returns:
             Any: Data class instance.
@@ -65,7 +65,7 @@ class BaseConfigParser(ABC):
     @abstractmethod
     def parse_toml_to_dataclass(
         self,
-    ) -> Union[Config, PolicyNetworkConfig, QNetworkConfig]:
+    ) -> Config | PolicyNetworkConfig | QNetworkConfig:
         """Parsing and converting from TOML files to Config data classes.
 
         Returns:
