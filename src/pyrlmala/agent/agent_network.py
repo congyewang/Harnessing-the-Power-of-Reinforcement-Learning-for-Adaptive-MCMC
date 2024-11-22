@@ -1,15 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Union
 
 import torch
 import torch.nn as nn
 from gymnasium.vector import SyncVectorEnv
 from jaxtyping import Float
 
+from ..config import PolicyNetworkConfigParser, QNetworkConfigParser
+
 
 class AgentNetworkBase(ABC, nn.Module):
     def __init__(
-        self, envs: SyncVectorEnv, config: Dict[str, Union[List[int], str]]
+        self,
+        envs: SyncVectorEnv,
+        config: PolicyNetworkConfigParser | QNetworkConfigParser,
     ) -> None:
         super().__init__()
 
@@ -20,8 +23,8 @@ class AgentNetworkBase(ABC, nn.Module):
         output_size = self._get_output_size()
 
         # Getting Hidden Layer Information from the Configuration
-        hidden_layers = config.get("hidden_layers", [8, 8])
-        activation_function_name = config.get("activation_function", "ReLU")
+        hidden_layers = getattr(config, "hidden_layers", [8, 8])
+        activation_function_name = getattr(config, "activation_function", "ReLU")
 
         # Getting Activation Function
         activation_function = getattr(nn, activation_function_name)()

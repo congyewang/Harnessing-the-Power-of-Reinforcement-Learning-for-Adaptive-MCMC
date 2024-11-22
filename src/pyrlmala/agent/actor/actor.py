@@ -1,17 +1,14 @@
-from typing import Dict, List, Union
-
 import numpy as np
 import torch
 from gymnasium.vector import SyncVectorEnv
 from jaxtyping import Float
 
+from ...config import PolicyNetworkConfigParser
 from ..agent_network import AgentNetworkBase
 
 
 class PolicyNetwork(AgentNetworkBase):
-    def __init__(
-        self, envs: SyncVectorEnv, config: Dict[str, Union[List[int], str]]
-    ) -> None:
+    def __init__(self, envs: SyncVectorEnv, config: PolicyNetworkConfigParser) -> None:
         super().__init__(envs=envs, config=config)
 
     def _get_input_size(self) -> int:
