@@ -19,8 +19,8 @@ class QNetwork(AgentNetworkBase):
 
     def forward(
         self,
-        observation: Float[torch.Tensor, "current_sample, proposed_sample"],
-        action: Float[torch.Tensor, "current_step_size, proposed_step_size"],
+        observation: Float[torch.Tensor, "current_sample proposed_sample"],
+        action: Float[torch.Tensor, "current_step_size proposed_step_size"],
     ) -> Float[torch.Tensor, "q_value"]:
         x = torch.cat([observation, action], 1)
         return self.network(x)

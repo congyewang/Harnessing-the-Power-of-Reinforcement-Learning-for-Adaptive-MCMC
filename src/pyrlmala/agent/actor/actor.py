@@ -15,8 +15,8 @@ class PolicyNetwork(AgentNetworkBase):
         return int(np.array(self.envs.single_observation_space.shape).prod())
 
     def forward(
-        self, observation: Float[torch.Tensor, "current_sample, proposed_sample"]
-    ) -> Float[torch.Tensor, "current_step_size, proposed_step_size"]:
+        self, observation: Float[torch.Tensor, "current_sample proposed_sample"]
+    ) -> Float[torch.Tensor, "current_step_size proposed_step_size"]:
         current_sample, proposed_sample = torch.split(observation, 2)
 
         current_phi = self.network(current_sample)
