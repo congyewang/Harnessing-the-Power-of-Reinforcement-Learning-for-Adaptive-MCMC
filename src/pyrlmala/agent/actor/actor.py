@@ -12,16 +12,17 @@ class PolicyNetwork(AgentNetworkBase):
         super().__init__(envs=envs, config=config)
 
     def _get_input_size(self) -> int:
-        return int(np.array(self.envs.single_observation_space.shape).prod())
+        return np.array(self.envs.single_observation_space.shape).prod() >> 1
 
     def forward(
         self, observation: Float[torch.Tensor, "current_sample proposed_sample"]
     ) -> Float[torch.Tensor, "current_step_size proposed_step_size"]:
-        current_sample, proposed_sample = torch.split(observation, 2)
+        print(observation)
+        current_sample, proposed_sample = torch.tensor_split(observation, 2, dim=1)
 
         current_phi = self.network(current_sample)
         proposed_phi = self.network(proposed_sample)
 
-        action = torch.concatenate([current_phi, proposed_phi])
+        action = torch.concatenate([current_phi, proposed_phi], dim=1)
 
         return action

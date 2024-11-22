@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Callable, List
 
 import torch
 import torch.nn as nn
@@ -30,7 +31,10 @@ class AgentNetworkBase(ABC, nn.Module):
         activation_function = getattr(nn, activation_function_name)()
 
         # Defining the Layers
-        layers = [nn.Linear(input_size, hidden_layers[0]), activation_function]
+        layers: List[
+            nn.Module
+            | Callable[[Float[torch.Tensor, "input"]], Float[torch.Tensor, "output"]]
+        ] = [nn.Linear(input_size, hidden_layers[0]), activation_function]
 
         # Defining Hidden Layers Dynamically
         for i in range(1, len(hidden_layers)):
