@@ -1,7 +1,7 @@
 import json
 import random
 from abc import ABC, abstractmethod
-from typing import Callable, Dict
+from typing import Callable, Dict, List, Tuple
 
 import bridgestan as bs
 import gymnasium as gym
@@ -14,291 +14,466 @@ from posteriordb import PosteriorDatabase
 from stable_baselines3.common.buffers import ReplayBuffer
 
 from ..agent import PolicyNetwork, QNetwork
-from ..envs import BarkerEnv
-from . import LearningDDPG
+from ..config import (
+    HyperparameterConfigParser,
+    PolicyNetworkConfigParser,
+    QNetworkConfigParser,
+)
+from ..envs import MCMCEnvBase
+from . import LearningDDPG, LearningTD3
 
 
-class LearningFactoryInterface(ABC):
-    """Factory class for Learning.
-
-    Args:
-        log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str): Log target pdf.
-        grad_log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str): Gradient of log target pdf.
-        posterior_name (str): Posterior name.
-        posteriordb_path (str): Posterior database path.
-        compile (bool, optional): Compile model. Defaults to False.
-
-    Returns:
-        None
-    """
-
+class PosteriorDBFunctionsGenerator:
     def __init__(
         self,
-        log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str
-        ),
-        grad_log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str
-        ),
-        posteriordb_path: str | None = None,
-        compile: bool = False,
-        **kwargs,
+        model_name: str,
+        posteriordb_path: str,
+        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
     ) -> None:
-        # Make log target pdf
-        self.target_funs_factory(
-            function=log_target_pdf,
-            function_name="log_target_pdf",
-            posteriordb_path=posteriordb_path,
-            make_function=self.make_log_target_pdf,
-            **kwargs,
-        )
+        """
+        Target functions generator for PosteriorDB. This class is used to generate target functions for a given model in PosteriorDB. The target functions are the log probability density function and its gradient.
 
-        # Make grad log target pdf
-        self.target_funs_factory(
-            function=grad_log_target_pdf,
-            function_name="grad_log_target_pdf",
-            posteriordb_path=posteriordb_path,
-            make_function=self.make_grad_log_target_pdf,
-            **kwargs,
+        Args:
+            model_name (str): The name of the model in PosteriorDB.
+            posteriordb_path (str): The path to the PosteriorDB database.
+            posterior_data (Dict[str, float  |  int  |  List[float  |  int]] | None, optional): The parameter of the model. Defaults to None.
+        """
+        self.model_name = model_name
+        self.posteriordb_path = posteriordb_path
+        self.posterior_data = posterior_data
+
+        self.stan_model = self.build_model()
+        self.log_pdf = self.make_log_pdf()
+        self.grad_log_pdf = self.make_grad_log_pdf()
+
+    def build_model(self) -> bs.StanModel:
+        """
+        Builds a Stan model from the given Stan code and data.
+
+        Returns:
+            bs.StanModel: The Stan model.
+        """
+        pdb = PosteriorDatabase(self.posteriordb_path)
+
+        posterior = pdb.posterior(self.model_name)
+        stan_code = posterior.model.stan_code_file_path()
+
+        if self.posterior_data is None:
+            stan_data = json.dumps(posterior.data.values())
+            print(stan_data)
+        else:
+            stan_data = json.dumps(self.posterior_data)
+
+        model = bs.StanModel.from_stan_file(stan_code, stan_data)
+
+        return model
+
+    def make_log_pdf(
+        self,
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Creates a log probability density function for the given posterior.
+
+        Returns:
+            Callable[[npt.ArrayLike], npt.ArrayLike]: A callable that computes the log density for given input.
+        """
+        return self.stan_model.log_density
+
+    def make_grad_log_pdf(
+        self,
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Creates a gradient of the log probability density function for the given posterior.
+
+        Returns:
+            Callable[[npt.ArrayLike], npt.ArrayLike]: A callable that computes the gradient of the log density for given input.
+        """
+        return lambda x: self.stan_model.log_density_gradient(x)[1]
+
+
+class PreparationInterface(ABC):
+    def __init__(
+        self,
+        initial_sample: npt.NDArray[np.float64],
+        initial_covariance: npt.NDArray[np.float64] | None = None,
+        initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
+        log_mode: bool = True,
+        log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        grad_log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        model_name: str | None = None,
+        posteriordb_path: str | None = None,
+        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        hyperparameter_config_path: str = "",
+        actor_config_path: str = "",
+        critic_config_path: str = "",
+        compile: bool = False,
+        verbose: bool = True,
+    ) -> None:
+        """
+        Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+        Args:
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None, optional): Log probability density function of the target distribution. If not provided, it will be generated.
+            grad_log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None, optional): Gradient of the log probability density function. If not provided, it will be generated.
+            model_name (str | None, optional): _description_. Defaults to None.
+            posteriordb_path (str | None, optional): _description_. Defaults to None.
+            posterior_data (Dict[str, float  |  int  |  List[float  |  int]] | None, optional): _description_. Defaults to None.
+
+        Raises:
+            ValueError: If log_target_pdf or grad_log_target_pdf is not provided, model_name and posteriordb_path cannot be None.
+        """
+        # Initial Essential Attribution of Environment
+        self.initial_sample = initial_sample
+        if initial_covariance is None:
+            self.initial_covariance = np.eye(len(initial_sample.flatten()))
+        self.initial_step_size = initial_step_size
+        self.log_mode = log_mode
+        self.verbose = verbose
+
+        # Make log target pdf and grad log target pdf
+        self.log_target_pdf, self.grad_log_target_pdf = self.make_target_functions(
+            log_target_pdf,
+            grad_log_target_pdf,
+            model_name,
+            posteriordb_path,
+            posterior_data,
         )
 
         # Make Args
-        self.make_args(**kwargs)
+        self.args, self.actor_config, self.critic_config = self.make_args(
+            hyperparameter_config_path, actor_config_path, critic_config_path
+        )
 
         # Set device
         self.device = torch.device(
-            "cuda" if torch.cuda.is_available() and self.args.cuda else "cpu"
+            "cuda"
+            if torch.cuda.is_available() and self.args.experiments.cuda
+            else "cpu"
         )
 
         # Fixed random seed
         self.fixed_random_seed()
 
         # Make envs
-        self.make_env()
+        self.envs, self.predicted_envs = self.make_env()
 
-        # Make Agent
-        self.make_agent(compile=compile)
+        # Make Actor
+        self.actor, self.target_actor = self.make_actor(compile)
 
         # Make Replay Buffer
-        self.make_replay_buffer()
+        self.replay_buffer = self.make_replay_buffer()
 
-    def fixed_random_seed(self):
-        """
-        Fixed random seed.
-        """
-
-        random.seed(self.args.seed)
-        np.random.seed(self.args.seed)
-        torch.manual_seed(self.args.seed)
-        torch.backends.cudnn.deterministic = self.args.torch_deterministic
-
-    def target_funs_factory(
+    def make_target_functions(
         self,
-        function: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str,
-        function_name: str,
-        posteriordb_path: str,
-        make_function: Callable[
-            [str, str, Dict[str, float | int] | None],
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
-        ],
-        **kwargs,
-    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
-        """Factory function to create or return a target function (e.g., log target PDF or gradient log target PDF).
+        log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ),
+        grad_log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ),
+        model_name: str | None,
+        posteriordb_path: str | None,
+        posterior_data: Dict[str, float | int | List[float | int]] | None,
+    ) -> Tuple[
+        Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+        Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
+    ]:
+        """
+        Creates target functions for the given model.
 
         Args:
-            func (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | str): A callable representing the target function or
-                a string representing the name of the posterior in PosteriorDB.
-            func_name (str): The name of the function being processed, used for error messages.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]): The log probability density function.
+            grad_log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]): The gradient of the log probability density function.
+            model_name (str): The name of the model in PosteriorDB.
             posteriordb_path (str): The path to the PosteriorDB database.
-            make_function (Callable[[str, str, Dict[str, float | int] | None], Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]):
-                A function used to create the target function from the posterior name.
+            posterior_data (Dict[str, float  |  int  |  List[float  |  int]]): The parameter of the model.
+
+        Returns:
+            Tuple[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]: The log probability density function and its gradient.
 
         Raises:
-            ValueError: If `func` is neither a callable nor a valid posterior name string.
-
-        Returns:
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: The callable target function.
+            ValueError: log_target_pdf and grad_log_target_pdf must be callable.
         """
-        if callable(function):
-            return function
-        elif isinstance(function, str):
-            if posteriordb_path is None:
-                raise ValueError(f"{function_name}: posteriordb_path must be provided.")
-            else:
-                return make_function(
-                    posterior_name=function,
-                    posteriordb_path=posteriordb_path,
-                    posterior_data=kwargs.get("posterior_data"),
+        if log_target_pdf is None or grad_log_target_pdf is None:
+            if model_name is None or posteriordb_path is None:
+                raise ValueError(
+                    "If log_target_pdf or grad_log_target_pdf is not provided, model_name and posteriordb_path cannot be None."
                 )
-        else:
-            raise ValueError(f"{function_name} must be callable or str.")
 
-    def make_log_target_pdf(
+            pdb_generator = PosteriorDBFunctionsGenerator(
+                model_name=model_name,
+                posteriordb_path=posteriordb_path,
+                posterior_data=posterior_data,
+            )
+            log_target_pdf = pdb_generator.make_log_pdf()
+            grad_log_target_pdf = pdb_generator.make_grad_log_pdf()
+
+            return log_target_pdf, grad_log_target_pdf
+        elif callable(log_target_pdf) and callable(grad_log_target_pdf):
+            return log_target_pdf, grad_log_target_pdf
+        else:
+            raise ValueError("log_target_pdf and grad_log_target_pdf must be callable.")
+
+    def make_args(
         self,
-        posterior_name: str,
-        posteriordb_path: str,
-        posterior_data: Dict[str, float | int] | None = None,
-    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
-        """Creates a log target probability density function (PDF) for the given posterior.
-
-        Parameters:
-        - posterior_name (str): Name of the posterior in the PosteriorDB.
-        - posteriordb_path (str): Path to the PosteriorDB database.
-        - posterior_data (Dict[str, float | int] | None, optional): Custom posterior data to be used.
-            If None, the default data from PosteriorDB will be used.
-
-        Returns:
-        - Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: A callable that computes the
-            log density for given input.
-        """
-
-        # Load DataBase Locally
-        pdb = PosteriorDatabase(posteriordb_path)
-
-        # Load Dataset
-        posterior = pdb.posterior(posterior_name)
-        stan_code = posterior.model.stan_code_file_path()
-        if posterior_data is None:
-            stan_data = json.dumps(posterior.data.values())
-        else:
-            stan_data = json.dumps(posterior_data)
-
-        # Return log_target_pdf
-        model = bs.StanModel.from_stan_file(stan_code, stan_data)
-
-        return model.log_density
-
-    def make_grad_log_target_pdf(
-        self,
-        posterior_name: str,
-        posteriordb_path: str,
-        posterior_data: Dict[str, float | int] | None = None,
-    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
-        """
-        Make the gradient of log target pdf.
-        """
-
-        # Load DataBase Locally
-        pdb = PosteriorDatabase(posteriordb_path)
-
-        # Load Dataset
-        posterior = pdb.posterior(posterior_name)
-        stan_code = posterior.model.stan_code_file_path()
-        if posterior_data is None:
-            stan_data = json.dumps(posterior.data.values())
-        else:
-            stan_data = json.dumps(posterior_data)
-
-        # Return log_target_pdf
-        model = bs.StanModel.from_stan_file(stan_code, stan_data)
-
-        return lambda x: model.log_density_gradient(x)[1]
-
-    def make_args(self, **kwargs) -> None:
+        hyperparameter_config_path: str,
+        actor_config_path: str,
+        critic_config_path: str,
+    ) -> Tuple[
+        HyperparameterConfigParser, PolicyNetworkConfigParser, QNetworkConfigParser
+    ]:
         """
         Make Arguments.
+
+        Args:
+            hyperparameter_config_path (str): _description_
+            actor_config_path (str): _description_
+            critic_config_path (str): _description_
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+            ValueError: _description_
+
+        Returns:
+            Tuple[HyperparameterConfigParser, PolicyNetworkConfigParser, QNetworkConfigParser]: _description_
         """
-        # Initialize arguments
-        args = Args()
+        if hyperparameter_config_path:
+            args = HyperparameterConfigParser(hyperparameter_config_path)
+        else:
+            raise ValueError("hyperparameter_config_path must be provided.")
 
-        # Get all attributes
-        args_attributes_dict = args.get_all_attributes()
+        if actor_config_path:
+            actor_config = PolicyNetworkConfigParser(actor_config_path)
+        else:
+            raise ValueError("actor_config_path must be provided.")
 
-        # Set attributes
-        for key, value in kwargs.items():
-            if key in args_attributes_dict.keys():
-                if value is not None:
-                    setattr(args, key, value)
+        if critic_config_path:
+            critic_config = QNetworkConfigParser(critic_config_path)
+        else:
+            raise ValueError("critic_config_path must be provided.")
 
-        self.args = args
+        return args, actor_config, critic_config
+
+    def fixed_random_seed(self) -> None:
+        """
+        Fixed random seed.
+
+        Raises:
+            ValueError: Seed must be an integer.
+        """
+        if not isinstance(self.args.experiments.seed, int):
+            raise ValueError(
+                f"Seed must be an integer. Got {type(self.args.experiments.seed)}."
+            )
+
+        random.seed(self.args.experiments.seed)
+        np.random.seed(self.args.experiments.seed)
+        torch.manual_seed(self.args.experiments.seed)
+        torch.backends.cudnn.deterministic = self.args.experiments.torch_deterministic
 
     def init_env(
         self,
         env_id: str | EnvSpec,
-    ):
+    ) -> Callable[[], MCMCEnvBase]:
+        """
+        Initialize environment to the function.
+
+        Args:
+            env_id (str | EnvSpec): The environment id.
+        """
+
         def thunk():
             env = gym.make(
                 id=env_id,
-                log_target_pdf=self.log_target_pdf,
-                sample_dim=self.args.sample_dim,
-                total_timesteps=self.args.total_timesteps,
+                log_target_pdf_unsafe=self.log_target_pdf,
+                grad_log_target_pdf_unsafe=self.grad_log_target_pdf,
+                initial_sample=self.initial_sample,
+                initial_covariance=self.initial_covariance,
+                initial_step_size=self.initial_step_size,
+                total_timesteps=self.args.algorithm.general.total_timesteps,
+                log_mode=self.log_mode,
             )
             env = gym.wrappers.RecordEpisodeStatistics(env)
-            env.action_space.seed(self.args.seed)
+            env.action_space.seed(self.args.experiments.seed)
 
             return env
 
         return thunk
 
-    def make_env(self):
+    def make_env(self) -> Tuple[gym.vector.SyncVectorEnv, gym.vector.SyncVectorEnv]:
         """
         Make environment and predict environment.
+
+        Returns:
+            Tuple[gym.vector.SyncVectorEnv, gym.vector.SyncVectorEnv]: The environment and predict environment.
         """
-        self.envs = gym.vector.SyncVectorEnv([self.init_env(env_id=self.args.env_id)])
-        assert isinstance(
-            self.envs.single_action_space, gym.spaces.Box
-        ), "only continuous action space is supported"
-        self.envs.single_observation_space.dtype = np.float64
-
-        self.predicted_envs = gym.vector.SyncVectorEnv(
-            [self.init_env(env_id=self.args.env_id)]
+        envs = gym.vector.SyncVectorEnv(
+            [self.init_env(env_id=self.args.algorithm.general.env_id)]
         )
         assert isinstance(
-            self.predicted_envs.single_action_space, gym.spaces.Box
+            envs.single_action_space, gym.spaces.Box
         ), "only continuous action space is supported"
-        self.predicted_envs.single_observation_space.dtype = np.float64
+        envs.single_observation_space.dtype = np.float64
 
-    def make_agent(self, compile: bool = False):
-        self.actor = PolicyNetwork(self.envs).to(self.device).double()
-        self.target_actor = PolicyNetwork(self.envs).to(self.device).double()
-        self.qf1 = QNetwork(self.envs).to(self.device).double()
-        self.target_qf1 = QNetwork(self.envs).to(self.device).double()
+        predicted_envs = gym.vector.SyncVectorEnv(
+            [self.init_env(env_id=self.args.algorithm.general.env_id)]
+        )
+        assert isinstance(
+            predicted_envs.single_action_space, gym.spaces.Box
+        ), "only continuous action space is supported"
+        predicted_envs.single_observation_space.dtype = np.float64
 
+        return envs, predicted_envs
+
+    def make_actor(self, compile: bool) -> Tuple[PolicyNetwork, PolicyNetwork]:
+        """
+        Make actor.
+
+        Args:
+            compile (bool): Whether to compile the model or not.
+
+        Returns:
+            PolicyNetwork: The actor.
+        """
+        actor = PolicyNetwork(self.envs, self.actor_config).to(self.device).double()
+        target_actor = (
+            PolicyNetwork(self.envs, self.actor_config).to(self.device).double()
+        )
         if compile:
-            self.actor = torch.compile(self.actor)
-            self.target_actor = torch.compile(self.target_actor)
-            self.qf1 = torch.compile(self.qf1)
-            self.target_qf1 = torch.compile(self.qf1_target)
+            actor = torch.compile(actor)
+            target_actor = torch.compile(target_actor)
 
-        self.target_actor.load_state_dict(self.actor.state_dict())
-        self.target_qf1.load_state_dict(self.qf1.state_dict())
-        self.q_optimizer = optim.Adam(
-            list(self.qf1.parameters()), lr=self.args.learning_rate
-        )
-        self.actor_optimizer = optim.Adam(
-            list(self.actor.parameters()), lr=self.args.learning_rate
+        return actor, target_actor
+
+    @abstractmethod
+    def make_critic(
+        self, compile: bool
+    ) -> Tuple[QNetwork, QNetwork] | Tuple[QNetwork, QNetwork, QNetwork, QNetwork]:
+        raise NotImplementedError("make_critic method is not implemented.")
+
+    def make_optimizer(
+        self, actor: PolicyNetwork, critic: QNetwork
+    ) -> Tuple[optim.Optimizer, optim.Optimizer]:
+        """
+        Make optimizer.
+
+        Args:
+            actor (PolicyNetwork): The actor.
+            critic (QNetwork): The critic.
+
+        Returns:
+            optim.Optimizer: The optimizer.
+        """
+        actor_optimizer = optim.Adam(
+            list(actor.parameters()), lr=self.args.algorithm.general.learning_rate
         )
 
-    def make_replay_buffer(self):
-        self.replay_buffer = ReplayBuffer(
-            buffer_size=self.args.buffer_size,
+        critic_optimizer = optim.Adam(
+            list(critic.parameters()), lr=self.args.algorithm.general.learning_rate
+        )
+
+        return actor_optimizer, critic_optimizer
+
+    def make_replay_buffer(self) -> ReplayBuffer:
+        """
+        Make replay buffer.
+
+        Returns:
+            ReplayBuffer: The replay buffer.
+        """
+        replay_buffer = ReplayBuffer(
+            buffer_size=self.args.algorithm.general.buffer_size,
             observation_space=self.envs.single_observation_space,
             action_space=self.envs.single_action_space,
             device=self.device,
             handle_timeout_termination=False,
         )
 
+        return replay_buffer
+
     @abstractmethod
-    def create(self):
-        raise NotImplementedError("create method is not implemented")
+    def create(self) -> LearningDDPG | LearningTD3:
+        """
+        Create learning algorithm.
+
+        Raises:
+            NotImplementedError: create method is not implemented.
+        """
+        raise NotImplementedError("create method is not implemented.")
 
 
-class LearningFactory(LearningFactoryInterface):
-    def create(self, mode="ddpg"):
-        match mode:
-            case "ddpg":
-                learning = self.make_DDPG()
-            case "td3":
-                learning = self.make_TD3()
-            case _:
-                raise NotImplementedError(
-                    f"{mode} is not implemented, can only be ddpg or td3."
-                )
+class PreparationDDPG(PreparationInterface):
+    def __init__(
+        self,
+        initial_sample: npt.NDArray[np.float64],
+        initial_covariance: npt.NDArray[np.float64] | None = None,
+        initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
+        log_mode: bool = True,
+        log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        grad_log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        model_name: str | None = None,
+        posteriordb_path: str | None = None,
+        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        hyperparameter_config_path: str = "",
+        actor_config_path: str = "",
+        critic_config_path: str = "",
+        compile: bool = False,
+    ) -> None:
+        super().__init__(
+            initial_sample,
+            initial_covariance,
+            initial_step_size,
+            log_mode,
+            log_target_pdf,
+            grad_log_target_pdf,
+            model_name,
+            posteriordb_path,
+            posterior_data,
+            hyperparameter_config_path,
+            actor_config_path,
+            critic_config_path,
+            compile,
+        )
+        self.qf1, self.target_qf1 = self.make_critic(compile)
+        self.actor_optimizer, self.q_optimizer = self.make_optimizer(
+            self.actor, self.qf1
+        )
 
-        return learning
+    def make_critic(self, compile: bool) -> Tuple[QNetwork, QNetwork]:
+        """
+        Make critic.
 
-    def make_DDPG(self):
-        learning = LearningDDPG(
+        Args:
+            compile (bool): Whether to compile the model or not.
+
+        Returns:
+            Tuple[QNetwork, QNetwork]: The critic.
+        """
+        qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        target_qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        if compile:
+            qf1 = torch.compile(qf1)
+            target_qf1 = torch.compile(target_qf1)
+
+        return qf1, target_qf1
+
+    def create(self) -> LearningDDPG:
+        """
+        Create learning algorithm.
+
+        Returns:
+            LearningDDPG: DDPG algorithm.
+        """
+        return LearningDDPG(
             env=self.envs,
             actor=self.actor,
             target_actor=self.target_actor,
@@ -307,17 +482,148 @@ class LearningFactory(LearningFactoryInterface):
             actor_optimizer=self.actor_optimizer,
             critic_optimizer=self.q_optimizer,
             replay_buffer=self.replay_buffer,
-            total_timesteps=self.args.total_timesteps,
-            learning_starts=self.args.learning_starts,
-            batch_size=self.args.batch_size,
-            exploration_noise=self.args.exploration_noise,
-            gamma=self.args.gamma,
-            policy_frequency=self.args.policy_frequency,
-            tau=self.args.tau,
-            seed=self.args.seed,
+            learning_starts=self.args.algorithm.general.learning_starts,
+            batch_size=self.args.algorithm.general.batch_size,
+            exploration_noise=self.args.algorithm.specific.exploration_noise,
+            gamma=self.args.algorithm.general.gamma,
+            policy_frequency=self.args.algorithm.specific.policy_frequency,
+            tau=self.args.algorithm.specific.tau,
+            random_seed=self.args.experiments.seed,
             device=self.device,
+            verbose=self.verbose,
         )
-        return learning
 
-    def make_TD3(self):
-        pass
+
+class PreparationTD3(PreparationInterface):
+    def __init__(
+        self,
+        initial_sample: npt.NDArray[np.float64],
+        initial_covariance: npt.NDArray[np.float64] | None = None,
+        initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
+        log_mode: bool = True,
+        log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        grad_log_target_pdf: (
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
+        ) = None,
+        model_name: str | None = None,
+        posteriordb_path: str | None = None,
+        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        hyperparameter_config_path: str = "",
+        actor_config_path: str = "",
+        critic_config_path: str = "",
+        compile: bool = False,
+    ) -> None:
+        super().__init__(
+            initial_sample,
+            initial_covariance,
+            initial_step_size,
+            log_mode,
+            log_target_pdf,
+            grad_log_target_pdf,
+            model_name,
+            posteriordb_path,
+            posterior_data,
+            hyperparameter_config_path,
+            actor_config_path,
+            critic_config_path,
+            compile,
+        )
+        self.qf1, self.target_qf1, self.qf2, self.target_qf2 = self.make_critic(compile)
+        self.actor_optimizer, self.q_optimizer = self.make_optimizer(
+            self.actor, self.qf1
+        )
+
+    def make_critic(
+        self, compile: bool
+    ) -> Tuple[QNetwork, QNetwork, QNetwork, QNetwork]:
+        """
+        Make critic.
+
+        Args:
+            compile (bool): Whether to compile the model or not.
+
+        Returns:
+            Tuple[QNetwork, QNetwork, QNetwork, QNetwork]: The critic.
+        """
+        qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        target_qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        qf2 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        target_qf2 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        if compile:
+            qf1 = torch.compile(qf1)
+            target_qf1 = torch.compile(target_qf1)
+            qf2 = torch.compile(qf2)
+            target_qf2 = torch.compile(target_qf2)
+
+        return qf1, target_qf1, qf2, target_qf2
+
+    def create(self) -> LearningTD3:
+        return LearningTD3(
+            env=self.envs,
+            actor=self.actor,
+            target_actor=self.target_actor,
+            critic=self.qf1,
+            target_critic=self.target_qf1,
+            actor_optimizer=self.actor_optimizer,
+            critic_optimizer=self.q_optimizer,
+            critic2=self.qf2,
+            target_critic2=self.target_qf2,
+            replay_buffer=self.replay_buffer,
+            learning_starts=self.args.algorithm.general.learning_starts,
+            batch_size=self.args.algorithm.general.batch_size,
+            exploration_noise=self.args.algorithm.specific.exploration_noise,
+            gamma=self.args.algorithm.general.gamma,
+            policy_frequency=self.args.algorithm.specific.policy_frequency,
+            tau=self.args.algorithm.specific.tau,
+            random_seed=self.args.experiments.seed,
+            device=self.device,
+            verbose=self.verbose,
+            policy_noise=self.args.algorithm.specific.policy_noise,
+            noise_clip=self.args.algorithm.specific.noise_clip,
+        )
+
+
+class LearningAlgorithmFactory(ABC):
+    @abstractmethod
+    def create(self, **kwargs):
+        """
+        Create a learning algorithm instance.
+        """
+        raise NotImplementedError("create method is not implemented.")
+
+    @staticmethod
+    def register_algorithm(algorithm_name: str):
+        def decorator(cls):
+            LearningFactory.register_factory(algorithm_name, cls())
+            return cls
+
+        return decorator
+
+
+class LearningFactory:
+    _factories = {}
+
+    @classmethod
+    def register_factory(cls, algorithm: str, factory: LearningAlgorithmFactory):
+        cls._factories[algorithm.lower()] = factory
+
+    @classmethod
+    def create_learning_instance(cls, algorithm: str, **kwargs):
+        factory = cls._factories.get(algorithm.lower())
+        if not factory:
+            raise ValueError(f"Unsupported algorithm: {algorithm}.")
+        return factory.create(**kwargs)
+
+
+@LearningAlgorithmFactory.register_algorithm("ddpg")
+class DDPGFactory(LearningAlgorithmFactory):
+    def create(self, **kwargs):
+        return PreparationDDPG(**kwargs).create()
+
+
+@LearningAlgorithmFactory.register_algorithm("td3")
+class TD3Factory(LearningAlgorithmFactory):
+    def create(self, **kwargs):
+        return PreparationTD3(**kwargs).create()
