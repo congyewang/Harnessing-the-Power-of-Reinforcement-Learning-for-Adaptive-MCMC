@@ -29,7 +29,7 @@ class AlgorithmGeneralConfig:
 
 
 @dataclass
-class AlgorithmDDPGConfig:
+class AlgorithmSpecificConfig:
     tau: float
     policy_noise: float
     exploration_noise: float
@@ -40,7 +40,7 @@ class AlgorithmDDPGConfig:
 @dataclass
 class AlgorithmConfig:
     general: AlgorithmGeneralConfig
-    ddpg: AlgorithmDDPGConfig
+    specific: AlgorithmSpecificConfig
 
 
 @dataclass
