@@ -351,6 +351,9 @@ class LearningTD3(LearningInterface):
         self.policy_noise = policy_noise
         self.noise_clip = noise_clip
 
+        self.critic2_values: List[float] = []
+        self.critic2_loss: List[float] = []
+
     def train(self, gradient_clipping: bool = False) -> None:
         """
         Training Session for TD3.
@@ -461,7 +464,9 @@ class LearningTD3(LearningInterface):
 
                 if global_step % 100 == 0:
                     self.critic_values.append(critic_a_values.mean().item())
+                    self.critic2_values.append(critic2_a_values.mean().item())
                     self.critic_loss.append(critic_loss.item())
+                    self.critic2_loss.append(critic2_loss.item())
                     self.actor_loss.append(actor_loss.item())
 
     def save(self, folder_path: str) -> None:
