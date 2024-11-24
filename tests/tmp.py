@@ -3,7 +3,6 @@ from scipy.stats import multivariate_normal
 
 from src.pyrlmala.learning import LearningFactory
 
-
 # Environment
 sample_dim = 2
 
@@ -13,13 +12,15 @@ log_target_pdf = lambda x: multivariate_normal.logpdf(
 grad_log_target_pdf = lambda x: -x
 
 initial_sample = np.zeros(sample_dim)
+algorithm = "td3"
+
+# Learning
 learning_instance = LearningFactory.create_learning_instance(
-    algorithm="td3",
+    algorithm=algorithm,
     log_target_pdf=log_target_pdf,
     grad_log_target_pdf=grad_log_target_pdf,
     initial_sample=initial_sample,
-    hyperparameter_config_path="src/pyrlmala/config/default/td3.toml",
-    actor_config_path="src/pyrlmala/config/default/actor.toml",
-    critic_config_path="src/pyrlmala/config/default/critic.toml",
 )
+
 learning_instance.train()
+learning_instance.predict()
