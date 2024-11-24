@@ -89,6 +89,7 @@ class LearningInterface(ABC):
 
         self.predicted_timesteps: int | None = None
 
+        self.critic_values: List[float] = []
         self.critic_loss: List[float] = []
         self.actor_loss: List[float] = []
 
@@ -283,7 +284,8 @@ class LearningDDPG(LearningInterface):
                             self.tau * param.data + (1 - self.tau) * target_param.data
                         )
 
-                if global_step % 100 == 0:
+                if global_step % 100 == 0 and global_step > self.policy_frequency:
+                    self.critic_values.append(critic_a_values.mean().item())
                     self.critic_loss.append(critic_loss.item())
                     self.actor_loss.append(actor_loss.item())
 
@@ -458,6 +460,7 @@ class LearningTD3(LearningInterface):
                         )
 
                 if global_step % 100 == 0:
+                    self.critic_values.append(critic_a_values.mean().item())
                     self.critic_loss.append(critic_loss.item())
                     self.actor_loss.append(actor_loss.item())
 
