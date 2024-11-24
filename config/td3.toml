@@ -30,13 +30,13 @@ total_timesteps = 50_000
 # total timesteps of the prediction
 predicted_timesteps = 5_000
 # timestep to start learning
-learning_starts = 4
+learning_starts = 48
 # the learning rate of the optimizer
-learning_rate = 3e-4
+learning_rate = 1e-4
 # the replay memory buffer size
 buffer_size = 50_000
 # the batch size of sample from the reply memory
-batch_size = 24
+batch_size = 48
 # the discount factor gamma
 gamma = 0.99
 
