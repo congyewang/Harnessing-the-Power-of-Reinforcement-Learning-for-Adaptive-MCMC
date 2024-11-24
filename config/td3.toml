@@ -26,13 +26,15 @@ hf_entity = ""
 # the environment id of the Atari game
 env_id = "BarkerEnv-v1.0"
 # total timesteps of the experiments
-total_timesteps = 500_000
+total_timesteps = 50_000
+# total timesteps of the prediction
+predicted_timesteps = 5_000
 # timestep to start learning
 learning_starts = 4
 # the learning rate of the optimizer
 learning_rate = 3e-4
 # the replay memory buffer size
-buffer_size = 500_000
+buffer_size = 50_000
 # the batch size of sample from the reply memory
 batch_size = 24
 # the discount factor gamma

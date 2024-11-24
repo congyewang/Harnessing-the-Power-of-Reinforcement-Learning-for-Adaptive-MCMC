@@ -20,6 +20,7 @@ class LearningInterface(ABC):
     def __init__(
         self,
         env: gym.spaces.Box,
+        predicted_env: gym.spaces.Box,
         actor: torch.nn.Module,
         target_actor: torch.nn.Module,
         critic: torch.nn.Module,
@@ -39,7 +40,12 @@ class LearningInterface(ABC):
     ) -> None:
         if not isinstance(env.single_observation_space, gym.spaces.Box):
             raise ValueError("only continuous observation space is supported")
-        self.env = env
+        else:
+            self.env = env
+        if not isinstance(predicted_env.single_observation_space, gym.spaces.Box):
+            raise ValueError("only continuous observation space is supported")
+        else:
+            self.predicted_env = predicted_env
         self.random_seed = random_seed
 
         self.obs, self.infos = env.reset(seed=random_seed)
@@ -81,7 +87,6 @@ class LearningInterface(ABC):
         self.device = device
         self.verbose = verbose
 
-        self.predicted_env: gym.spaces.Box | None = None
         self.predicted_timesteps: int | None = None
 
         self.critic_loss: List[float] = []
@@ -114,13 +119,8 @@ class LearningInterface(ABC):
 
     def predict(
         self,
-        predicted_env: MCMCEnvBase,
     ) -> None:
-        if not isinstance(predicted_env.single_action_space, gym.spaces.Box):
-            raise ValueError("only continuous action space is supported")
-
-        self.predicted_env = predicted_env
-        _single_predicted_envs: List[MCMCEnvBase] = predicted_env.envs
+        _single_predicted_envs: List[MCMCEnvBase] = self.predicted_env.envs
         if hasattr(_single_predicted_envs[0].unwrapped, "total_timesteps"):
             self.predicted_timesteps: int = _single_predicted_envs[
                 0
@@ -129,7 +129,7 @@ class LearningInterface(ABC):
             self.predicted_timesteps: int = 10_000
 
         # Reset the environment
-        predicted_obs, _ = predicted_env.reset(seed=self.random_seed)
+        predicted_obs, _ = self.predicted_env.reset(seed=self.random_seed)
 
         # Store predicted obs, action, and reward
         predicted_observation: List[npt.NDArray[np.float64]] = []
@@ -142,7 +142,7 @@ class LearningInterface(ABC):
                     torch.from_numpy(predicted_obs).to(self.device)
                 )
 
-            predicted_obs, predicted_rewards, _, _, _ = predicted_env.step(
+            predicted_obs, predicted_rewards, _, _, _ = self.predicted_env.step(
                 predicted_actions.detach().cpu().numpy()
             )
 
@@ -151,7 +151,7 @@ class LearningInterface(ABC):
             predicted_reward.append(predicted_rewards)
 
         self.predicted_observation = np.array(predicted_observation).reshape(
-            -1, np.prod(predicted_env.single_observation_space.shape)
+            -1, np.prod(self.predicted_env.single_observation_space.shape)
         )
         self.predicted_action = np.array(predicted_action)
         self.predicted_reward = np.array(predicted_reward).flatten()
@@ -165,6 +165,7 @@ class LearningDDPG(LearningInterface):
     def __init__(
         self,
         env: gym.spaces.Box,
+        predicted_env: gym.spaces.Box,
         actor: torch.nn.Module,
         target_actor: torch.nn.Module,
         critic: torch.nn.Module,
@@ -184,6 +185,7 @@ class LearningDDPG(LearningInterface):
     ) -> None:
         super().__init__(
             env=env,
+            predicted_env=predicted_env,
             actor=actor,
             target_actor=target_actor,
             critic=critic,
@@ -298,6 +300,7 @@ class LearningTD3(LearningInterface):
     def __init__(
         self,
         env: gym.spaces.Box,
+        predicted_env: gym.spaces.Box,
         actor: torch.nn.Module,
         target_actor: torch.nn.Module,
         critic: torch.nn.Module,
@@ -321,6 +324,7 @@ class LearningTD3(LearningInterface):
     ) -> None:
         super().__init__(
             env=env,
+            predicted_env=predicted_env,
             actor=actor,
             target_actor=target_actor,
             critic=critic,

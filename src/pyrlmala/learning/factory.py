@@ -279,6 +279,7 @@ class PreparationInterface(ABC):
     def init_env(
         self,
         env_id: str | EnvSpec,
+        total_timesteps: int,
     ) -> Callable[[], MCMCEnvBase]:
         """
         Initialize environment to the function.
@@ -295,7 +296,7 @@ class PreparationInterface(ABC):
                 initial_sample=self.initial_sample,
                 initial_covariance=self.initial_covariance,
                 initial_step_size=self.initial_step_size,
-                total_timesteps=self.args.algorithm.general.total_timesteps,
+                total_timesteps=total_timesteps,
                 log_mode=self.log_mode,
             )
             env = gym.wrappers.RecordEpisodeStatistics(env)
@@ -313,7 +314,12 @@ class PreparationInterface(ABC):
             Tuple[gym.vector.SyncVectorEnv, gym.vector.SyncVectorEnv]: The environment and predict environment.
         """
         envs = gym.vector.SyncVectorEnv(
-            [self.init_env(env_id=self.args.algorithm.general.env_id)]
+            [
+                self.init_env(
+                    env_id=self.args.algorithm.general.env_id,
+                    total_timesteps=self.args.algorithm.general.total_timesteps,
+                )
+            ]
         )
         assert isinstance(
             envs.single_action_space, gym.spaces.Box
@@ -321,7 +327,12 @@ class PreparationInterface(ABC):
         envs.single_observation_space.dtype = np.float64
 
         predicted_envs = gym.vector.SyncVectorEnv(
-            [self.init_env(env_id=self.args.algorithm.general.env_id)]
+            [
+                self.init_env(
+                    env_id=self.args.algorithm.general.env_id,
+                    total_timesteps=self.args.algorithm.general.predicted_timesteps,
+                )
+            ]
         )
         assert isinstance(
             predicted_envs.single_action_space, gym.spaces.Box
@@ -475,6 +486,7 @@ class PreparationDDPG(PreparationInterface):
         """
         return LearningDDPG(
             env=self.envs,
+            predicted_env=self.predicted_envs,
             actor=self.actor,
             target_actor=self.target_actor,
             critic=self.qf1,
@@ -562,6 +574,7 @@ class PreparationTD3(PreparationInterface):
     def create(self) -> LearningTD3:
         return LearningTD3(
             env=self.envs,
+            predicted_env=self.predicted_envs,
             actor=self.actor,
             target_actor=self.target_actor,
             critic=self.qf1,
@@ -594,9 +607,21 @@ class LearningAlgorithmFactory(ABC):
         raise NotImplementedError("create method is not implemented.")
 
     @staticmethod
-    def register_algorithm(algorithm_name: str):
+    def register_algorithm(
+        algorithm_name: str,
+        hyperparameter_config_path: str,
+        actor_config_path: str,
+        critic_config_path: str,
+    ):
         def decorator(cls):
-            LearningFactory.register_factory(algorithm_name, cls())
+            def create_instance(**kwargs):
+                return cls(
+                    hyperparameter_config_path=hyperparameter_config_path,
+                    actor_config_path=actor_config_path,
+                    critic_config_path=critic_config_path,
+                ).create(**kwargs)
+
+            LearningFactory.register_factory(algorithm_name, create_instance)
             return cls
 
         return decorator
@@ -606,24 +631,66 @@ class LearningFactory:
     _factories = {}
 
     @classmethod
-    def register_factory(cls, algorithm: str, factory: LearningAlgorithmFactory):
-        cls._factories[algorithm.lower()] = factory
+    def register_factory(
+        cls, algorithm: str, factory_callable: Callable[..., LearningDDPG | LearningTD3]
+    ):
+        cls._factories[algorithm.lower()] = factory_callable
 
     @classmethod
     def create_learning_instance(cls, algorithm: str, **kwargs):
-        factory = cls._factories.get(algorithm.lower())
-        if not factory:
+        factory_callable = cls._factories.get(algorithm.lower())
+        if not factory_callable:
             raise ValueError(f"Unsupported algorithm: {algorithm}.")
-        return factory.create(**kwargs)
+        return factory_callable(**kwargs)
 
 
-@LearningAlgorithmFactory.register_algorithm("ddpg")
+@LearningAlgorithmFactory.register_algorithm(
+    "ddpg",
+    hyperparameter_config_path="config/ddpg.toml",
+    actor_config_path="config/actor.toml",
+    critic_config_path="config/critic.toml",
+)
 class DDPGFactory(LearningAlgorithmFactory):
+    def __init__(
+        self,
+        hyperparameter_config_path: str,
+        actor_config_path: str,
+        critic_config_path: str,
+    ):
+        self.hyperparameter_config_path = hyperparameter_config_path
+        self.actor_config_path = actor_config_path
+        self.critic_config_path = critic_config_path
+
     def create(self, **kwargs):
-        return PreparationDDPG(**kwargs).create()
+        return PreparationDDPG(
+            hyperparameter_config_path=self.hyperparameter_config_path,
+            actor_config_path=self.actor_config_path,
+            critic_config_path=self.critic_config_path,
+            **kwargs,
+        ).create()
 
 
-@LearningAlgorithmFactory.register_algorithm("td3")
+@LearningAlgorithmFactory.register_algorithm(
+    "td3",
+    hyperparameter_config_path="config/td3.toml",
+    actor_config_path="config/actor.toml",
+    critic_config_path="config/critic.toml",
+)
 class TD3Factory(LearningAlgorithmFactory):
+    def __init__(
+        self,
+        hyperparameter_config_path: str,
+        actor_config_path: str,
+        critic_config_path: str,
+    ):
+        self.hyperparameter_config_path = hyperparameter_config_path
+        self.actor_config_path = actor_config_path
+        self.critic_config_path = critic_config_path
+
     def create(self, **kwargs):
-        return PreparationTD3(**kwargs).create()
+        return PreparationDDPG(
+            hyperparameter_config_path=self.hyperparameter_config_path,
+            actor_config_path=self.actor_config_path,
+            critic_config_path=self.critic_config_path,
+            **kwargs,
+        ).create()

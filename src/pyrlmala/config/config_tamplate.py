@@ -21,6 +21,7 @@ class ExperimentConfig:
 class AlgorithmGeneralConfig:
     env_id: str
     total_timesteps: int
+    predicted_timesteps: int
     learning_starts: int
     learning_rate: float
     buffer_size: int
