@@ -23,6 +23,7 @@ The python implementation of Reinforcement Learning for Adaptive MALA.
   - tqdm == 4.66.6
   - wandb == 0.18.7
   - toolz == 1.0.0
+  - pytest-mock == 3.14.0
 
 ```{bash}
 uv sync
