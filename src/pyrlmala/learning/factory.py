@@ -1,7 +1,7 @@
 import json
 import random
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import bridgestan as bs
 import gymnasium as gym
@@ -28,7 +28,7 @@ class PosteriorDBFunctionsGenerator:
         self,
         model_name: str,
         posteriordb_path: str,
-        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        posterior_data: Optional[Dict[str, float | int | List[float | int]]] = None,
     ) -> None:
         """
         Target functions generator for PosteriorDB. This class is used to generate target functions for a given model in PosteriorDB. The target functions are the log probability density function and its gradient.
@@ -36,7 +36,7 @@ class PosteriorDBFunctionsGenerator:
         Args:
             model_name (str): The name of the model in PosteriorDB.
             posteriordb_path (str): The path to the PosteriorDB database.
-            posterior_data (Dict[str, float  |  int  |  List[float  |  int]] | None, optional): The parameter of the model. Defaults to None.
+            posterior_data (Dict[str, float  |  int  |  List[float  |  int]], optional): The parameter of the model. Defaults to None.
         """
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
@@ -95,18 +95,18 @@ class PreparationInterface(ABC):
     def __init__(
         self,
         initial_sample: npt.NDArray[np.float64],
-        initial_covariance: npt.NDArray[np.float64] | None = None,
+        initial_covariance: Optional[npt.NDArray[np.float64]] = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         log_mode: bool = True,
-        log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ) = None,
-        grad_log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ) = None,
-        model_name: str | None = None,
-        posteriordb_path: str | None = None,
-        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ] = None,
+        grad_log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ] = None,
+        model_name: Optional[str] = None,
+        posteriordb_path: Optional[str] = None,
+        posterior_data: Optional[Dict[str, float | int | List[float | int]]] = None,
         hyperparameter_config_path: str = "",
         actor_config_path: str = "",
         critic_config_path: str = "",
@@ -117,11 +117,11 @@ class PreparationInterface(ABC):
         Factory class for creating learning algorithms based on reinforcement learning strategies.
 
         Args:
-            log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None, optional): Log probability density function of the target distribution. If not provided, it will be generated.
-            grad_log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None, optional): Gradient of the log probability density function. If not provided, it will be generated.
-            model_name (str | None, optional): _description_. Defaults to None.
-            posteriordb_path (str | None, optional): _description_. Defaults to None.
-            posterior_data (Dict[str, float  |  int  |  List[float  |  int]] | None, optional): _description_. Defaults to None.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], optional): Log probability density function of the target distribution. If not provided, it will be generated.
+            grad_log_target_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], optional): Gradient of the log probability density function. If not provided, it will be generated.
+            model_name (str, optional): Model name in PosteriorDB. Defaults to None.
+            posteriordb_path (str, optional): The path of PosteriorDB. Defaults to None.
+            posterior_data (Dict[str, float  |  int  |  List[float  |  int]], optional): The posterior data. Defaults to None.
 
         Raises:
             ValueError: If log_target_pdf or grad_log_target_pdf is not provided, model_name and posteriordb_path cannot be None.
@@ -169,15 +169,15 @@ class PreparationInterface(ABC):
 
     def make_target_functions(
         self,
-        log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ),
-        grad_log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ),
-        model_name: str | None,
-        posteriordb_path: str | None,
-        posterior_data: Dict[str, float | int | List[float | int]] | None,
+        log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ],
+        grad_log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ],
+        model_name: Optional[str],
+        posteriordb_path: Optional[str],
+        posterior_data: Optional[Dict[str, float | int | List[float | int]]],
     ) -> Tuple[
         Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
         Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
@@ -422,18 +422,18 @@ class PreparationDDPG(PreparationInterface):
     def __init__(
         self,
         initial_sample: npt.NDArray[np.float64],
-        initial_covariance: npt.NDArray[np.float64] | None = None,
+        initial_covariance: Optional[npt.NDArray[np.float64]] = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         log_mode: bool = True,
-        log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ) = None,
-        grad_log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ) = None,
-        model_name: str | None = None,
-        posteriordb_path: str | None = None,
-        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ] = None,
+        grad_log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ] = None,
+        model_name: Optional[str] = None,
+        posteriordb_path: Optional[str] = None,
+        posterior_data: Optional[Dict[str, float | int | List[float | int]]] = None,
         hyperparameter_config_path: str = "",
         actor_config_path: str = "",
         critic_config_path: str = "",
@@ -510,18 +510,18 @@ class PreparationTD3(PreparationInterface):
     def __init__(
         self,
         initial_sample: npt.NDArray[np.float64],
-        initial_covariance: npt.NDArray[np.float64] | None = None,
+        initial_covariance: Optional[npt.NDArray[np.float64]] = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         log_mode: bool = True,
-        log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ) = None,
-        grad_log_target_pdf: (
-            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None
-        ) = None,
-        model_name: str | None = None,
-        posteriordb_path: str | None = None,
-        posterior_data: Dict[str, float | int | List[float | int]] | None = None,
+        log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ] = None,
+        grad_log_target_pdf: Optional[
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+        ] = None,
+        model_name: Optional[str] = None,
+        posteriordb_path: Optional[str] = None,
+        posterior_data: Optional[Dict[str, float | int | List[float | int]]] = None,
         hyperparameter_config_path: str = "",
         actor_config_path: str = "",
         critic_config_path: str = "",
@@ -645,9 +645,9 @@ class LearningFactory:
     def create_learning_instance(
         cls,
         algorithm: str,
-        hyperparameter_config_path=None,
-        actor_config_path=None,
-        critic_config_path=None,
+        hyperparameter_config_path="",
+        actor_config_path="",
+        critic_config_path="",
         **kwargs,
     ):
         factory_callable = cls._factories.get(algorithm.lower())
