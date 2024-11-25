@@ -5,14 +5,25 @@ from typing import Callable, Dict, Optional
 
 import bridgestan as bs
 import gymnasium as gym
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import torch
 from gymnasium.envs.registration import EnvSpec
+from jaxtyping import Float
 from numpy.typing import NDArray
 from scipy.stats._multivariate import _PSD
+from toolz import pipe
+from torch.nn import functional as F
 
 
 class Toolbox:
+    """
+    Toolbox class.
+
+    Returns:
+        Toolbox: Toolbox
+    """
     @staticmethod
     def make_env(
         env_id: str | EnvSpec,
@@ -29,8 +40,31 @@ class Toolbox:
         total_timesteps: int = 500_000,
         log_mode: bool = True,
         seed: int = 42,
-    ):
-        def thunk():
+    ) -> Callable[[], gym.Env]:
+        """
+        Make an environment.
+
+        Args:
+            env_id (str | EnvSpec): Environment ID.
+            log_target_pdf (Callable[[float | np.float64 | npt.NDArray[np.float64]], float | np.float64]): Log target pdf function.
+            grad_log_target_pdf (Callable[[float | np.float64 | npt.NDArray[np.float64]], float | np.float64]): Gradient log target pdf function.
+            initial_sample (np.float64 | npt.NDArray[np.float64]): Initial sample.
+            initial_covariance (Optional[np.float64 | npt.NDArray[np.float64]], optional): Initial covariance. Defaults to None.
+            total_timesteps (int, optional): Total timesteps. Defaults to 500_000.
+            log_mode (bool, optional): Log mode. Defaults to True.
+            seed (int, optional): Seed. Defaults to 42.
+
+        Returns:
+            Callable[[], gym.Env]: Environment thunk.
+        """
+
+        def thunk() -> gym.Env:
+            """
+            Create an environment.
+
+            Returns:
+                gym.Env: Environment.
+            """
             env = gym.make(
                 env_id,
                 log_target_pdf_unsafe=log_target_pdf,
@@ -48,7 +82,7 @@ class Toolbox:
         return thunk
 
     @classmethod
-    def nearestPD(cls, A: NDArray[np.float64]):
+    def nearestPD(cls, A: NDArray[np.float64]) -> NDArray[np.float64]:
         """
         Find the nearest positive-definite matrix to input
         A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
@@ -57,6 +91,12 @@ class Toolbox:
         [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
         [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
         matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
+
+        Args:
+            A (NDArray[np.float64]): Input array.
+
+        Returns:
+            NDArray[np.float64]: Nearest positive-definite matrix.
         """
 
         B = (A + A.T) / 2
@@ -91,9 +131,15 @@ class Toolbox:
         return A3
 
     @classmethod
-    def isPD(cls, B: NDArray[np.float64]):
+    def isPD(cls, B: NDArray[np.float64]) -> bool:
         """
         Returns true when input is positive-definite, via Cholesky, det, and _PSD from scipy.
+
+        Args:
+            B (NDArray[np.float64]): Input array.
+
+        Returns:
+            bool: True if input is positive-definite, False otherwise.
         """
         try:
             _ = np.linalg.cholesky(B)
@@ -125,6 +171,16 @@ class Toolbox:
         stan_code_path: str,
         posterior_data: Dict[str, float | int],
     ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Create a log target pdf function.
+
+        Args:
+            stan_code_path (str): Stan code path.
+            posterior_data (Dict[str, float  |  int]): Posterior data.
+
+        Returns:
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Log target pdf function.
+        """
         stan_data = json.dumps(posterior_data)
         model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
 
@@ -135,6 +191,16 @@ class Toolbox:
         stan_code_path: str,
         posterior_data: Dict[str, float | int],
     ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Create a gradient log target pdf function.
+
+        Args:
+            stan_code_path (str): Stan code path.
+            posterior_data (Dict[str, float  |  int]): Posterior data.
+
+        Returns:
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Gradient log target pdf function.
+        """
         stan_data = json.dumps(posterior_data)
         model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
 
@@ -142,6 +208,123 @@ class Toolbox:
 
     @staticmethod
     def create_folder(file_path: str) -> None:
+        """
+        Create a folder if it does not exist.
+
+        Args:
+            file_path (str): File path.
+        """
         folder_path = os.path.dirname(file_path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
+
+    @staticmethod
+    def imbalanced_mash_2d(
+        x_range: Float[torch.Tensor, "x_range"], y_range: Float[torch.Tensor, "y_range"]
+    ) -> Float[torch.Tensor, "mesh_2d"]:
+        """
+        Construct a 2D meshgrid from x and y ranges.
+
+        Args:
+            x_range (Float[torch.Tensor, "x_range"]): x range.
+            y_range (Float[torch.Tensor, "y_range"]): y range.
+
+        Returns:
+            Float[torch.Tensor, "mesh_2d"]: 2D meshgrid.
+        """
+        x_repeat = x_range.repeat_interleave(len(y_range))
+        y_tile = y_range.repeat(len(x_range))
+
+        return torch.stack([x_repeat, y_tile], dim=1)
+
+    @staticmethod
+    def plot_agent(
+        indicate: npt.NDArray[np.float64],
+        steps_per_episode: int = 100,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the agent's performance.
+
+        Args:
+            indicate (npt.NDArray[np.float64]): Indicate array.
+            steps_per_episode (int, optional): Steps per episode. Defaults to 100.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        time_points = np.arange(
+            steps_per_episode,
+            steps_per_episode * (len(indicate) + 1),
+            steps_per_episode,
+        )
+
+        plt.plot(time_points, indicate)
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @staticmethod
+    def policy_plot_2D_heatmap(
+        policy: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
+        x_range: Float[torch.Tensor, "x"] = torch.arange(-5, 5, 0.1),
+        y_range: Float[torch.Tensor, "y"] = torch.arange(-5, 5, 0.1),
+        softplus_mode: bool = True,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the policy heatmap.
+
+        Args:
+            policy (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Policy function.
+            x_range (Float[torch.Tensor, "x"], optional): x range. Defaults to torch.arange(-5, 5, 0.1).
+            y_range (Float[torch.Tensor, "y"], optional): y range. Defaults to torch.arange(-5, 5, 0.1).
+            softplus_mode (bool, optional): Softplus mode. Defaults to True.
+        """
+
+        # Plot
+        heatmap_plot = lambda x: plt.imshow(
+            x.T,
+            extent=[x_range.min(), x_range.max(), y_range.min(), y_range.max()],
+            origin="lower",
+            cmap="viridis",
+            aspect="auto",
+        )
+
+        if softplus_mode:
+            pipe(
+                (x_range, y_range),
+                lambda ranges: Toolbox.imbalanced_mash_2d(*ranges),
+                lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+                lambda x: x.double(),
+                policy,
+                F.softplus,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(len(x_range), len(y_range)),
+                heatmap_plot,
+            )
+        else:
+            pipe(
+                (x_range, y_range),
+                lambda ranges: Toolbox.imbalanced_mash_2d(*ranges),
+                lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+                lambda x: x.double(),
+                policy,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(len(x_range), len(y_range)),
+                heatmap_plot,
+            )
+
+        ax = plt.gca()
+        ax.set_title("Policy Heatmap")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+
+        plt.colorbar(label="Action")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
