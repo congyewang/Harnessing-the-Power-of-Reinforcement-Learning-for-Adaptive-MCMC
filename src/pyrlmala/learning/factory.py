@@ -614,7 +614,12 @@ class LearningAlgorithmFactory(ABC):
         critic_config_path: str,
     ):
         def decorator(cls):
-            def create_instance(**kwargs):
+            def create_instance(
+                hyperparameter_config_path=hyperparameter_config_path,
+                actor_config_path=actor_config_path,
+                critic_config_path=critic_config_path,
+                **kwargs,
+            ):
                 return cls(
                     hyperparameter_config_path=hyperparameter_config_path,
                     actor_config_path=actor_config_path,
@@ -632,16 +637,28 @@ class LearningFactory:
 
     @classmethod
     def register_factory(
-        cls, algorithm: str, factory_callable: Callable[..., LearningDDPG | LearningTD3]
+        cls, algorithm: str, factory_callable: Callable[..., "LearningAlgorithmFactory"]
     ):
         cls._factories[algorithm.lower()] = factory_callable
 
     @classmethod
-    def create_learning_instance(cls, algorithm: str, **kwargs):
+    def create_learning_instance(
+        cls,
+        algorithm: str,
+        hyperparameter_config_path=None,
+        actor_config_path=None,
+        critic_config_path=None,
+        **kwargs,
+    ):
         factory_callable = cls._factories.get(algorithm.lower())
         if not factory_callable:
             raise ValueError(f"Unsupported algorithm: {algorithm}.")
-        return factory_callable(**kwargs)
+        return factory_callable(
+            hyperparameter_config_path=hyperparameter_config_path,
+            actor_config_path=actor_config_path,
+            critic_config_path=critic_config_path,
+            **kwargs,
+        )
 
 
 @LearningAlgorithmFactory.register_algorithm(
