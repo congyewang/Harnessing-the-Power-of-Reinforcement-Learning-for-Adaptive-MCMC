@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import multivariate_normal
 
-from src.pyrlmala.learning import LearningFactory
+from pyrlmala.pyrlmala.learning import LearningFactory
 
 # Environment
 sample_dim = 2
