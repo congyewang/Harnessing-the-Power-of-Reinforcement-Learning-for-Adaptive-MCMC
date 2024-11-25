@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Optional
 
 import bridgestan as bs
 import gymnasium as gym
@@ -9,24 +9,23 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium.envs.registration import EnvSpec
 from numpy.typing import NDArray
-from posteriordb import PosteriorDatabase
 from scipy.stats._multivariate import _PSD
 
 
 class Toolbox:
     @staticmethod
     def make_env(
-        env_id: Union[str, EnvSpec],
+        env_id: str | EnvSpec,
         log_target_pdf: Callable[
-            [Union[float, np.float64, npt.NDArray[np.float64]]],
-            Union[float, np.float64],
+            [float | np.float64 | npt.NDArray[np.float64]],
+            float | np.float64,
         ],
         grad_log_target_pdf: Callable[
-            [Union[float, np.float64, npt.NDArray[np.float64]]],
-            Union[float, np.float64],
+            [float | np.float64 | npt.NDArray[np.float64]],
+            float | np.float64,
         ],
-        initial_sample: Union[np.float64, npt.NDArray[np.float64]],
-        initial_covariance: Union[np.float64, npt.NDArray[np.float64], None] = None,
+        initial_sample: np.float64 | npt.NDArray[np.float64],
+        initial_covariance: Optional[np.float64 | npt.NDArray[np.float64]] = None,
         total_timesteps: int = 500_000,
         log_mode: bool = True,
         seed: int = 42,
@@ -123,25 +122,23 @@ class Toolbox:
 
     @staticmethod
     def make_log_target_pdf(
-        posterior_name: str,
-        posteriordb_path: str,
-        posterior_data: Union[Dict[str, Union[float, int]], None] = None,
-    ):
-        # Load DataBase Locally
-        pdb = PosteriorDatabase(posteriordb_path)
-
-        # Load Dataset
-        posterior = pdb.posterior(posterior_name)
-        stan_code = posterior.model.stan_code_file_path()
-        if posterior_data is None:
-            stan_data = json.dumps(posterior.data.values())
-        else:
-            stan_data = json.dumps(posterior_data)
-
-        # Return log_target_pdf
-        model = bs.StanModel.from_stan_file(stan_code, stan_data)
+        stan_code_path: str,
+        posterior_data: Dict[str, float | int],
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        stan_data = json.dumps(posterior_data)
+        model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
 
         return model.log_density
+
+    @staticmethod
+    def make_grad_log_target_pdf(
+        stan_code_path: str,
+        posterior_data: Dict[str, float | int],
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        stan_data = json.dumps(posterior_data)
+        model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
+
+        return lambda x: model.log_density_gradient(x)[1]
 
     @staticmethod
     def create_folder(file_path: str) -> None:
