@@ -21,6 +21,7 @@ dependencies = [
     "toolz>=1.0.0",
     "pytest-mock>=3.14.0",
     "sphinx-autodoc-typehints>=2.5.0",
+    "myst-parser>=4.0.0",
 ]
 
 [dependency-groups]
