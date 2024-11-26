@@ -38,3 +38,8 @@ html_static_path = ["_static"]
 
 # -- Options for autodoc -----------------------------------------------------
 autodoc_inherit_docstrings = True
+
+# -- Options for netlify ----------------------------------------------------
+html_js_files = [
+    'https://identity.netlify.com/v1/netlify-identity-widget.js',
+]
