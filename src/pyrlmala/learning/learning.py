@@ -18,6 +18,39 @@ from ..utils import Toolbox
 
 
 class LearningInterface(ABC):
+    """
+    Learning Interface.
+
+    Attributes:
+        env (gym.spaces.Box): Environment.
+        predicted_env (gym.spaces.Box): Predicted environment.
+        random_seed (int): Random seed.
+        sample_dim (int): Sample dimension.
+        initial_step_size (npt.NDArray[np.float64]): Initial step size.
+        total_timesteps (int): Total timesteps.
+        actor (torch.nn.Module): Actor.
+        target_actor (torch.nn.Module): Target actor.
+        critic (torch.nn.Module): Critic.
+        target_critic (torch.nn.Module): Target critic.
+        actor_optimizer (torch.optim.Optimizer): Actor optimizer.
+        critic_optimizer (torch.optim.Optimizer): Critic optimizer.
+        replay_buffer (ReplayBuffer): Replay buffer.
+        learning_starts (int): Learning starts.
+        batch_size (int): Batch size.
+        exploration_noise (float): Exploration noise.
+        gamma (float): Gamma.
+        policy_frequency (int): Policy frequency.
+        tau (float): Tau.
+        device (torch.device): Device.
+        verbose (bool): Verbose.
+        predicted_timesteps (int | None): Predicted timesteps.
+        critic_values (List[float]): Critic values.
+        critic_loss (List[float]): Critic loss.
+        actor_loss (List[float]): Actor loss.
+        predicted_observation (List[npt.NDArray[np.float64]]): Predicted observation.
+        predicted_action (List[npt.NDArray[np.float64]]): Predicted action.
+        predicted_reward (List[npt.NDArray[np.float64]]): Predicted reward.
+    """
     def __init__(
         self,
         env: gym.spaces.Box,
@@ -39,6 +72,32 @@ class LearningInterface(ABC):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
     ) -> None:
+        """
+        Initialize the Learning Interface.
+
+        Args:
+            env (gym.spaces.Box): Environment.
+            predicted_env (gym.spaces.Box): Predicted environment.
+            actor (torch.nn.Module): Actor.
+            target_actor (torch.nn.Module): Target actor.
+            critic (torch.nn.Module): Critic.
+            target_critic (torch.nn.Module): Target critic.
+            actor_optimizer (torch.optim.Optimizer): Actor optimizer.
+            critic_optimizer (torch.optim.Optimizer): Critic optimizer.
+            replay_buffer (ReplayBuffer): Replay buffer.
+            learning_starts (int, optional): Learning starts. Defaults to 32.
+            batch_size (int, optional): Batch size. Defaults to 32.
+            exploration_noise (float, optional): Exploration noise. Defaults to 0.1.
+            gamma (float, optional): Gamma. Defaults to 0.99.
+            policy_frequency (int, optional): Policy frequency. Defaults to 2.
+            tau (float, optional): Tau. Defaults to 0.005.
+            random_seed (int, optional): Random seed. Defaults to 42.
+            device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            verbose (bool, optional): Verbose. Defaults to True.
+
+        Raises:
+            ValueError: If the observation space is not continuous
+        """
         if not isinstance(env.single_observation_space, gym.spaces.Box):
             raise ValueError("only continuous observation space is supported")
         else:
@@ -101,7 +160,8 @@ class LearningInterface(ABC):
     def soft_clipping(
         self, g: Float[torch.Tensor, "sample_dim"], t: float = 1.0, p: int = 2
     ) -> Float[torch.Tensor, "sample_dim"]:
-        """Soft clipping function for gradient clipping.
+        """
+        Soft clipping function for gradient clipping.
 
         Args:
             g (torch.Tensor): Gradient.
@@ -117,11 +177,23 @@ class LearningInterface(ABC):
 
     @abstractmethod
     def train(self) -> None:
+        """
+        Training method. Must be implemented in the subclass.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         raise NotImplementedError("train method is not implemented")
 
     def predict(
         self,
     ) -> None:
+        """
+        Predict the observation, action, and reward.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         _single_predicted_envs: List[MCMCEnvBase] = self.predicted_env.envs
         if hasattr(_single_predicted_envs[0].unwrapped, "total_timesteps"):
             self.predicted_timesteps: int = _single_predicted_envs[
@@ -160,10 +232,48 @@ class LearningInterface(ABC):
 
     @abstractmethod
     def save(self, folder_path: str) -> None:
+        """
+        Save the model.
+
+        Args:
+            folder_path (str): Folder path.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
         raise NotImplementedError("save method is not implemented")
 
 
 class LearningDDPG(LearningInterface):
+    """
+    DDPG Learning Interface.
+
+    Attributes:
+        env (gym.spaces.Box): Environment.
+        predicted_env (gym.spaces.Box): Predicted environment.
+        random_seed (int): Random seed.
+        sample_dim (int): Sample dimension.
+        initial_step_size (npt.NDArray[np.float64]): Initial step size.
+        total_timesteps (int): Total timesteps.
+        actor (torch.nn.Module): Actor.
+        target_actor (torch.nn.Module): Target actor.
+        critic (torch.nn.Module): Critic.
+        target_critic (torch.nn.Module): Target critic.
+        actor_optimizer (torch.optim.Optimizer): Actor optimizer.
+        critic_optimizer (torch.optim.Optimizer): Critic optimizer.
+        replay_buffer (ReplayBuffer): Replay buffer.
+        learning_starts (int): Learning starts.
+        batch_size (int): Batch size.
+        exploration_noise (float): Exploration noise.
+        gamma (float): Gamma.
+        policy_frequency (int): Policy frequency.
+        tau (float): Tau.
+        device (torch.device): Device.
+        verbose (bool): Verbose.
+        critic_values (List[float]): Critic values.
+        critic_loss (List[float]): Critic loss.
+        actor_loss (List[float]): Actor loss.
+    """
     def __init__(
         self,
         env: gym.spaces.Box,
@@ -185,6 +295,32 @@ class LearningDDPG(LearningInterface):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
     ) -> None:
+        """
+        Initialize the DDPG Learning Interface.
+
+        Args:
+            env (gym.spaces.Box): Environment.
+            predicted_env (gym.spaces.Box): Predicted environment.
+            actor (torch.nn.Module): Actor.
+            target_actor (torch.nn.Module): Target actor.
+            critic (torch.nn.Module): Critic.
+            target_critic (torch.nn.Module): Target critic.
+            actor_optimizer (torch.optim.Optimizer): Actor optimizer.
+            critic_optimizer (torch.optim.Optimizer): Critic optimizer.
+            replay_buffer (ReplayBuffer): Replay buffer.
+            learning_starts (int, optional): Learning starts. Defaults to 32.
+            batch_size (int, optional): Batch size. Defaults to 32.
+            exploration_noise (float, optional): Exploration noise. Defaults to 0.1.
+            gamma (float, optional): Gamma. Defaults to 0.99.
+            policy_frequency (int, optional): Policy frequency. Defaults to 2.
+            tau (float, optional): Tau. Defaults to 0.005.
+            random_seed (int, optional): Random seed. Defaults to 42.
+            device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            verbose (bool, optional): Verbose. Defaults to True.
+
+        Raises:
+            ValueError: If the observation space is not continuous.
+        """
         super().__init__(
             env=env,
             predicted_env=predicted_env,
@@ -214,6 +350,11 @@ class LearningDDPG(LearningInterface):
     ) -> None:
         """
         Training Session for DDPG.
+
+        Args:
+            gradient_clipping (bool, optional): Gradient clipping. Defaults to False.
+            t (float, optional): Threshold. Defaults to 1.0.
+            p (int, optional): Norm. Defaults to 2.
         """
         if gradient_clipping:
             soft_clipping_curry = partial(self.soft_clipping, t=t, p=p)
@@ -298,6 +439,12 @@ class LearningDDPG(LearningInterface):
                     self.actor_loss.append(actor_loss.item())
 
     def save(self, folder_path: str) -> None:
+        """
+        Save the model.
+
+        Args:
+            folder_path (str): Folder path.
+        """
         model_path = f"{folder_path}/ddpg.{time.time()}.pth"
         Toolbox.create_folder(model_path)
         torch.save(
@@ -307,6 +454,37 @@ class LearningDDPG(LearningInterface):
 
 
 class LearningTD3(LearningInterface):
+    """
+    TD3 Learning Interface.
+
+    Attributes:
+        env (gym.spaces.Box): Environment.
+        predicted_env (gym.spaces.Box): Predicted environment.
+        random_seed (int): Random seed.
+        sample_dim (int): Sample dimension.
+        initial_step_size (npt.NDArray[np.float64]): Initial step size.
+        total_timesteps (int): Total timesteps.
+        actor (torch.nn.Module): Actor.
+        target_actor (torch.nn.Module): Target actor.
+        critic (torch.nn.Module): Critic.
+        target_critic (torch.nn.Module): Target critic.
+        actor_optimizer (torch.optim.Optimizer): Actor optimizer.
+        critic_optimizer (torch.optim.Optimizer): Critic optimizer.
+        replay_buffer (ReplayBuffer): Replay buffer.
+        learning_starts (int): Learning starts.
+        batch_size (int): Batch size.
+        exploration_noise (float): Exploration noise.
+        gamma (float): Gamma.
+        policy_frequency (int): Policy frequency.
+        tau (float): Tau.
+        device (torch.device): Device.
+        verbose (bool): Verbose.
+        critic_values (List[float]): Critic values.
+        critic_loss (List[float]): Critic loss.
+        actor_loss (List[float]): Actor loss.
+        policy_noise (float): Policy noise.
+        noise_clip (float): Noise clip.
+    """
     def __init__(
         self,
         env: gym.spaces.Box,
@@ -332,6 +510,36 @@ class LearningTD3(LearningInterface):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
     ) -> None:
+        """
+        Initialize the TD3 Learning Interface.
+
+        Args:
+            env (gym.spaces.Box): Environment.
+            predicted_env (gym.spaces.Box): Predicted environment.
+            actor (torch.nn.Module): Actor.
+            target_actor (torch.nn.Module): Target actor.
+            critic (torch.nn.Module): Critic.
+            target_critic (torch.nn.Module): Target critic.
+            critic2 (torch.nn.Module): Critic 2.
+            target_critic2 (torch.nn.Module): Target critic 2.
+            actor_optimizer (torch.optim.Optimizer): Actor optimizer.
+            critic_optimizer (torch.optim.Optimizer): Critic optimizer.
+            replay_buffer (ReplayBuffer): Replay buffer.
+            learning_starts (int, optional): Learning starts. Defaults to 32.
+            batch_size (int, optional): Batch size. Defaults to 32.
+            exploration_noise (float, optional): Exploration noise. Defaults to 0.1.
+            gamma (float, optional): Gamma. Defaults to 0.99.
+            policy_frequency (int, optional): Policy frequency. Defaults to 2.
+            tau (float, optional): Tau. Defaults to 0.005.
+            random_seed (int, optional): Random seed. Defaults to 42.
+            policy_noise (float, optional): Policy noise. Defaults to 0.2.
+            noise_clip (float, optional): Noise clip. Defaults to 0.5.
+            device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            verbose (bool, optional): Verbose. Defaults to True.
+
+        Raises:
+            ValueError: If the observation space is not continuous.
+        """
         super().__init__(
             env=env,
             predicted_env=predicted_env,
@@ -367,6 +575,11 @@ class LearningTD3(LearningInterface):
     ) -> None:
         """
         Training Session for TD3.
+
+        Args:
+            gradient_clipping (bool, optional): Gradient clipping. Defaults to False.
+            t (float, optional): Threshold. Defaults to 1.0.
+            p (int, optional): Norm. Defaults to 2.
         """
         if gradient_clipping:
             soft_clipping_curry = partial(self.soft_clipping, t=t, p=p)
@@ -482,6 +695,12 @@ class LearningTD3(LearningInterface):
                     self.actor_loss.append(actor_loss.item())
 
     def save(self, folder_path: str) -> None:
+        """
+        Save the model.
+
+        Args:
+            folder_path (str): Folder path.
+        """
         model_path = f"{folder_path}/td3.{time.time()}.pth"
         Toolbox.create_folder(model_path)
         torch.save(

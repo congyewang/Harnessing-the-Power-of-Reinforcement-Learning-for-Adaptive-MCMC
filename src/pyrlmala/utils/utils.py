@@ -19,10 +19,7 @@ from torch.nn import functional as F
 
 class Toolbox:
     """
-    Toolbox class.
-
-    Returns:
-        Toolbox: Toolbox
+    Toolbox class. Contains utility functions. All methods are static.
     """
     @staticmethod
     def make_env(
