@@ -1,5 +1,6 @@
 import time
 from abc import ABC, abstractmethod
+from functools import partial
 from typing import List
 
 import gymnasium as gym
@@ -205,16 +206,23 @@ class LearningDDPG(LearningInterface):
             verbose=verbose,
         )
 
-    def train(self, gradient_clipping: bool = False) -> None:
+    def train(
+        self,
+        gradient_clipping: bool = False,
+        t: float = 1.0,
+        p: int = 2,
+    ) -> None:
         """
         Training Session for DDPG.
         """
         if gradient_clipping:
+            soft_clipping_curry = partial(self.soft_clipping, t=t, p=p)
+
             for p_critic in self.critic.parameters():
-                p_critic.register_hook(self.soft_clipping)
+                p_critic.register_hook(soft_clipping_curry)
 
             for p_actor in self.actor.parameters():
-                p_actor.register_hook(self.soft_clipping)
+                p_actor.register_hook(soft_clipping_curry)
 
         for global_step in trange(self.total_timesteps, disable=not self.verbose):
             if global_step < self.learning_starts:
@@ -354,19 +362,23 @@ class LearningTD3(LearningInterface):
         self.critic2_values: List[float] = []
         self.critic2_loss: List[float] = []
 
-    def train(self, gradient_clipping: bool = False) -> None:
+    def train(
+        self, gradient_clipping: bool = False, t: float = 1.0, p: int = 2
+    ) -> None:
         """
         Training Session for TD3.
         """
         if gradient_clipping:
+            soft_clipping_curry = partial(self.soft_clipping, t=t, p=p)
+
             for p_critic in self.critic.parameters():
-                p_critic.register_hook(self.soft_clipping)
+                p_critic.register_hook(soft_clipping_curry)
 
             for p_critic2 in self.critic2.parameters():
-                p_critic2.register_hook(self.soft_clipping)
+                p_critic2.register_hook(soft_clipping_curry)
 
             for p_actor in self.actor.parameters():
-                p_actor.register_hook(self.soft_clipping)
+                p_actor.register_hook(soft_clipping_curry)
 
         for global_step in trange(self.total_timesteps, disable=not self.verbose):
             if global_step < self.learning_starts:

@@ -31,14 +31,20 @@ total_timesteps = 50_000
 predicted_timesteps = 5_000
 # timestep to start learning
 learning_starts = 48
-# the learning rate of the optimizer
-learning_rate = 1e-4
 # the replay memory buffer size
 buffer_size = 50_000
 # the batch size of sample from the reply memory
 batch_size = 48
 # the discount factor gamma
 gamma = 0.99
+# the learning rate of the optimizer for the actor
+actor_learning_rate = 1e-5
+# the learning rate of the optimizer for the critic
+critic_learning_rate = 1e-5
+# the gradient clipping value for the actor
+actor_gradient_clipping = 1.0
+# the gradient clipping value for the critic
+critic_gradient_clipping = 1.0
 
 [algorithm.specific]
 # target smoothing coefficient (default.005)

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List, Optional
 
 
 @dataclass
@@ -23,10 +23,13 @@ class AlgorithmGeneralConfig:
     total_timesteps: int
     predicted_timesteps: int
     learning_starts: int
-    learning_rate: float
     buffer_size: int
     batch_size: int
     gamma: float
+    actor_learning_rate: float
+    critic_learning_rate: float
+    actor_gradient_clipping: float
+    critic_gradient_clipping: float
 
 
 @dataclass

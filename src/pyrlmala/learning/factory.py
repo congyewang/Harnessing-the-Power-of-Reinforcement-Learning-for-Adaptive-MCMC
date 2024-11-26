@@ -381,11 +381,11 @@ class PreparationInterface(ABC):
             optim.Optimizer: The optimizer.
         """
         actor_optimizer = optim.Adam(
-            list(actor.parameters()), lr=self.args.algorithm.general.learning_rate
+            list(actor.parameters()), lr=self.args.algorithm.general.actor_learning_rate
         )
 
         critic_optimizer = optim.Adam(
-            list(critic.parameters()), lr=self.args.algorithm.general.learning_rate
+            list(critic.parameters()), lr=self.args.algorithm.general.critic_learning_rate
         )
 
         return actor_optimizer, critic_optimizer
