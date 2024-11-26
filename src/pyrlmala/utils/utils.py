@@ -21,6 +21,7 @@ class Toolbox:
     """
     Toolbox class. Contains utility functions. All methods are static.
     """
+
     @staticmethod
     def make_env(
         env_id: str | EnvSpec,

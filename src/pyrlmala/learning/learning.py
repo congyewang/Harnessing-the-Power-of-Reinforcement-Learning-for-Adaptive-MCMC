@@ -51,6 +51,7 @@ class LearningInterface(ABC):
         predicted_action (List[npt.NDArray[np.float64]]): Predicted action.
         predicted_reward (List[npt.NDArray[np.float64]]): Predicted reward.
     """
+
     def __init__(
         self,
         env: gym.spaces.Box,
@@ -274,6 +275,7 @@ class LearningDDPG(LearningInterface):
         critic_loss (List[float]): Critic loss.
         actor_loss (List[float]): Actor loss.
     """
+
     def __init__(
         self,
         env: gym.spaces.Box,
@@ -485,6 +487,7 @@ class LearningTD3(LearningInterface):
         policy_noise (float): Policy noise.
         noise_clip (float): Noise clip.
     """
+
     def __init__(
         self,
         env: gym.spaces.Box,
