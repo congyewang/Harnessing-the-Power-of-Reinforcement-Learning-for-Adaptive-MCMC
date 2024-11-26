@@ -1,7 +1,7 @@
 import json
 import random
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import bridgestan as bs
 import gymnasium as gym
@@ -24,6 +24,18 @@ from . import LearningDDPG, LearningTD3
 
 
 class PosteriorDBFunctionsGenerator:
+    """
+    Target functions generator for PosteriorDB.
+
+    Attributes:
+        model_name (str): The name of the model in PosteriorDB.
+        posteriordb_path (str): The path to the PosteriorDB database.
+        posterior_data (Optional[Dict[str, float | int | List[float | int]]]): The parameter of the model.
+        stan_model (bs.StanModel): The Stan model.
+        log_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]): The log probability density function.
+        grad_log_pdf (Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]): The gradient of the log probability density function.
+    """
+
     def __init__(
         self,
         model_name: str,
@@ -92,6 +104,34 @@ class PosteriorDBFunctionsGenerator:
 
 
 class PreparationInterface(ABC):
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        initial_sample (npt.NDArray[np.float64]): The initial sample.
+        initial_covariance (Optional[npt.NDArray[np.float64]]): The initial covariance. Defaults to None.
+        initial_step_size (npt.NDArray[np.float64]): The initial step size. Defaults to np.array([1.0]).
+        log_mode (bool): The log mode. Defaults to True.
+        log_target_pdf (Optional[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]): The log probability density function of the target distribution. Defaults to None.
+        grad_log_target_pdf (Optional[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]): The gradient of the log probability density function. Defaults to None.
+        model_name (Optional[str]): The model name in PosteriorDB. Defaults to None.
+        posteriordb_path (Optional[str]): The path of PosteriorDB. Defaults to None.
+        posterior_data (Optional[Dict[str, float  |  int  |  List[float  |  int]]]): The posterior data. Defaults to None.
+        hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+        actor_config_path (str): The path to the actor configuration file.
+        critic_config_path (str): The path to the critic configuration file.
+        compile (bool): Whether to compile the model or not. Defaults to False.
+        verbose (bool): Whether to show the verbose message or not. Defaults to True.
+        args (HyperparameterConfigParser): The hyperparameter configuration parser.
+        actor_config (PolicyNetworkConfigParser): The actor configuration parser.
+        critic_config (QNetworkConfigParser): The critic configuration parser.
+        device (torch.device): The device.
+        envs (gym.vector.SyncVectorEnv): The environment.
+        predicted_envs (gym.vector.SyncVectorEnv): The predict environment.
+        actor (PolicyNetwork): The actor.
+        replay_buffer (ReplayBuffer): The replay buffer.
+    """
+
     def __init__(
         self,
         initial_sample: npt.NDArray[np.float64],
@@ -230,17 +270,17 @@ class PreparationInterface(ABC):
         Make Arguments.
 
         Args:
-            hyperparameter_config_path (str): _description_
-            actor_config_path (str): _description_
-            critic_config_path (str): _description_
+            hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+            actor_config_path (str): The path to the actor configuration file.
+            critic_config_path (str): The path to the critic configuration file.
 
         Raises:
-            ValueError: _description_
-            ValueError: _description_
-            ValueError: _description_
+            ValueError: hyperparameter_config_path must be provided.
+            ValueError: actor_config_path must be provided.
+            ValueError: critic_config_path must be provided.
 
         Returns:
-            Tuple[HyperparameterConfigParser, PolicyNetworkConfigParser, QNetworkConfigParser]: _description_
+            Tuple[HyperparameterConfigParser, PolicyNetworkConfigParser, QNetworkConfigParser]: The arguments.
         """
         if hyperparameter_config_path:
             args = HyperparameterConfigParser(hyperparameter_config_path)
@@ -286,9 +326,18 @@ class PreparationInterface(ABC):
 
         Args:
             env_id (str | EnvSpec): The environment id.
+
+        Returns:
+            Callable[[], MCMCEnvBase]: The thunk function.
         """
 
-        def thunk():
+        def thunk() -> MCMCEnvBase:
+            """
+            Initialize environment.
+
+            Returns:
+                MCMCEnvBase: The environment.
+            """
             env = gym.make(
                 id=env_id,
                 log_target_pdf_unsafe=self.log_target_pdf,
@@ -349,7 +398,7 @@ class PreparationInterface(ABC):
             compile (bool): Whether to compile the model or not.
 
         Returns:
-            PolicyNetwork: The actor.
+            Tuple[PolicyNetwork, PolicyNetwork]: The actor.
         """
         actor = PolicyNetwork(self.envs, self.actor_config).to(self.device).double()
         target_actor = (
@@ -365,6 +414,18 @@ class PreparationInterface(ABC):
     def make_critic(
         self, compile: bool
     ) -> Tuple[QNetwork, QNetwork] | Tuple[QNetwork, QNetwork, QNetwork, QNetwork]:
+        """
+        Make critic.
+
+        Args:
+            compile (bool): Whether to compile the model or not.
+
+        Raises:
+            NotImplementedError: make_critic method is not implemented.
+
+        Returns:
+            Tuple[QNetwork, QNetwork] | Tuple[QNetwork, QNetwork, QNetwork, QNetwork]: The critic.
+        """
         raise NotImplementedError("make_critic method is not implemented.")
 
     def make_optimizer(
@@ -385,7 +446,8 @@ class PreparationInterface(ABC):
         )
 
         critic_optimizer = optim.Adam(
-            list(critic.parameters()), lr=self.args.algorithm.general.critic_learning_rate
+            list(critic.parameters()),
+            lr=self.args.algorithm.general.critic_learning_rate,
         )
 
         return actor_optimizer, critic_optimizer
@@ -419,6 +481,34 @@ class PreparationInterface(ABC):
 
 
 class PreparationDDPG(PreparationInterface):
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        initial_sample (npt.NDArray[np.float64]): The initial sample.
+        initial_covariance (Optional[npt.NDArray[np.float64]]): The initial covariance. Defaults to None.
+        initial_step_size (npt.NDArray[np.float64]): The initial step size. Defaults to np.array([1.0]).
+        log_mode (bool): The log mode. Defaults to True.
+        log_target_pdf (Optional[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]): The log probability density function of the target distribution. Defaults to None.
+        grad_log_target_pdf (Optional[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]): The gradient of the log probability density function. Defaults to None.
+        model_name (Optional[str]): The model name in PosteriorDB. Defaults to None.
+        posteriordb_path (Optional[str]): The path of PosteriorDB. Defaults to None.
+        posterior_data (Optional[Dict[str, float  |  int  |  List[float  |  int]]]): The posterior data. Defaults to None.
+        hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+        actor_config_path (str): The path to the actor configuration file.
+        critic_config_path (str): The path to the critic configuration file.
+        compile (bool): Whether to compile the model or not. Defaults to False.
+        verbose (bool): Whether to show the verbose message or not. Defaults to True.
+        args (HyperparameterConfigParser): The hyperparameter configuration parser.
+        actor_config (PolicyNetworkConfigParser): The actor configuration parser.
+        critic_config (QNetworkConfigParser): The critic configuration parser.
+        device (torch.device): The device.
+        envs (gym.vector.SyncVectorEnv): The environment.
+        predicted_envs (gym.vector.SyncVectorEnv): The predict environment.
+        actor (PolicyNetwork): The actor.
+        replay_buffer (ReplayBuffer): The replay buffer.
+    """
+
     def __init__(
         self,
         initial_sample: npt.NDArray[np.float64],
@@ -439,6 +529,24 @@ class PreparationDDPG(PreparationInterface):
         critic_config_path: str = "",
         compile: bool = False,
     ) -> None:
+        """
+        Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+        Args:
+            initial_sample (npt.NDArray[np.float64]): The initial sample.
+            initial_covariance (Optional[npt.NDArray[np.float64]], optional): The initial covariance. Defaults to None.
+            initial_step_size (npt.NDArray[np.float64], optional): The initial step size. Defaults to np.array([1.0]).
+            log_mode (bool, optional): The log mode. Defaults to True.
+            log_target_pdf (Optional[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] ], optional): The log probability density function of the target distribution. Defaults to None.
+            grad_log_target_pdf (Optional[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] ], optional): The gradient of the log probability density function. Defaults to None.
+            model_name (Optional[str], optional):The model name in PosteriorDB. Defaults to None.
+            posteriordb_path (Optional[str], optional): The path of PosteriorDB. Defaults to None.
+            posterior_data (Optional[Dict[str, float  |  int  |  List[float  |  int]]], optional): The posterior data. Defaults to None.
+            hyperparameter_config_path (str, optional): The path to the hyperparameter configuration file. Defaults to "".
+            actor_config_path (str, optional):The path to the actor configuration file. Defaults to "".
+            critic_config_path (str, optional): The path to the critic configuration file. Defaults to "".
+            compile (bool, optional): Whether to compile the model or not. Defaults to False.
+        """
         super().__init__(
             initial_sample,
             initial_covariance,
@@ -507,6 +615,38 @@ class PreparationDDPG(PreparationInterface):
 
 
 class PreparationTD3(PreparationInterface):
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        initial_sample (npt.NDArray[np.float64]): The initial sample.
+        initial_covariance (Optional[npt.NDArray[np.float64]]): The initial covariance. Defaults to None.
+        initial_step_size (npt.NDArray[np.float64]): The initial step size. Defaults to np.array([1.0]).
+        log_mode (bool): The log mode. Defaults to True.
+        log_target_pdf (Optional[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]): The log probability density function of the target distribution. Defaults to None.
+        grad_log_target_pdf (Optional[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]]): The gradient of the log probability density function. Defaults to None.
+        model_name (Optional[str]): The model name in PosteriorDB. Defaults to None.
+        posteriordb_path (Optional[str]): The path of PosteriorDB. Defaults to None.
+        posterior_data (Optional[Dict[str, float  |  int  |  List[float  |  int]]]): The posterior data. Defaults to None.
+        hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+        actor_config_path (str): The path to the actor configuration file.
+        critic_config_path (str): The path to the critic configuration file.
+        compile (bool): Whether to compile the model or not. Defaults to False.
+        verbose (bool): Whether to show the verbose message or not. Defaults to True.
+        args (HyperparameterConfigParser): The hyperparameter configuration parser.
+        actor_config (PolicyNetworkConfigParser): The actor configuration parser.
+        critic_config (QNetworkConfigParser): The critic configuration parser.
+        device (torch.device): The device.
+        envs (gym.vector.SyncVectorEnv): The environment.
+        predicted_envs (gym.vector.SyncVectorEnv): The predict environment.
+        actor (PolicyNetwork): The actor.
+        replay_buffer (ReplayBuffer): The replay buffer.
+        qf1 (QNetwork): The critic.
+        target_qf1 (QNetwork): The target critic.
+        qf2 (QNetwork): The critic.
+        target_qf2 (QNetwork): The target critic.
+    """
+
     def __init__(
         self,
         initial_sample: npt.NDArray[np.float64],
@@ -527,6 +667,24 @@ class PreparationTD3(PreparationInterface):
         critic_config_path: str = "",
         compile: bool = False,
     ) -> None:
+        """
+        Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+        Args:
+            initial_sample (npt.NDArray[np.float64]): The initial sample.
+            initial_covariance (Optional[npt.NDArray[np.float64]], optional): The initial covariance. Defaults to None.
+            initial_step_size (npt.NDArray[np.float64], optional): The initial step size. Defaults to np.array([1.0]).
+            log_mode (bool, optional): The log mode. Defaults to True.
+            log_target_pdf (Optional[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] ], optional): The log probability density function of the target distribution. Defaults to None.
+            grad_log_target_pdf (Optional[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] ], optional): The gradient of the log probability density function. Defaults to None.
+            model_name (Optional[str], optional):The model name in PosteriorDB. Defaults to None.
+            posteriordb_path (Optional[str], optional): The path of PosteriorDB. Defaults to None.
+            posterior_data (Optional[Dict[str, float  |  int  |  List[float  |  int]]], optional): The posterior data. Defaults to None.
+            hyperparameter_config_path (str, optional): The path to the hyperparameter configuration file. Defaults to "".
+            actor_config_path (str, optional):The path to the actor configuration file. Defaults to "".
+            critic_config_path (str, optional): The path to the critic configuration file. Defaults to "".
+            compile (bool, optional): Whether to compile the model or not. Defaults to False.
+        """
         super().__init__(
             initial_sample,
             initial_covariance,
@@ -572,6 +730,12 @@ class PreparationTD3(PreparationInterface):
         return qf1, target_qf1, qf2, target_qf2
 
     def create(self) -> LearningTD3:
+        """
+        Create learning algorithm.
+
+        Returns:
+            LearningTD3: TD3 algorithm.
+        """
         return LearningTD3(
             env=self.envs,
             predicted_env=self.predicted_envs,
@@ -599,10 +763,22 @@ class PreparationTD3(PreparationInterface):
 
 
 class LearningAlgorithmFactory(ABC):
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+        actor_config_path (str): The path to the actor configuration file.
+        critic_config_path (str): The path to the critic configuration file.
+    """
+
     @abstractmethod
     def create(self, **kwargs):
         """
-        Create a learning algorithm instance.
+        Create a learning algorithm instance. This method should be implemented in the subclass.
+
+        Raises:
+            NotImplementedError: create method is not implemented.
         """
         raise NotImplementedError("create method is not implemented.")
 
@@ -612,14 +788,48 @@ class LearningAlgorithmFactory(ABC):
         hyperparameter_config_path: str,
         actor_config_path: str,
         critic_config_path: str,
-    ):
-        def decorator(cls):
+    ) -> Callable[[Type["LearningAlgorithmFactory"]], Type["LearningAlgorithmFactory"]]:
+        """
+        Register the algorithm to the factory.
+
+        Args:
+            algorithm_name (str): The name of the algorithm.
+            hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+            actor_config_path (str): The path to the actor configuration file.
+            critic_config_path (str): The path to the critic configuration file.
+
+        Returns:
+            Callable[[Type[LearningAlgorithmFactory]], Type[LearningAlgorithmFactory]]: The decorator.
+        """
+
+        def decorator(cls) -> Type["LearningAlgorithmFactory"]:
+            """
+            Decorator function.
+
+            Args:
+                cls (Type[LearningAlgorithmFactory]): The class.
+
+            Returns:
+                Type[LearningAlgorithmFactory]: The class.
+            """
+
             def create_instance(
                 hyperparameter_config_path=hyperparameter_config_path,
                 actor_config_path=actor_config_path,
                 critic_config_path=critic_config_path,
                 **kwargs,
-            ):
+            ) -> "LearningAlgorithmFactory":
+                """
+                Create an instance of the learning algorithm.
+
+                Args:
+                    hyperparameter_config_path (str, optional): The path to the hyperparameter configuration file. Defaults to hyperparameter_config_path.
+                    actor_config_path (str, optional): The path to the actor configuration file. Defaults to actor_config_path.
+                    critic_config_path (str, optional): The path to the critic configuration file. Defaults to critic_config_path.
+
+                Returns:
+                    LearningAlgorithmFactory: The learning algorithm instance.
+                """
                 return cls(
                     hyperparameter_config_path=hyperparameter_config_path,
                     actor_config_path=actor_config_path,
@@ -633,12 +843,26 @@ class LearningAlgorithmFactory(ABC):
 
 
 class LearningFactory:
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        _factories (Dict[str, Callable[..., LearningAlgorithmFactory]]): The factories.
+    """
+
     _factories = {}
 
     @classmethod
     def register_factory(
         cls, algorithm: str, factory_callable: Callable[..., "LearningAlgorithmFactory"]
-    ):
+    ) -> None:
+        """
+        Register the factory to the class.
+
+        Args:
+            algorithm (str): The algorithm name, which should be lower case. For example, "ddpg" and "td3".
+            factory_callable (Callable[..., LearningAlgorithmFactory]): The factory callable.
+        """
         cls._factories[algorithm.lower()] = factory_callable
 
     @classmethod
@@ -649,7 +873,22 @@ class LearningFactory:
         actor_config_path="",
         critic_config_path="",
         **kwargs,
-    ):
+    ) -> LearningAlgorithmFactory:
+        """
+        Create a learning algorithm instance.
+
+        Args:
+            algorithm (str): The algorithm name, which should be lower case. For example, "ddpg" and "td3".
+            hyperparameter_config_path (str, optional): The path to the hyperparameter configuration file. Defaults to "".
+            actor_config_path (str, optional): The path to the actor configuration file. Defaults to "".
+            critic_config_path (str, optional): The path to the critic configuration file. Defaults to "".
+
+        Raises:
+            ValueError: Unsupported algorithm.
+
+        Returns:
+            LearningAlgorithmFactory: The learning algorithm instance.
+        """
         factory_callable = cls._factories.get(algorithm.lower())
         if not factory_callable:
             raise ValueError(f"Unsupported algorithm: {algorithm}.")
@@ -668,17 +907,40 @@ class LearningFactory:
     critic_config_path="config/critic.toml",
 )
 class DDPGFactory(LearningAlgorithmFactory):
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+        actor_config_path (str): The path to the actor configuration file.
+        critic_config_path (str): The path to the critic configuration file.
+    """
+
     def __init__(
         self,
         hyperparameter_config_path: str,
         actor_config_path: str,
         critic_config_path: str,
-    ):
+    ) -> None:
+        """
+        Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+        Args:
+            hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+            actor_config_path (str): The path to the actor configuration file.
+            critic_config_path (str): The path to the critic configuration file.
+        """
         self.hyperparameter_config_path = hyperparameter_config_path
         self.actor_config_path = actor_config_path
         self.critic_config_path = critic_config_path
 
-    def create(self, **kwargs):
+    def create(self, **kwargs) -> LearningDDPG:
+        """
+        Create a learning algorithm instance.
+
+        Returns:
+            LearningDDPG: The learning algorithm instance.
+        """
         return PreparationDDPG(
             hyperparameter_config_path=self.hyperparameter_config_path,
             actor_config_path=self.actor_config_path,
@@ -694,18 +956,41 @@ class DDPGFactory(LearningAlgorithmFactory):
     critic_config_path="config/critic.toml",
 )
 class TD3Factory(LearningAlgorithmFactory):
+    """
+    Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+    Attributes:
+        hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+        actor_config_path (str): The path to the actor configuration file.
+        critic_config_path (str): The path to the critic configuration file.
+    """
+
     def __init__(
         self,
         hyperparameter_config_path: str,
         actor_config_path: str,
         critic_config_path: str,
-    ):
+    ) -> None:
+        """
+        Factory class for creating learning algorithms based on reinforcement learning strategies.
+
+        Args:
+            hyperparameter_config_path (str): The path to the hyperparameter configuration file.
+            actor_config_path (str): The path to the actor configuration file.
+            critic_config_path (str): The path to the critic configuration file.
+        """
         self.hyperparameter_config_path = hyperparameter_config_path
         self.actor_config_path = actor_config_path
         self.critic_config_path = critic_config_path
 
-    def create(self, **kwargs):
-        return PreparationDDPG(
+    def create(self, **kwargs) -> LearningTD3:
+        """
+        Create a learning algorithm instance.
+
+        Returns:
+            LearningTD3: The learning algorithm instance.
+        """
+        return PreparationTD3(
             hyperparameter_config_path=self.hyperparameter_config_path,
             actor_config_path=self.actor_config_path,
             critic_config_path=self.critic_config_path,

@@ -10,6 +10,26 @@ from scipy.stats import multivariate_normal
 
 
 class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
+    """
+    MCMC Environment Base Class
+
+    Attributes:
+        log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the log target probability density function without numerical stabilization.
+        grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the gradient of the log target probability density function without numerical stabilization.
+        initial_sample (npt.NDArray[np.float64]): Initial Sample.
+        initial_covariance (npt.NDArray[np.float64]): Initial Covariance.
+        initial_step_size (npt.NDArray[np.float64]): Initial Step Size.
+        total_timesteps (int): The number of the total time steps in the whole episode.
+        log_mode (bool): The controller if reward function returns the logarithmic form.
+        sample_dim (int): Sample Dimension.
+        steps (int): Iteration Time.
+        observation_space (gym.spaces.Box): Observation Specification.
+        action_space (gym.spaces.Box): Action Specification.
+        state (npt.NDArray[np.float64]): State.
+        covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance.
+    """
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
@@ -24,7 +44,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         total_timesteps: int = 500_000,
         log_mode: bool = True,
     ) -> None:
-        """Initialize the Environment
+        """
+        Initialize the Environment.
 
         Args:
             log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
@@ -137,7 +158,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         )
 
     def softplus(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Softplus Function for Numerical Stability.
+        """
+        Softplus Function for Numerical Stability.
 
         Args:
             x (npt.NDArray[np.float64]): Input array.
@@ -148,8 +170,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         return np.logaddexp(x, 0)
 
     def inverse_softplus(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Inverse softplus Function for Numerical Stability.
-        y = log(exp(x) - 1).
+        """
+        Inverse softplus Function for Numerical Stability. y = log(exp(x) - 1).
 
         Args:
             x (npt.NDArray[np.float64]): Input array.
@@ -166,16 +188,17 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         log_proposal_current: npt.NDArray[np.float64],
         log_alpha: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
-        """Expected Entropy Reward
+        """
+        Expected Entropy Reward
 
         Args:
-            log_target_current (npt.NDArray[np.float64]): Log target density at current sample
-            log_target_accepted (npt.NDArray[np.float64]): Log target density at accepted sample
-            log_proposal_current (npt.NDArray[np.float64]): Log proposal density at current sample
-            log_alpha (npt.NDArray[np.float64]): Log acceptance rate
+            log_target_current (npt.NDArray[np.float64]): Log target density at current sample.
+            log_target_accepted (npt.NDArray[np.float64]): Log target density at accepted sample.
+            log_proposal_current (npt.NDArray[np.float64]): Log proposal density at current sample.
+            log_alpha (npt.NDArray[np.float64]): Log acceptance rate.
 
         Returns:
-            npt.NDArray[np.float64]: Expected Entropy Reward
+            npt.NDArray[np.float64]: Expected Entropy Reward.
         """
         log_one_minus_alpha = np.log1p(-np.exp(log_alpha))
         if np.isinf(log_one_minus_alpha) or np.isnan(log_one_minus_alpha):
@@ -198,13 +221,14 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         return res
 
     def log_target_pdf(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """Log Target Probability Density Function
+        """
+        Log Target Probability Density Function.
 
         Args:
-            x (npt.NDArray[np.float64]): Sample
+            x (npt.NDArray[np.float64]): Sample.
 
         Returns:
-            npt.NDArray[np.float64]: Log Target Probability Density at x
+            npt.NDArray[np.float64]: Log Target Probability Density at x.
         """
         res = self.log_target_pdf_unsafe(x)
 
@@ -216,13 +240,14 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
     def grad_log_target_pdf(
         self, x: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:
-        """Gradient of Log Target Probability Density Function
+        """
+        Gradient of Log Target Probability Density Function.
 
         Args:
-            x (npt.NDArray[np.float64]): Sample
+            x (npt.NDArray[np.float64]): Sample.
 
         Returns:
-            npt.NDArray[np.float64]: Gradient of Log Target Probability Density at x
+            npt.NDArray[np.float64]: Gradient of Log Target Probability Density at x.
         """
         res = self.grad_log_target_pdf_unsafe(x)
 
@@ -238,15 +263,16 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
     ) -> Tuple[
         npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
     ]:
-        """Log Target Process
+        """
+        Log Target Process.
 
         Args:
-            current_sample (npt.NDArray[np.float64]): Current Sample
-            proposed_sample (npt.NDArray[np.float64]): Proposed Sample
+            current_sample (npt.NDArray[np.float64]): Current Sample.
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample.
 
         Returns:
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-                Log Target Current, Log Target Proposed, Log Target Ratio
+                Log Target Current, Log Target Proposed, Log Target Ratio.
         """
         log_target_current = self.log_target_pdf(current_sample)
         log_target_proposed = self.log_target_pdf(proposed_sample)
@@ -258,16 +284,17 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
     def log_proposal_pdf(
         self, x: npt.NDArray[np.float64], *args, **kwargs
     ) -> npt.NDArray[np.float64]:
-        """Log Proposal Probability Density Function
+        """
+        Log Proposal Probability Density Function.
 
         Args:
-            x (npt.NDArray[np.float64]): Sample
+            x (npt.NDArray[np.float64]): Sample.
 
         Raises:
             NotImplementedError: log_proposal_pdf is not implemented.
 
         Returns:
-            npt.NDArray[np.float64]: Log Proposal Probability Density
+            npt.NDArray[np.float64]: Log Proposal Probability Density.
         """
         raise NotImplementedError("log_proposal_pdf is not implemented.")
 
@@ -281,7 +308,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
     ) -> Tuple[
         npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
     ]:
-        """Log Proposal Process
+        """
+        Log Proposal Process.
 
         Args:
             current_sample (npt.NDArray[np.float64]): Current Sample
@@ -314,7 +342,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         accepted_mean: npt.NDArray[np.float64],
         accepted_covariance: npt.NDArray[np.float64],
     ) -> None:
-        """Store Process
+        """
+        Store Process. Store the information of the current step.
 
         Args:
             current_sample (npt.NDArray[np.float64]): Current Sample
@@ -362,7 +391,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
 
     @abstractmethod
     def sample_generator(self, *args, **kwargs) -> npt.NDArray[np.float64]:
-        """Sample generator, which is used to generate the next proposed sample.
+        """
+        Sample generator, which is used to generate the next proposed sample. This function should be implemented.
 
         Raises:
             NotImplementedError: mcmc_noise is not implemented.
@@ -376,16 +406,16 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
     def step(
         self, action: npt.NDArray[np.float64]
     ) -> tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
-        """Step Function for Environment
+        """Step Function for Environment. This function should be implemented.
 
         Args:
-            action (npt.NDArray[np.float64]): Step Size Before Softplus Function
+            action (npt.NDArray[np.float64]): Step Size Before Softplus Function.
 
         Raises:
             NotImplementedError: step is not implemented.
         Returns:
             tuple[Any, SupportsFloat, bool, bool, dict[str, Any]]:
-                State, Reward, Terminated, Truncated, Info
+                State, Reward, Terminated, Truncated, Info.
         """
         raise NotImplementedError("step is not implemented.")
 
@@ -413,6 +443,26 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
 
 
 class BarkerEnv(MCMCEnvBase):
+    """
+    Barker Environment. This is a simple environment to illustrate how to sample from the Barker proposal.
+
+    Attributes:
+        log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the log target probability density function without numerical stabilization.
+        grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the gradient of the log target probability density function without numerical stabilization.
+        initial_sample (npt.NDArray[np.float64]): Initial Sample.
+        initial_covariance (npt.NDArray[np.float64]): Initial Covariance.
+        initial_step_size (npt.NDArray[np.float64]): Initial Step Size.
+        total_timesteps (int): The number of the total time steps in the whole episode.
+        log_mode (bool): The controller if reward function returns the logarithmic form.
+        sample_dim (int): Sample Dimension.
+        steps (int): Iteration Time.
+        observation_space (gym.spaces.Box): Observation Specification.
+        action_space (gym.spaces.Box): Action Specification.
+        state (npt.NDArray[np.float64]): State.
+        covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance.
+    """
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
@@ -427,6 +477,18 @@ class BarkerEnv(MCMCEnvBase):
         total_timesteps: int = 500_000,
         log_mode: bool = True,
     ) -> None:
+        """
+        Initialize the Environment.
+
+        Args:
+            log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]): _description_
+            grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]): _description_
+            initial_sample (npt.NDArray[np.float64]): _description_
+            initial_covariance (Optional[npt.NDArray[np.float64]], optional): _description_. Defaults to None.
+            initial_step_size (npt.NDArray[np.float64], optional): _description_. Defaults to np.array([1.0]).
+            total_timesteps (int, optional): _description_. Defaults to 500_000.
+            log_mode (bool, optional): _description_. Defaults to True.
+        """
         super().__init__(
             log_target_pdf_unsafe,
             grad_log_target_pdf_unsafe,
@@ -443,17 +505,16 @@ class BarkerEnv(MCMCEnvBase):
         grad_x: npt.NDArray[np.float64],
         step_size: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
-        """self is a simple function to illustrate how
-                to sample from the Barker proposal (isotropic
-                version, i.e. no preconditioning)
+        """
+        A simple function to illustrate how to sample from the Barker proposal (isotropic version, i.e. no preconditioning)
 
         Args:
-            x (npt.NDArray[np.float64]): Sample
-            grad_x (npt.NDArray[np.float64]): Gradient of Log Target Probability Density at x
-            step_size (np.float64): Step Size
+            x (npt.NDArray[np.float64]): Sample.
+            grad_x (npt.NDArray[np.float64]): Gradient of Log Target Probability Density at x.
+            step_size (np.float64): Step Size.
 
         Returns:
-            npt.NDArray[np.float64]: Next Proposed Sample
+            npt.NDArray[np.float64]: Next Proposed Sample.
         """
         z = self.np_random.normal(0, step_size, self.sample_dim)
         u = self.np_random.uniform(size=self.sample_dim)
@@ -467,15 +528,16 @@ class BarkerEnv(MCMCEnvBase):
         y: npt.NDArray[np.float64],
         step_size: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
-        """Log of mu_{sigma}.
+        """
+        Log of mu_{sigma}.
 
         Args:
-            x (npt.NDArray[np.float64]): Sample
-            y (npt.NDArray[np.float64]): Sample
-            step_size (np.float64): Step Size
+            x (npt.NDArray[np.float64]): Sample.
+            y (npt.NDArray[np.float64]): Sample.
+            step_size (np.float64): Step Size.
 
         Returns:
-            npt.NDArray[np.float64]: Log of mu_{sigma}
+            npt.NDArray[np.float64]: Log of mu_{sigma}.
         """
         position = (y - x) / step_size
 
@@ -489,6 +551,17 @@ class BarkerEnv(MCMCEnvBase):
         y: npt.NDArray[np.float64],
         step_size_x: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
+        """
+        Log Proposal Probability Density Function.
+
+        Args:
+            x (npt.NDArray[np.float64]): Sample.
+            y (npt.NDArray[np.float64]): Sample.
+            step_size_x (npt.NDArray[np.float64]): Step Size at x.
+
+        Returns:
+            npt.NDArray[np.float64]: Log Proposal Probability Density.
+        """
         return self.sample_dim * np.log(2) + np.sum(
             self.log_mu_sigma(x, y, step_size_x)
             - self.softplus((x - y) * self.grad_log_target_pdf(x))
@@ -503,7 +576,8 @@ class BarkerEnv(MCMCEnvBase):
     ) -> Tuple[
         npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
     ]:
-        """Log Proposal Process.
+        """
+        Log Proposal Process.
 
         Args:
             current_sample (npt.NDArray[np.float64]): Current Sample
@@ -543,17 +617,18 @@ class BarkerEnv(MCMCEnvBase):
         npt.NDArray[np.float64],
         npt.NDArray[np.float64],
     ]:
-        """Accepted / Rejected Process.
+        """
+        Accepted / Rejected Process. This function is used to determine whether the proposed sample is accepted or rejected.
 
         Args:
-            current_sample (npt.NDArray[np.float64]): Current Sample
-            proposed_sample (npt.NDArray[np.float64]): Proposed Sample
-            current_mean (npt.NDArray[np.float64]): Current Mean
-            proposed_mean (npt.NDArray[np.float64]): Proposed Mean
-            current_covariance (npt.NDArray[np.float64]): Current Covariance
-            proposed_covariance (npt.NDArray[np.float64]): Proposed Covariance
-            current_step_size (npt.NDArray[np.float64]): Step Size at Current Sample
-            proposed_step_size (npt.NDArray[np.float64]): Step Size at Proposed Sample
+            current_sample (npt.NDArray[np.float64]): Current Sample.
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample.
+            current_mean (npt.NDArray[np.float64]): Current Mean.
+            proposed_mean (npt.NDArray[np.float64]): Proposed Mean.
+            current_covariance (npt.NDArray[np.float64]): Current Covariance.
+            proposed_covariance (npt.NDArray[np.float64]): Proposed Covariance.
+            current_step_size (npt.NDArray[np.float64]): Step Size at Current Sample.
+            proposed_step_size (npt.NDArray[np.float64]): Step Size at Proposed Sample.
 
         Returns:
             Tuple[ bool, npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], np.float64]:
@@ -616,6 +691,15 @@ class BarkerEnv(MCMCEnvBase):
     def step(
         self, action: npt.NDArray[np.float64]
     ) -> Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]:
+        """
+        Step Function for Environment. This function is used to update the environment state.
+
+        Args:
+            action (npt.NDArray[np.float64]): Step Size Before Softplus Function, which is unconstrained.
+
+        Returns:
+            Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]: State, Reward, Terminated, Truncated, Info.
+        """
         # Unpack state
         current_sample, proposed_sample = np.split(self.state, 2)
 

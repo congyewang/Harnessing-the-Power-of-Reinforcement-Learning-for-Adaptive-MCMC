@@ -8,10 +8,30 @@ from ..agent_network import AgentNetworkBase
 
 
 class QNetwork(AgentNetworkBase):
+    """
+    QNetwork is a class that represents the Q-network of the agent.
+
+    Attributes:
+        envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+        config (QNetworkConfigParser): The configuration from the critic TOML file parsed by QNetworkConfigParser.
+    """
     def __init__(self, envs: SyncVectorEnv, config: QNetworkConfigParser):
+        """
+        Initialize the QNetwork.
+
+        Args:
+            envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+            config (QNetworkConfigParser): The configuration from the critic TOML file parsed by QNetworkConfigParser.
+        """
         super().__init__(envs=envs, config=config)
 
     def _get_input_size(self) -> int:
+        """
+        Get the input size of the network.
+
+        Returns:
+            int: The input size of the network.
+        """
         return int(
             np.array(self.envs.single_observation_space.shape).prod()
             + np.array(self.envs.single_action_space.shape).prod()
@@ -22,5 +42,11 @@ class QNetwork(AgentNetworkBase):
         observation: Float[torch.Tensor, "current_sample proposed_sample"],
         action: Float[torch.Tensor, "current_step_size proposed_step_size"],
     ) -> Float[torch.Tensor, "q_value"]:
+        """
+        Forward pass of the network.
+
+        Returns:
+            Float[torch.Tensor, "q_value"]: The Q-value of the network.
+        """
         x = torch.cat([observation, action], 1)
         return self.network(x)

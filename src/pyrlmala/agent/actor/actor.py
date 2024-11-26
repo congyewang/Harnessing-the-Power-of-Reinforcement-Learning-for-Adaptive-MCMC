@@ -8,15 +8,41 @@ from ..agent_network import AgentNetworkBase
 
 
 class PolicyNetwork(AgentNetworkBase):
+    """
+    PolicyNetwork.
+
+    Attributes:
+        envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+        config (PolicyNetworkConfigParser): The configuration from the actor TOML file parsed by PolicyNetworkConfigParser.
+    """
     def __init__(self, envs: SyncVectorEnv, config: PolicyNetworkConfigParser) -> None:
+        """
+        Initialize the PolicyNetwork.
+
+        Args:
+            envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+            config (PolicyNetworkConfigParser): The configuration from the actor TOML file parsed by PolicyNetworkConfigParser.
+        """
         super().__init__(envs=envs, config=config)
 
     def _get_input_size(self) -> int:
+        """
+        Get the input size of the network.
+
+        Returns:
+            int: The input size of the network.
+        """
         return np.array(self.envs.single_observation_space.shape).prod() >> 1
 
     def forward(
         self, observation: Float[torch.Tensor, "current_sample proposed_sample"]
     ) -> Float[torch.Tensor, "current_step_size proposed_step_size"]:
+        """
+        Forward pass of the network.
+
+        Returns:
+            Float[torch.Tensor, "current_step_size proposed_step_size"]: The action of the network.
+        """
         current_sample, proposed_sample = torch.tensor_split(observation, 2, dim=1)
 
         current_phi = self.network(current_sample)
