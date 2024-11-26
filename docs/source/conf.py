@@ -24,6 +24,7 @@ extensions = [
     'sphinx.ext.napoleon',          # Support for Google and NumPy style docstring
     'sphinx.ext.autosummary',       # Automatic generation of overviews
     'sphinx_autodoc_typehints',     # Support for type annotations
+    'sphinx_markdown_builder',      # Support for Markdown
 ]
 
 templates_path = ["_templates"]
