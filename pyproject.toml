@@ -20,6 +20,7 @@ dependencies = [
     "wandb>=0.18.7",
     "toolz>=1.0.0",
     "pytest-mock>=3.14.0",
+    "sphinx-autodoc-typehints>=2.5.0",
 ]
 
 [dependency-groups]

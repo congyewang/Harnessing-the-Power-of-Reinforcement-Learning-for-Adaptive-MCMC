@@ -1925,6 +1925,7 @@ dependencies = [
     { name = "pytest-mock" },
     { name = "scipy" },
     { name = "sphinx" },
+    { name = "sphinx-autodoc-typehints" },
     { name = "sphinx-rtd-theme" },
     { name = "stable-baselines3" },
     { name = "toolz" },
@@ -1951,6 +1952,7 @@ requires-dist = [
     { name = "pytest-mock", specifier = ">=3.14.0" },
     { name = "scipy", specifier = ">=1.14.1" },
     { name = "sphinx", specifier = ">=8.1.3" },
+    { name = "sphinx-autodoc-typehints", specifier = ">=2.5.0" },
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "stable-baselines3", specifier = ">=2.3.2" },
     { name = "toolz", specifier = ">=1.0.0" },
@@ -2511,6 +2513,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/be0b61178fe2cdcb67e2a92fc9ebb488e3c51c4f74a36a7824c0adf23425/sphinx-8.1.3.tar.gz", hash = "sha256:43c1911eecb0d3e161ad78611bc905d1ad0e523e4ddc202a58a821773dc4c927", size = 8184611 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/26/60/1ddff83a56d33aaf6f10ec8ce84b4c007d9368b21008876fceda7e7381ef/sphinx-8.1.3-py3-none-any.whl", hash = "sha256:09719015511837b76bf6e03e42eb7595ac8c2e41eeb9c29c5b755c6b677992a2", size = 3487125 },
+]
+
+[[package]]
+name = "sphinx-autodoc-typehints"
+version = "2.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sphinx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2e/a0/4f17d564c86aa269749d99dd498a5c94abe0915d2ff349187f8ff8c75994/sphinx_autodoc_typehints-2.5.0.tar.gz", hash = "sha256:259e1026b218d563d72743f417fcc25906a9614897fe37f91bd8d7d58f748c3b", size = 40822 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fa/ae/322d05bec884977b89eced3af811c228652a9e25f9646ee6236890987214/sphinx_autodoc_typehints-2.5.0-py3-none-any.whl", hash = "sha256:53def4753239683835b19bfa8b68c021388bd48a096efcb02cdab508ece27363", size = 20104 },
 ]
 
 [[package]]
