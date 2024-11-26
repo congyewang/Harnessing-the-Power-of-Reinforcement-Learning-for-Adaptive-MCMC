@@ -86,8 +86,9 @@ class Toolbox:
         credits [2].
 
         [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+
         [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
-        matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
+            matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
 
         Args:
             A (npt.NDArray[np.float64]): Input array.
@@ -275,9 +276,10 @@ class Toolbox:
 
         Args:
             policy (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Policy function.
-            x_range (Float[torch.Tensor, "x"], optional): x range. Defaults to torch.arange(-5, 5, 0.1).
-            y_range (Float[torch.Tensor, "y"], optional): y range. Defaults to torch.arange(-5, 5, 0.1).
+            x_range (Float[torch.Tensor, "x"], optional): x range. e.g. torch.arange(-5, 5, 0.1).
+            y_range (Float[torch.Tensor, "y"], optional): y range. e.g. torch.arange(-5, 5, 0.1).
             softplus_mode (bool, optional): Softplus mode. Defaults to True.
+            save_path (Optional[str], optional): Save path. Defaults to None.
         """
 
         # Plot
