@@ -1,9 +1,3 @@
-pyrlmala package
-================
-
-Subpackages
------------
-
 .. toctree::
    :maxdepth: 4
 
@@ -12,11 +6,3 @@ Subpackages
    pyrlmala.envs
    pyrlmala.learning
    pyrlmala.utils
-
-Module contents
----------------
-
-.. automodule:: pyrlmala
-   :members:
-   :undoc-members:
-   :show-inheritance:

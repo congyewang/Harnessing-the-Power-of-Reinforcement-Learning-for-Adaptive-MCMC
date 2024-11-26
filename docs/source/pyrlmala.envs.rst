@@ -1,19 +1,5 @@
-pyrlmala.envs package
+Envs
 =====================
-
-Submodules
-----------
-
-pyrlmala.envs.env module
-------------------------
-
-.. automodule:: pyrlmala.envs.env
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
 
 .. automodule:: pyrlmala.envs
    :members:
