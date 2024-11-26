@@ -266,8 +266,8 @@ class Toolbox:
     @staticmethod
     def policy_plot_2D_heatmap(
         policy: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
-        x_range: Float[torch.Tensor, "x"] = torch.arange(-5, 5, 0.1),
-        y_range: Float[torch.Tensor, "y"] = torch.arange(-5, 5, 0.1),
+        x_range: Float[torch.Tensor, "x"],
+        y_range: Float[torch.Tensor, "y"],
         softplus_mode: bool = True,
         save_path: Optional[str] = None,
     ) -> None:
