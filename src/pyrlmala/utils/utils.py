@@ -11,7 +11,6 @@ import numpy.typing as npt
 import torch
 from gymnasium.envs.registration import EnvSpec
 from jaxtyping import Float
-from numpy.typing import NDArray
 from scipy.stats._multivariate import _PSD
 from toolz import pipe
 from torch.nn import functional as F
@@ -80,7 +79,7 @@ class Toolbox:
         return thunk
 
     @classmethod
-    def nearestPD(cls, A: NDArray[np.float64]) -> NDArray[np.float64]:
+    def nearestPD(cls, A: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """
         Find the nearest positive-definite matrix to input
         A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
@@ -91,10 +90,10 @@ class Toolbox:
         matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
 
         Args:
-            A (NDArray[np.float64]): Input array.
+            A (npt.NDArray[np.float64]): Input array.
 
         Returns:
-            NDArray[np.float64]: Nearest positive-definite matrix.
+            npt.NDArray[np.float64]: Nearest positive-definite matrix.
         """
 
         B = (A + A.T) / 2
@@ -129,12 +128,12 @@ class Toolbox:
         return A3
 
     @classmethod
-    def isPD(cls, B: NDArray[np.float64]) -> bool:
+    def isPD(cls, B: npt.NDArray[np.float64]) -> bool:
         """
         Returns true when input is positive-definite, via Cholesky, det, and _PSD from scipy.
 
         Args:
-            B (NDArray[np.float64]): Input array.
+            B (npt.NDArray[np.float64]): Input array.
 
         Returns:
             bool: True if input is positive-definite, False otherwise.
