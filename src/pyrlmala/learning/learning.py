@@ -8,12 +8,13 @@ import numpy as np
 import numpy.typing as npt
 import torch
 import torch.nn.functional as F
+from gymnasium.vector import SyncVectorEnv
+from gymnasium.wrappers import RecordEpisodeStatistics
 from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.optim.optimizer import Optimizer as Optimizer
 from tqdm.auto import trange
 
-from ..envs import MCMCEnvBase
 from ..utils import Toolbox
 
 
@@ -22,8 +23,8 @@ class LearningInterface(ABC):
     Learning Interface.
 
     Attributes:
-        env (gym.spaces.Box): Environment.
-        predicted_env (gym.spaces.Box): Predicted environment.
+        env (SyncVectorEnv): Environment.
+        predicted_env (SyncVectorEnv): Predicted environment.
         random_seed (int): Random seed.
         sample_dim (int): Sample dimension.
         initial_step_size (npt.NDArray[np.float64]): Initial step size.
@@ -54,8 +55,8 @@ class LearningInterface(ABC):
 
     def __init__(
         self,
-        env: gym.spaces.Box,
-        predicted_env: gym.spaces.Box,
+        env: SyncVectorEnv,
+        predicted_env: SyncVectorEnv,
         actor: torch.nn.Module,
         target_actor: torch.nn.Module,
         critic: torch.nn.Module,
@@ -77,8 +78,8 @@ class LearningInterface(ABC):
         Initialize the Learning Interface.
 
         Args:
-            env (gym.spaces.Box): Environment.
-            predicted_env (gym.spaces.Box): Predicted environment.
+            env (SyncVectorEnv): Environment.
+            predicted_env (SyncVectorEnv): Predicted environment.
             actor (torch.nn.Module): Actor.
             target_actor (torch.nn.Module): Target actor.
             critic (torch.nn.Module): Critic.
@@ -111,7 +112,7 @@ class LearningInterface(ABC):
 
         self.obs, self.infos = env.reset(seed=random_seed)
 
-        _single_envs: List[MCMCEnvBase] = env.envs
+        _single_envs: List[RecordEpisodeStatistics] = env.envs
         if hasattr(_single_envs[0].unwrapped, "sample_dim"):
             self.sample_dim: int = _single_envs[0].unwrapped.sample_dim
         else:
@@ -195,7 +196,7 @@ class LearningInterface(ABC):
         Raises:
             NotImplementedError: If the method is not implemented.
         """
-        _single_predicted_envs: List[MCMCEnvBase] = self.predicted_env.envs
+        _single_predicted_envs: List[RecordEpisodeStatistics] = self.predicted_env.envs
         if hasattr(_single_predicted_envs[0].unwrapped, "total_timesteps"):
             self.predicted_timesteps: int = _single_predicted_envs[
                 0
@@ -250,8 +251,8 @@ class LearningDDPG(LearningInterface):
     DDPG Learning Interface.
 
     Attributes:
-        env (gym.spaces.Box): Environment.
-        predicted_env (gym.spaces.Box): Predicted environment.
+        env (SyncVectorEnv): Environment.
+        predicted_env (SyncVectorEnv): Predicted environment.
         random_seed (int): Random seed.
         sample_dim (int): Sample dimension.
         initial_step_size (npt.NDArray[np.float64]): Initial step size.
@@ -278,8 +279,8 @@ class LearningDDPG(LearningInterface):
 
     def __init__(
         self,
-        env: gym.spaces.Box,
-        predicted_env: gym.spaces.Box,
+        env: SyncVectorEnv,
+        predicted_env: SyncVectorEnv,
         actor: torch.nn.Module,
         target_actor: torch.nn.Module,
         critic: torch.nn.Module,
@@ -301,8 +302,8 @@ class LearningDDPG(LearningInterface):
         Initialize the DDPG Learning Interface.
 
         Args:
-            env (gym.spaces.Box): Environment.
-            predicted_env (gym.spaces.Box): Predicted environment.
+            env (SyncVectorEnv): Environment.
+            predicted_env (SyncVectorEnv): Predicted environment.
             actor (torch.nn.Module): Actor.
             target_actor (torch.nn.Module): Target actor.
             critic (torch.nn.Module): Critic.
@@ -460,8 +461,8 @@ class LearningTD3(LearningInterface):
     TD3 Learning Interface.
 
     Attributes:
-        env (gym.spaces.Box): Environment.
-        predicted_env (gym.spaces.Box): Predicted environment.
+        env (SyncVectorEnv): Environment.
+        predicted_env (SyncVectorEnv): Predicted environment.
         random_seed (int): Random seed.
         sample_dim (int): Sample dimension.
         initial_step_size (npt.NDArray[np.float64]): Initial step size.
@@ -490,8 +491,8 @@ class LearningTD3(LearningInterface):
 
     def __init__(
         self,
-        env: gym.spaces.Box,
-        predicted_env: gym.spaces.Box,
+        env: SyncVectorEnv,
+        predicted_env: SyncVectorEnv,
         actor: torch.nn.Module,
         target_actor: torch.nn.Module,
         critic: torch.nn.Module,
@@ -517,8 +518,8 @@ class LearningTD3(LearningInterface):
         Initialize the TD3 Learning Interface.
 
         Args:
-            env (gym.spaces.Box): Environment.
-            predicted_env (gym.spaces.Box): Predicted environment.
+            env (SyncVectorEnv): Environment.
+            predicted_env (SyncVectorEnv): Predicted environment.
             actor (torch.nn.Module): Actor.
             target_actor (torch.nn.Module): Target actor.
             critic (torch.nn.Module): Critic.
