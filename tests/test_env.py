@@ -1,39 +1,63 @@
+from functools import partial
+
 import numpy as np
+import pytest
+from scipy.stats import multivariate_normal, wishart
 
 from pyrlmala.envs.env import BarkerEnv
 
+SAMPLE_DIM_LIST = [1, 2, 3, 5, 33, 66]
+
 
 class TestBarkerEnv:
-    def setup_method(self):
-        # Setup a basic BarkerEnv instance for testing
+    def create_env(self, sample_dim: int):
+        """
+        Create a basic BarkerEnv instance for testing
+        """
         self.env = BarkerEnv(
-            log_target_pdf_unsafe=lambda x: -0.5 * np.sum(x**2, axis=-1),
+            log_target_pdf_unsafe=partial(
+                multivariate_normal.logpdf,
+                mean=np.zeros(sample_dim),
+                cov=np.eye(sample_dim),
+            ),
             grad_log_target_pdf_unsafe=lambda x: -x,
-            initial_sample=np.array([0.0]),
-            initial_covariance=np.array([[1.0]]),
-            initial_step_size=np.array([0.1]),
-            total_timesteps=1000,
-            log_mode=False,
+            initial_sample=np.random.normal(size=sample_dim),
+            initial_covariance=wishart.rvs(
+                df=(sample_dim + 1), scale=np.eye(sample_dim)
+            ).reshape(sample_dim, sample_dim),
+            initial_step_size=np.random.uniform(0.1, 5.0),
+            total_timesteps=1_000,
+            log_mode=True,
         )
-        self.env.sample_dim = 1
-        self.env.np_random = np.random.default_rng(seed=42)
 
-    def test_sample_generator_happy_path(self):
-        x = np.array([0.0])
-        grad_x = np.array([0.0])
-        step_size = np.array([0.1])
+    @pytest.mark.parametrize("sample_dim", SAMPLE_DIM_LIST)
+    def test_sample_generator_happy_path(self, sample_dim: int) -> None:
+        self.create_env(sample_dim)
+
+        x = np.random.normal(size=(sample_dim,))
+        grad_x = np.random.normal(size=(sample_dim,))
+        step_size = np.random.uniform(0.1, 5.0, size=(sample_dim,))
+
         sample = self.env.sample_generator(x, grad_x, step_size)
+
         assert sample.shape == x.shape
 
-    def test_accepted_process_edge_case(self):
-        current_sample = np.array([0.0])
-        proposed_sample = np.array([0.0])
-        current_mean = np.array([0.0])
-        proposed_mean = np.array([0.0])
-        current_covariance = np.array([[1.0]])
-        proposed_covariance = np.array([[1.0]])
-        current_step_size = np.array([0.1])
-        proposed_step_size = np.array([0.1])
+    @pytest.mark.parametrize("sample_dim", SAMPLE_DIM_LIST)
+    def test_accepted_process_edge_case(self, sample_dim: int) -> None:
+        self.create_env(sample_dim)
+
+        current_sample = np.random.normal(size=(sample_dim,))
+        proposed_sample = np.random.normal(size=(sample_dim,))
+        current_mean = np.random.normal(size=(sample_dim,))
+        proposed_mean = np.random.normal(size=(sample_dim,))
+        current_covariance = wishart.rvs(
+            df=(sample_dim + 1), scale=np.eye(sample_dim)
+        ).reshape(sample_dim, sample_dim)
+        proposed_covariance = wishart.rvs(
+            df=(sample_dim + 1), scale=np.eye(sample_dim)
+        ).reshape(sample_dim, sample_dim)
+        current_step_size = np.random.uniform(0.1, 5.0, size=(sample_dim,))
+        proposed_step_size = np.random.uniform(0.1, 5.0, size=(sample_dim,))
 
         (
             accepted_status,
@@ -58,11 +82,14 @@ class TestBarkerEnv:
         assert accepted_covariance.shape == current_covariance.shape
         assert isinstance(log_alpha, np.float64)
 
-    def test_step_happy_path(self):
-        action = np.array([0.0, 0.0])
+    @pytest.mark.parametrize("sample_dim", SAMPLE_DIM_LIST)
+    def test_step_happy_path(self, sample_dim: int) -> None:
+        self.create_env(sample_dim)
+
+        action = np.random.normal(size=2)
         state, reward, terminated, truncated, info = self.env.step(action)
 
-        assert state.shape == (2,)
+        assert state.shape == (sample_dim << 1,)
         assert isinstance(reward, float)
         assert isinstance(terminated, bool)
         assert isinstance(truncated, bool)
