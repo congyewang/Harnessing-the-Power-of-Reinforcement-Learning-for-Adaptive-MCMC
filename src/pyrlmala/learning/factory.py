@@ -507,6 +507,10 @@ class PreparationDDPG(PreparationInterface):
         predicted_envs (gym.vector.SyncVectorEnv): The predict environment.
         actor (PolicyNetwork): The actor.
         replay_buffer (ReplayBuffer): The replay buffer.
+        qf1 (QNetwork): The critic.
+        target_qf1 (QNetwork): The target critic.
+        actor_optimizer (optim.Optimizer): The actor optimizer.
+        q_optimizer (optim.Optimizer): The critic optimizer.
     """
 
     def __init__(
@@ -602,6 +606,12 @@ class PreparationDDPG(PreparationInterface):
             actor_optimizer=self.actor_optimizer,
             critic_optimizer=self.q_optimizer,
             replay_buffer=self.replay_buffer,
+            actor_gradient_clipping=self.args.algorithm.general.actor_gradient_clipping,
+            actor_gradient_threshold=self.args.algorithm.general.actor_gradient_threshold,
+            actor_gradient_norm=self.args.algorithm.general.actor_gradient_norm,
+            critic_gradient_clipping=self.args.algorithm.general.critic_gradient_clipping,
+            critic_gradient_threshold=self.args.algorithm.general.critic_gradient_threshold,
+            critic_gradient_norm=self.args.algorithm.general.critic_gradient_norm,
             learning_starts=self.args.algorithm.general.learning_starts,
             batch_size=self.args.algorithm.general.batch_size,
             exploration_noise=self.args.algorithm.specific.exploration_noise,
@@ -645,6 +655,8 @@ class PreparationTD3(PreparationInterface):
         target_qf1 (QNetwork): The target critic.
         qf2 (QNetwork): The critic.
         target_qf2 (QNetwork): The target critic.
+        actor_optimizer (optim.Optimizer): The actor optimizer.
+        q_optimizer (optim.Optimizer): The critic optimizer.
     """
 
     def __init__(
@@ -748,6 +760,12 @@ class PreparationTD3(PreparationInterface):
             critic2=self.qf2,
             target_critic2=self.target_qf2,
             replay_buffer=self.replay_buffer,
+            actor_gradient_clipping=self.args.algorithm.general.actor_gradient_clipping,
+            actor_gradient_threshold=self.args.algorithm.general.actor_gradient_threshold,
+            actor_gradient_norm=self.args.algorithm.general.actor_gradient_norm,
+            critic_gradient_clipping=self.args.algorithm.general.critic_gradient_clipping,
+            critic_gradient_threshold=self.args.algorithm.general.critic_gradient_threshold,
+            critic_gradient_norm=self.args.algorithm.general.critic_gradient_norm,
             learning_starts=self.args.algorithm.general.learning_starts,
             batch_size=self.args.algorithm.general.batch_size,
             exploration_noise=self.args.algorithm.specific.exploration_noise,

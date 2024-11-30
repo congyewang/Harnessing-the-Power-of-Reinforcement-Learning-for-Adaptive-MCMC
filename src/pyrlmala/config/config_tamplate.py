@@ -49,8 +49,12 @@ class AlgorithmGeneralConfig:
         gamma (float): Gamma.
         actor_learning_rate (float): Actor learning rate.
         critic_learning_rate (float): Critic learning rate.
-        actor_gradient_clipping (float): Actor gradient clipping.
-        critic_gradient_clipping (float): Critic gradient clipping.
+        actor_gradient_clipping (bool): Flag to enable actor gradient clipping.
+        actor_gradient_threshold (float): Actor gradient threshold.
+        actor_gradient_norm (int): Actor gradient norm.
+        critic_gradient_clipping (bool): Flag to enable critic gradient clipping.
+        critic_gradient_threshold (float): Critic gradient threshold.
+        critic_gradient_norm (int): Critic gradient norm.
     """
 
     env_id: str
@@ -62,8 +66,12 @@ class AlgorithmGeneralConfig:
     gamma: float
     actor_learning_rate: float
     critic_learning_rate: float
-    actor_gradient_clipping: float
-    critic_gradient_clipping: float
+    actor_gradient_clipping: bool
+    actor_gradient_threshold: float
+    actor_gradient_norm: int
+    critic_gradient_clipping: bool
+    critic_gradient_threshold: float
+    critic_gradient_norm: int
 
 
 @dataclass

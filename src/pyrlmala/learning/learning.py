@@ -1,7 +1,7 @@
 import time
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import List
+from typing import Callable, List, Optional
 
 import gymnasium as gym
 import numpy as np
@@ -36,6 +36,12 @@ class LearningInterface(ABC):
         actor_optimizer (torch.optim.Optimizer): Actor optimizer.
         critic_optimizer (torch.optim.Optimizer): Critic optimizer.
         replay_buffer (ReplayBuffer): Replay buffer.
+        actor_gradient_clipping (bool): Actor gradient clipping.
+        actor_gradient_threshold (Optional[float]): Actor gradient threshold.
+        actor_gradient_norm (Optional[int]): Actor gradient norm.
+        critic_gradient_clipping (bool): Critic gradient clipping.
+        critic_gradient_threshold (Optional[float]): Critic gradient threshold.
+        critic_gradient_norm (Optional[int]): Critic gradient norm.
         learning_starts (int): Learning starts.
         batch_size (int): Batch size.
         exploration_noise (float): Exploration noise.
@@ -64,6 +70,12 @@ class LearningInterface(ABC):
         actor_optimizer: torch.optim.Optimizer,
         critic_optimizer: torch.optim.Optimizer,
         replay_buffer: ReplayBuffer,
+        actor_gradient_clipping: bool = False,
+        actor_gradient_threshold: Optional[float] = 1.0,
+        actor_gradient_norm: Optional[int] = 2,
+        critic_gradient_clipping: bool = False,
+        critic_gradient_threshold: Optional[float] = 1.0,
+        critic_gradient_norm: Optional[int] = 2,
         learning_starts: int = 32,
         batch_size: int = 32,
         exploration_noise: float = 0.1,
@@ -87,6 +99,12 @@ class LearningInterface(ABC):
             actor_optimizer (torch.optim.Optimizer): Actor optimizer.
             critic_optimizer (torch.optim.Optimizer): Critic optimizer.
             replay_buffer (ReplayBuffer): Replay buffer.
+            actor_gradient_clipping (bool, optional): Actor gradient clipping. Defaults to False.
+            actor_gradient_threshold (Optional[float], optional): Actor gradient threshold. Defaults to 1.0.
+            actor_gradient_norm (Optional[int], optional): Actor gradient norm. Defaults to 2.
+            critic_gradient_clipping (bool, optional): Critic gradient clipping. Defaults to False.
+            critic_gradient_threshold (Optional[float], optional): Critic gradient threshold. Defaults to 1.0.
+            critic_gradient_norm (Optional[int], optional): Critic gradient norm. Defaults to 2.
             learning_starts (int, optional): Learning starts. Defaults to 32.
             batch_size (int, optional): Batch size. Defaults to 32.
             exploration_noise (float, optional): Exploration noise. Defaults to 0.1.
@@ -138,6 +156,14 @@ class LearningInterface(ABC):
 
         self.replay_buffer = replay_buffer
 
+        self.actor_gradient_clipping = actor_gradient_clipping
+        self.actor_gradient_threshold = actor_gradient_threshold
+        self.actor_gradient_norm = actor_gradient_norm
+
+        self.critic_gradient_clipping = critic_gradient_clipping
+        self.critic_gradient_threshold = critic_gradient_threshold
+        self.critic_gradient_norm = critic_gradient_norm
+
         self.learning_starts = learning_starts
         self.batch_size = batch_size
 
@@ -160,8 +186,8 @@ class LearningInterface(ABC):
         self.predicted_reward: List[npt.NDArray[np.float64]] = []
 
     def soft_clipping(
-        self, g: Float[torch.Tensor, "sample_dim"], t: float = 1.0, p: int = 2
-    ) -> Float[torch.Tensor, "sample_dim"]:
+        self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
+    ) -> Float[torch.Tensor, "gradient"]:
         """
         Soft clipping function for gradient clipping.
 
@@ -176,6 +202,28 @@ class LearningInterface(ABC):
         norm = torch.norm(g, p=p)
 
         return t / (t + norm) * g
+
+    def currying_gradient_clipping(
+        self,
+        gradient_threshold: float = 1.0,
+        gradient_norm: int = 2,
+    ) -> Callable[[Float[torch.Tensor, "gradient"]], Float[torch.Tensor, "gradient"]]:
+        """
+        Currying function for gradient clipping. It returns a function that clips the gradient.
+
+        Raises:
+            ValueError: Threshold must be non-negative.
+            ValueError: Norm must be positive integer.
+
+        Returns:
+            Callable[[Float[torch.Tensor, "gradient"]], Float[torch.Tensor, "gradient"]]: Clipped gradient.
+        """
+        if gradient_threshold < 0.0:
+            raise ValueError("Threshold must be non-negative")
+        if isinstance(gradient_norm, int) and gradient_norm < 1:
+            raise ValueError("Norm must be positive integer")
+
+        return partial(self.soft_clipping, t=gradient_threshold, p=gradient_norm)
 
     @abstractmethod
     def train(self) -> None:
@@ -212,6 +260,7 @@ class LearningInterface(ABC):
         predicted_action: List[npt.NDArray[np.float64]] = []
         predicted_reward: List[npt.NDArray[np.float64]] = []
 
+        self.actor.eval()
         for _ in trange(self.predicted_timesteps, disable=not self.verbose):
             with torch.no_grad():
                 predicted_actions = self.actor(
@@ -264,6 +313,12 @@ class LearningDDPG(LearningInterface):
         actor_optimizer (torch.optim.Optimizer): Actor optimizer.
         critic_optimizer (torch.optim.Optimizer): Critic optimizer.
         replay_buffer (ReplayBuffer): Replay buffer.
+        actor_gradient_clipping (bool): Actor gradient clipping.
+        actor_gradient_threshold (Optional[float]): Actor gradient threshold.
+        actor_gradient_norm (Optional[int]): Actor gradient norm.
+        critic_gradient_clipping (bool): Critic gradient clipping.
+        critic_gradient_threshold (Optional[float]): Critic gradient threshold.
+        critic_gradient_norm (Optional[int]): Critic gradient norm.
         learning_starts (int): Learning starts.
         batch_size (int): Batch size.
         exploration_noise (float): Exploration noise.
@@ -288,6 +343,12 @@ class LearningDDPG(LearningInterface):
         actor_optimizer: torch.optim.Optimizer,
         critic_optimizer: torch.optim.Optimizer,
         replay_buffer: ReplayBuffer,
+        actor_gradient_clipping: bool = False,
+        actor_gradient_threshold: Optional[float] = 1.0,
+        actor_gradient_norm: Optional[int] = 2,
+        critic_gradient_clipping: bool = False,
+        critic_gradient_threshold: Optional[float] = 1.0,
+        critic_gradient_norm: Optional[int] = 2,
         learning_starts: int = 32,
         batch_size: int = 32,
         exploration_noise: float = 0.1,
@@ -311,6 +372,12 @@ class LearningDDPG(LearningInterface):
             actor_optimizer (torch.optim.Optimizer): Actor optimizer.
             critic_optimizer (torch.optim.Optimizer): Critic optimizer.
             replay_buffer (ReplayBuffer): Replay buffer.
+            actor_gradient_clipping (bool, optional): Actor gradient clipping. Defaults to False.
+            actor_gradient_threshold (Optional[float], optional): Actor gradient threshold. Defaults to 1.0.
+            actor_gradient_norm (Optional[int], optional): Actor gradient norm. Defaults to 2.
+            critic_gradient_clipping (bool, optional): Critic gradient clipping. Defaults to False.
+            critic_gradient_threshold (Optional[float], optional): Critic gradient threshold. Defaults to 1.0.
+            critic_gradient_norm (Optional[int], optional): Critic gradient norm. Defaults to 2.
             learning_starts (int, optional): Learning starts. Defaults to 32.
             batch_size (int, optional): Batch size. Defaults to 32.
             exploration_noise (float, optional): Exploration noise. Defaults to 0.1.
@@ -334,6 +401,12 @@ class LearningDDPG(LearningInterface):
             actor_optimizer=actor_optimizer,
             critic_optimizer=critic_optimizer,
             replay_buffer=replay_buffer,
+            actor_gradient_clipping=actor_gradient_clipping,
+            actor_gradient_threshold=actor_gradient_threshold,
+            actor_gradient_norm=actor_gradient_norm,
+            critic_gradient_clipping=critic_gradient_clipping,
+            critic_gradient_threshold=critic_gradient_threshold,
+            critic_gradient_norm=critic_gradient_norm,
             learning_starts=learning_starts,
             batch_size=batch_size,
             exploration_noise=exploration_noise,
@@ -347,27 +420,28 @@ class LearningDDPG(LearningInterface):
 
     def train(
         self,
-        gradient_clipping: bool = False,
-        t: float = 1.0,
-        p: int = 2,
     ) -> None:
         """
         Training Session for DDPG.
-
-        Args:
-            gradient_clipping (bool, optional): Gradient clipping. Defaults to False.
-            t (float, optional): Threshold. Defaults to 1.0.
-            p (int, optional): Norm. Defaults to 2.
         """
-        if gradient_clipping:
-            soft_clipping_curry = partial(self.soft_clipping, t=t, p=p)
-
-            for p_critic in self.critic.parameters():
-                p_critic.register_hook(soft_clipping_curry)
-
+        # Gradient clipping
+        if self.actor_gradient_clipping:
             for p_actor in self.actor.parameters():
-                p_actor.register_hook(soft_clipping_curry)
+                p_actor.register_hook(
+                    self.currying_gradient_clipping(
+                        self.actor_gradient_threshold, self.actor_gradient_norm
+                    )
+                )
 
+        if self.critic_gradient_clipping:
+            for p_critic in self.critic.parameters():
+                p_critic.register_hook(
+                    self.currying_gradient_clipping(
+                        self.critic_gradient_threshold, self.critic_gradient_norm
+                    )
+                )
+
+        # Training loop
         for global_step in trange(self.total_timesteps, disable=not self.verbose):
             if global_step < self.learning_starts:
                 actions = np.concatenate(
@@ -474,6 +548,12 @@ class LearningTD3(LearningInterface):
         actor_optimizer (torch.optim.Optimizer): Actor optimizer.
         critic_optimizer (torch.optim.Optimizer): Critic optimizer.
         replay_buffer (ReplayBuffer): Replay buffer.
+        actor_gradient_clipping (bool): Actor gradient clipping.
+        actor_gradient_threshold (Optional[float]): Actor gradient threshold.
+        actor_gradient_norm (Optional[int]): Actor gradient norm.
+        critic_gradient_clipping (bool): Critic gradient clipping.
+        critic_gradient_threshold (Optional[float]): Critic gradient threshold.
+        critic_gradient_norm (Optional[int]): Critic gradient norm.
         learning_starts (int): Learning starts.
         batch_size (int): Batch size.
         exploration_noise (float): Exploration noise.
@@ -502,6 +582,12 @@ class LearningTD3(LearningInterface):
         actor_optimizer: torch.optim.Optimizer,
         critic_optimizer: torch.optim.Optimizer,
         replay_buffer: ReplayBuffer,
+        actor_gradient_clipping: bool = False,
+        actor_gradient_threshold: Optional[float] = 1.0,
+        actor_gradient_norm: Optional[int] = 2,
+        critic_gradient_clipping: bool = False,
+        critic_gradient_threshold: Optional[float] = 1.0,
+        critic_gradient_norm: Optional[int] = 2,
         learning_starts: int = 32,
         batch_size: int = 32,
         exploration_noise: float = 0.1,
@@ -529,6 +615,12 @@ class LearningTD3(LearningInterface):
             actor_optimizer (torch.optim.Optimizer): Actor optimizer.
             critic_optimizer (torch.optim.Optimizer): Critic optimizer.
             replay_buffer (ReplayBuffer): Replay buffer.
+            actor_gradient_clipping (bool, optional): Actor gradient clipping. Defaults to False.
+            actor_gradient_threshold (Optional[float], optional): Actor gradient threshold. Defaults to 1.0.
+            actor_gradient_norm (Optional[int], optional): Actor gradient norm. Defaults to 2.
+            critic_gradient_clipping (bool, optional): Critic gradient clipping. Defaults to False.
+            critic_gradient_threshold (Optional[float], optional): Critic gradient threshold. Defaults to 1.0.
+            critic_gradient_norm (Optional[int], optional): Critic gradient norm. Defaults to 2.
             learning_starts (int, optional): Learning starts. Defaults to 32.
             batch_size (int, optional): Batch size. Defaults to 32.
             exploration_noise (float, optional): Exploration noise. Defaults to 0.1.
@@ -554,6 +646,12 @@ class LearningTD3(LearningInterface):
             actor_optimizer=actor_optimizer,
             critic_optimizer=critic_optimizer,
             replay_buffer=replay_buffer,
+            actor_gradient_clipping=actor_gradient_clipping,
+            actor_gradient_threshold=actor_gradient_threshold,
+            actor_gradient_norm=actor_gradient_norm,
+            critic_gradient_clipping=critic_gradient_clipping,
+            critic_gradient_threshold=critic_gradient_threshold,
+            critic_gradient_norm=critic_gradient_norm,
             learning_starts=learning_starts,
             batch_size=batch_size,
             exploration_noise=exploration_noise,
@@ -574,29 +672,35 @@ class LearningTD3(LearningInterface):
         self.critic2_values: List[float] = []
         self.critic2_loss: List[float] = []
 
-    def train(
-        self, gradient_clipping: bool = False, t: float = 1.0, p: int = 2
-    ) -> None:
+    def train(self) -> None:
         """
         Training Session for TD3.
-
-        Args:
-            gradient_clipping (bool, optional): Gradient clipping. Defaults to False.
-            t (float, optional): Threshold. Defaults to 1.0.
-            p (int, optional): Norm. Defaults to 2.
         """
-        if gradient_clipping:
-            soft_clipping_curry = partial(self.soft_clipping, t=t, p=p)
+        # Gradient clipping
+        if self.actor_gradient_clipping:
+            for p_actor in self.actor.parameters():
+                p_actor.register_hook(
+                    self.currying_gradient_clipping(
+                        self.actor_gradient_threshold, self.actor_gradient_norm
+                    )
+                )
 
+        if self.critic_gradient_clipping:
             for p_critic in self.critic.parameters():
-                p_critic.register_hook(soft_clipping_curry)
+                p_critic.register_hook(
+                    self.currying_gradient_clipping(
+                        self.critic_gradient_threshold, self.critic_gradient_norm
+                    )
+                )
 
             for p_critic2 in self.critic2.parameters():
-                p_critic2.register_hook(soft_clipping_curry)
+                p_critic2.register_hook(
+                    self.currying_gradient_clipping(
+                        self.critic_gradient_threshold, self.critic_gradient_norm
+                    )
+                )
 
-            for p_actor in self.actor.parameters():
-                p_actor.register_hook(soft_clipping_curry)
-
+        # Training loop
         for global_step in trange(self.total_timesteps, disable=not self.verbose):
             if global_step < self.learning_starts:
                 actions = np.concatenate(

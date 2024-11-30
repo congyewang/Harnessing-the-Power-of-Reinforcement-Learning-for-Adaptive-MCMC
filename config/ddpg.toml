@@ -38,13 +38,21 @@ batch_size = 48
 # the discount factor gamma
 gamma = 0.99
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 1e-5
+actor_learning_rate = 1e-4
 # the learning rate of the optimizer for the critic
-critic_learning_rate = 1e-5
-# the gradient clipping value for the actor
-actor_gradient_clipping = 1.0
-# the gradient clipping value for the critic
-critic_gradient_clipping = 1.0
+critic_learning_rate = 1e-4
+# the gradient clipping for the actor
+actor_gradient_clipping = false
+# the gradient threshold for the actor
+actor_gradient_threshold = 1.0
+# the gradient clipping norm for the actor
+actor_gradient_norm = 2
+# the gradient clipping for the critic
+critic_gradient_clipping = false
+# the gradient threshold for the critic
+critic_gradient_threshold = 1.0
+# the gradient clipping norm for the critic
+critic_gradient_norm = 2
 
 [algorithm.specific]
 # target smoothing coefficient (default.005)
