@@ -5,7 +5,6 @@ from typing import Any, Callable, Dict, Optional, SupportsFloat, Tuple
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-from gymnasium.utils import seeding
 from scipy.stats import multivariate_normal
 
 
@@ -30,6 +29,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         state (npt.NDArray[np.float64]): State.
         covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance.
     """
+
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
@@ -68,6 +68,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         self.log_target_pdf_unsafe = log_target_pdf_unsafe
         self.grad_log_target_pdf_unsafe = grad_log_target_pdf_unsafe
 
+        self.initial_sample = initial_sample
         if initial_covariance is None:
             initial_covariance = (2.38 / np.sqrt(self.sample_dim)) * np.eye(
                 self.sample_dim
@@ -92,13 +93,8 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             dtype=np.float64,
         )
 
-        # Initialize State
-        initial_next_proposed_sample = self.np_random.multivariate_normal(
-            mean=initial_sample, cov=initial_covariance, size=1
-        ).flatten()
-        self.state = np.concatenate(
-            (initial_sample, initial_next_proposed_sample)
-        )  # state at self time, s_{t}
+        # Announce State
+        self.state: npt.NDArray[np.float64]
 
         # Store
         self.store_observation: npt.NDArray[np.float64] = np.empty(
@@ -419,6 +415,16 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         """
         raise NotImplementedError("step is not implemented.")
 
+    def _initialize_state(self) -> None:
+        """
+        Initialize the state of the environment. This function is used to initialize the state of the environment.
+        """
+        initial_next_proposed_sample = self.np_random.multivariate_normal(
+            mean=self.initial_sample, cov=self.initial_covariance, size=1
+        ).flatten()
+
+        self.state = np.concatenate((self.initial_sample, initial_next_proposed_sample))
+
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ) -> tuple[Any, Dict[str, Any]]:
@@ -432,12 +438,11 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         Returns:
             tuple[Any, Dict[str, Any]]: Initial Observation, Info
         """
-        # Gym Recommandation
+        # Call the super class reset to handle seeding and other logic
         super().reset(seed=seed, options=options)
 
-        # Set Random Seed
-        if seed is not None:
-            self._np_random, seed = seeding.np_random(seed)
+        if self.steps == 0:
+            self._initialize_state()
 
         return self.state, {}
 
@@ -463,6 +468,7 @@ class BarkerEnv(MCMCEnvBase):
         state (npt.NDArray[np.float64]): State.
         covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance.
     """
+
     def __init__(
         self,
         log_target_pdf_unsafe: Callable[
