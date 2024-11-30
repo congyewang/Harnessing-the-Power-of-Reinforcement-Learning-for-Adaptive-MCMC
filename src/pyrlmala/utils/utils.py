@@ -327,3 +327,35 @@ class Toolbox:
             plt.savefig(save_path)
         else:
             plt.show()
+
+    @staticmethod
+    def reward_plot(
+        reward: npt.NDArray[np.float64],
+        step_per_episode: int = 500,
+        window_size: int = 5,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the average reward and moving average. Save the plot if save_path is provided.
+
+        Args:
+            reward (npt.NDArray[np.float64]): Immediate reward per step.
+            step_per_episode (int, optional): Steps per episode. Defaults to 500.
+            window_size (int, optional): Window size for moving average. Defaults to 5.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        average_reward = reward.reshape(-1, step_per_episode).mean(axis=1)
+        moving_averages = np.convolve(
+            a=average_reward, v=np.ones(window_size) / window_size, mode="valid"
+        )
+
+        plt.plot(average_reward, label="Average reward")
+        plt.plot(moving_averages, label="Moving average")
+        plt.legend()
+        plt.title("Reward Plot")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
