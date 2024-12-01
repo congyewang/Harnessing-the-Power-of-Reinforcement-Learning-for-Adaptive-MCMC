@@ -165,3 +165,7 @@ cython_debug/
 #  Add .vscode to the global gitignore if you are NOT using Visual Studio Code
 #  https://code.visualstudio.com/docs/getstarted/settings
 .vscode/
+
+# Tensorboard
+# https://tensorboard.dev/
+**/runs

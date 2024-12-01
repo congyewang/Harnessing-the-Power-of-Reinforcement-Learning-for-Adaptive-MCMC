@@ -86,6 +86,7 @@ class LearningInterface(ABC):
         random_seed: int = 42,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
+        run_name: str = "rlmcmc",
     ) -> None:
         """
         Initialize the Learning Interface.
@@ -115,6 +116,7 @@ class LearningInterface(ABC):
             random_seed (int, optional): Random seed. Defaults to 42.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
+            run_name (str, optional): Run name. Defaults to "rlmcmc".
 
         Raises:
             ValueError: If the observation space is not continuous
@@ -186,7 +188,7 @@ class LearningInterface(ABC):
         self.predicted_action: List[npt.NDArray[np.float64]] = []
         self.predicted_reward: List[npt.NDArray[np.float64]] = []
 
-        self.writer = SummaryWriter("runs/ddpg")
+        self.writer = SummaryWriter(f"runs/{run_name}")
 
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
@@ -361,6 +363,7 @@ class LearningDDPG(LearningInterface):
         random_seed: int = 42,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
+        run_name: str = "rlmcmc",
     ) -> None:
         """
         Initialize the DDPG Learning Interface.
@@ -390,6 +393,7 @@ class LearningDDPG(LearningInterface):
             random_seed (int, optional): Random seed. Defaults to 42.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
+            run_name (str, optional): Run name. Defaults to "rlmcmc".
 
         Raises:
             ValueError: If the observation space is not continuous.
@@ -419,6 +423,7 @@ class LearningDDPG(LearningInterface):
             random_seed=random_seed,
             device=device,
             verbose=verbose,
+            run_name=run_name,
         )
 
     def train(
@@ -624,6 +629,7 @@ class LearningTD3(LearningInterface):
         noise_clip: float = 0.5,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
+        run_name: str = "rlmcmc",
     ) -> None:
         """
         Initialize the TD3 Learning Interface.
@@ -657,6 +663,7 @@ class LearningTD3(LearningInterface):
             noise_clip (float, optional): Noise clip. Defaults to 0.5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
+            run_name (str, optional): Run name. Defaults to "rlmcmc".
 
         Raises:
             ValueError: If the observation space is not continuous.
@@ -686,6 +693,7 @@ class LearningTD3(LearningInterface):
             random_seed=random_seed,
             device=device,
             verbose=verbose,
+            run_name=run_name,
         )
 
         self.critic2 = critic2

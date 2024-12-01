@@ -1,5 +1,6 @@
 import json
 import random
+import time
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Optional, Tuple, Type
 
@@ -650,6 +651,7 @@ class PreparationDDPG(PreparationInterface):
             random_seed=self.args.experiments.seed,
             device=self.device,
             verbose=self.verbose,
+            run_name=f"{self.args.algorithm.general.env_id}__{self.args.experiments.exp_name}__{self.args.experiments.seed}__{int(time.time())}",
         )
 
 
@@ -813,6 +815,7 @@ class PreparationTD3(PreparationInterface):
             verbose=self.verbose,
             policy_noise=self.args.algorithm.specific.policy_noise,
             noise_clip=self.args.algorithm.specific.noise_clip,
+            run_name=f"{self.args.algorithm.general.env_id}__{self.args.experiments.exp_name}__{self.args.experiments.seed}__{int(time.time())}",
         )
 
 
