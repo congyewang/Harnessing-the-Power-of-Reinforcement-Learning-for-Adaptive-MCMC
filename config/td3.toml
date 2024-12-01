@@ -37,6 +37,18 @@ buffer_size = 50_000
 batch_size = 48
 # the discount factor gamma
 gamma = 0.99
+# the pretrain flag for the actor
+actor_pretrain = true
+# the number of data for the actor pretrain
+actor_pretrain_num_data = 1000
+# the covariance's magnification of the mock data for the actor pretrain
+actor_pretrain_mag = 10.0
+# the number of epochs for the actor pretrain
+actor_pretrain_num_epochs = 100
+# the batch size for the actor pretrain
+actor_pretrain_batch_size = 16
+# the flag for shuffling the mock data for the actor pretrain
+actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
 actor_learning_rate = 1e-4
 # the learning rate of the optimizer for the critic

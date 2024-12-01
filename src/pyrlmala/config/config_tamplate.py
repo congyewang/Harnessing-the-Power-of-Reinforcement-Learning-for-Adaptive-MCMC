@@ -47,6 +47,11 @@ class AlgorithmGeneralConfig:
         buffer_size (int): Buffer size.
         batch_size (int): Batch size.
         gamma (float): Gamma.
+        actor_pretrain (bool): Flag to enable actor pretrain.
+        actor_pretrain_num_data (int): Actor pretrain number of data.
+        actor_pretrain_mag (float): Actor pretrain magnification.
+        actor_pretrain_num_epochs (int): Actor pretrain number of epochs.
+        actor_pretrain_batch_size (int): Actor pretrain batch size.
         actor_learning_rate (float): Actor learning rate.
         critic_learning_rate (float): Critic learning rate.
         actor_gradient_clipping (bool): Flag to enable actor gradient clipping.
@@ -64,6 +69,12 @@ class AlgorithmGeneralConfig:
     buffer_size: int
     batch_size: int
     gamma: float
+    actor_pretrain: bool
+    actor_pretrain_num_data: int
+    actor_pretrain_mag: float
+    actor_pretrain_num_epochs: int
+    actor_pretrain_batch_size: int
+    actor_pretrain_shuffle: bool
     actor_learning_rate: float
     critic_learning_rate: float
     actor_gradient_clipping: bool

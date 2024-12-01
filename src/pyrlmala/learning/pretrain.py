@@ -7,6 +7,8 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
+from ..agent import PolicyNetwork
+
 
 class PretrainMockDataset(Dataset):
     """
@@ -124,7 +126,7 @@ class PretrainMockDataset(Dataset):
 class PretrainFactory:
     @staticmethod
     def train(
-        actor: nn.Module,
+        actor: PolicyNetwork,
         initial_sample: Float[torch.Tensor, "initial sample"],
         step_size: float = 1.0,
         num_data: int = 1_000,
@@ -132,14 +134,16 @@ class PretrainFactory:
         num_epochs: int = 100,
         batch_size: int = 16,
         shuffle: bool = True,
-        device: torch.device = torch.device("cpu"),
-        verbose: bool = False,
-    ) -> nn.Module:
+        device: torch.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        ),
+        verbose: bool = True,
+    ) -> PolicyNetwork:
         """
         Pretrain Actor. This method is used to pretrain the actor using a mock dataset.
 
         Args:
-            actor (nn.Module): Actor.
+            actor (PolicyNetwork): Actor.
             initial_sample (Float[torch.Tensor, "initial sample"]): Initial sample.
             step_size (float, optional): Step size. Defaults to 1.0.
             num_data (int, optional): Number of samples. Defaults to 1_000.
@@ -151,7 +155,7 @@ class PretrainFactory:
             verbose (bool, optional): Verbose. Defaults to False.
 
         Returns:
-            nn.Module: Actor.
+            PolicyNetwork: Actor.
         """
         # Load Mock Dataset
         mock_dataset = PretrainMockDataset(initial_sample, step_size, num_data, mag)

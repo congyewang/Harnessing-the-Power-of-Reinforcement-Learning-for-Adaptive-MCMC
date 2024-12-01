@@ -21,6 +21,7 @@ from ..config import (
 )
 from ..envs import MCMCEnvBase
 from .learning import LearningDDPG, LearningTD3
+from .pretrain import PretrainFactory
 
 
 class PosteriorDBFunctionsGenerator:
@@ -390,7 +391,9 @@ class PreparationInterface(ABC):
 
         return envs, predicted_envs
 
-    def make_actor(self, compile: bool) -> Tuple[PolicyNetwork, PolicyNetwork]:
+    def make_actor(
+        self, compile: bool
+    ) -> Tuple[PolicyNetwork, PolicyNetwork]:
         """
         Make actor.
 
@@ -404,9 +407,30 @@ class PreparationInterface(ABC):
         target_actor = (
             PolicyNetwork(self.envs, self.actor_config).to(self.device).double()
         )
+
         if compile:
             actor = torch.compile(actor)
             target_actor = torch.compile(target_actor)
+
+        if self.args.algorithm.general.actor_pretrain:
+            initial_sample_torch = (
+                torch.from_numpy(self.initial_sample).to(self.device).double()
+            )
+            actor = PretrainFactory.train(
+                actor,
+                initial_sample_torch,
+                step_size=self.initial_step_size.item(),
+                num_data=self.args.algorithm.general.actor_pretrain_num_data,
+                mag=self.args.algorithm.general.actor_pretrain_mag,
+                num_epochs=self.args.algorithm.general.actor_pretrain_num_epochs,
+                batch_size=self.args.algorithm.general.actor_pretrain_batch_size,
+                shuffle=self.args.algorithm.general.actor_pretrain_shuffle,
+                device=self.device,
+                verbose=self.verbose,
+            )
+
+        # Align target actor with the actor
+        target_actor.load_state_dict(actor.state_dict())
 
         return actor, target_actor
 
@@ -532,6 +556,7 @@ class PreparationDDPG(PreparationInterface):
         actor_config_path: str = "",
         critic_config_path: str = "",
         compile: bool = False,
+        verbose: bool = True,
     ) -> None:
         """
         Factory class for creating learning algorithms based on reinforcement learning strategies.
@@ -550,6 +575,7 @@ class PreparationDDPG(PreparationInterface):
             actor_config_path (str, optional):The path to the actor configuration file. Defaults to "".
             critic_config_path (str, optional): The path to the critic configuration file. Defaults to "".
             compile (bool, optional): Whether to compile the model or not. Defaults to False.
+            verbose (bool, optional): Whether to show the verbose message or not. Defaults to True.
         """
         super().__init__(
             initial_sample,
@@ -565,6 +591,7 @@ class PreparationDDPG(PreparationInterface):
             actor_config_path,
             critic_config_path,
             compile,
+            verbose,
         )
         self.qf1, self.target_qf1 = self.make_critic(compile)
         self.actor_optimizer, self.q_optimizer = self.make_optimizer(
@@ -586,6 +613,9 @@ class PreparationDDPG(PreparationInterface):
         if compile:
             qf1 = torch.compile(qf1)
             target_qf1 = torch.compile(target_qf1)
+
+        # Align target critic with the critic
+        target_qf1.load_state_dict(qf1.state_dict())
 
         return qf1, target_qf1
 
@@ -678,6 +708,7 @@ class PreparationTD3(PreparationInterface):
         actor_config_path: str = "",
         critic_config_path: str = "",
         compile: bool = False,
+        verbose: bool = True,
     ) -> None:
         """
         Factory class for creating learning algorithms based on reinforcement learning strategies.
@@ -696,6 +727,7 @@ class PreparationTD3(PreparationInterface):
             actor_config_path (str, optional):The path to the actor configuration file. Defaults to "".
             critic_config_path (str, optional): The path to the critic configuration file. Defaults to "".
             compile (bool, optional): Whether to compile the model or not. Defaults to False.
+            verbose (bool, optional): Whether to show the verbose message or not. Defaults to True.
         """
         super().__init__(
             initial_sample,
@@ -711,6 +743,7 @@ class PreparationTD3(PreparationInterface):
             actor_config_path,
             critic_config_path,
             compile,
+            verbose,
         )
         self.qf1, self.target_qf1, self.qf2, self.target_qf2 = self.make_critic(compile)
         self.actor_optimizer, self.q_optimizer = self.make_optimizer(
@@ -738,6 +771,10 @@ class PreparationTD3(PreparationInterface):
             target_qf1 = torch.compile(target_qf1)
             qf2 = torch.compile(qf2)
             target_qf2 = torch.compile(target_qf2)
+
+        # Align target critic with the critic
+        target_qf1.load_state_dict(qf1.state_dict())
+        target_qf2.load_state_dict(qf2.state_dict())
 
         return qf1, target_qf1, qf2, target_qf2
 
