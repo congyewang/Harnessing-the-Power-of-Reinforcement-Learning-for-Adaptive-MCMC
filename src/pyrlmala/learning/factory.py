@@ -20,7 +20,7 @@ from ..config import (
     QNetworkConfigParser,
 )
 from ..envs import MCMCEnvBase
-from . import LearningDDPG, LearningTD3
+from .learning import LearningDDPG, LearningTD3
 
 
 class PosteriorDBFunctionsGenerator:
