@@ -52,9 +52,9 @@ actor_pretrain_batch_size = 16
 # the flag for shuffling the mock data for the actor pretrain
 actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 1e-4
+actor_learning_rate = 1e-5
 # the learning rate of the optimizer for the critic
-critic_learning_rate = 1e-4
+critic_learning_rate = 1e-2
 # the gradient clipping for the actor
 actor_gradient_clipping = false
 # the gradient threshold for the actor
@@ -72,9 +72,9 @@ critic_gradient_norm = 2
 # target smoothing coefficient (default.005)
 tau = 0.005
 # the scale of policy noise
-policy_noise = 0.2
+policy_noise = 0.0
 # the scale of exploration noise
-exploration_noise = 0.1
+exploration_noise = 0.0
 # the frequency of training policy (delayed)
 policy_frequency = 2
 # noise clip parameter of the Target Policy Smoothing Regularization
