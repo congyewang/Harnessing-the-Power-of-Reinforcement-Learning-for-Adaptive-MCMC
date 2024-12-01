@@ -13,6 +13,7 @@ from gymnasium.wrappers import RecordEpisodeStatistics
 from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.optim.optimizer import Optimizer as Optimizer
+from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
 from ..utils import Toolbox
@@ -128,7 +129,7 @@ class LearningInterface(ABC):
             self.predicted_env = predicted_env
         self.random_seed = random_seed
 
-        self.obs, self.infos = env.reset(seed=random_seed)
+        self.obs, _ = env.reset(seed=random_seed)
 
         _single_envs: List[RecordEpisodeStatistics] = env.envs
         if hasattr(_single_envs[0].unwrapped, "sample_dim"):
@@ -184,6 +185,8 @@ class LearningInterface(ABC):
         self.predicted_observation: List[npt.NDArray[np.float64]] = []
         self.predicted_action: List[npt.NDArray[np.float64]] = []
         self.predicted_reward: List[npt.NDArray[np.float64]] = []
+
+        self.writer = SummaryWriter("runs/ddpg")
 
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
@@ -461,11 +464,21 @@ class LearningDDPG(LearningInterface):
                             self.env.single_action_space.high,
                         )
                     )
-            next_obs, rewards, terminations, _, self.infos = self.env.step(actions)
+            next_obs, rewards, terminations, _, infos = self.env.step(actions)
+
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    self.writer.add_scalar(
+                        "charts/episodic_return", info["episode"]["r"], global_step
+                    )
+                    self.writer.add_scalar(
+                        "charts/episodic_length", info["episode"]["l"], global_step
+                    )
+                    break
 
             real_next_obs = next_obs.copy()
             self.replay_buffer.add(
-                self.obs, real_next_obs, actions, rewards, terminations, self.infos
+                self.obs, real_next_obs, actions, rewards, terminations, infos
             )
 
             self.obs = next_obs
@@ -511,6 +524,18 @@ class LearningDDPG(LearningInterface):
                         )
 
                 if global_step % 100 == 0 and global_step > self.policy_frequency:
+                    self.writer.add_scalar(
+                        "losses/critic_values",
+                        critic_a_values.mean().item(),
+                        global_step,
+                    )
+                    self.writer.add_scalar(
+                        "losses/critic_loss", critic_loss.item(), global_step
+                    )
+                    self.writer.add_scalar(
+                        "losses/actor_loss", actor_loss.item(), global_step
+                    )
+
                     self.critic_values.append(critic_a_values.mean().item())
                     self.critic_loss.append(critic_loss.item())
                     self.actor_loss.append(actor_loss.item())
@@ -670,7 +695,18 @@ class LearningTD3(LearningInterface):
         self.noise_clip = noise_clip
 
         self.critic2_values: List[float] = []
+        self.critic1_loss: List[float] = []
         self.critic2_loss: List[float] = []
+
+    @property
+    def critic1_values(self) -> List[float]:
+        """
+        Get the critic1 values.
+
+        Returns:
+            List[float]: Critic1 values.
+        """
+        return self.critic_values
 
     def train(self) -> None:
         """
@@ -721,11 +757,21 @@ class LearningTD3(LearningInterface):
                         )
                     )
 
-            next_obs, rewards, terminations, _, self.infos = self.env.step(actions)
+            next_obs, rewards, terminations, _, infos = self.env.step(actions)
+
+            if "final_info" in infos:
+                for info in infos["final_info"]:
+                    self.writer.add_scalar(
+                        "charts/episodic_return", info["episode"]["r"], global_step
+                    )
+                    self.writer.add_scalar(
+                        "charts/episodic_length", info["episode"]["l"], global_step
+                    )
+                    break
 
             real_next_obs = next_obs.copy()
             self.replay_buffer.add(
-                self.obs, real_next_obs, actions, rewards, terminations, self.infos
+                self.obs, real_next_obs, actions, rewards, terminations, infos
             )
 
             self.obs = next_obs
@@ -754,13 +800,13 @@ class LearningTD3(LearningInterface):
                         1 - data.dones.flatten()
                     ) * self.gamma * (min_critic_next_target).view(-1)
 
-                critic_a_values = self.critic(data.observations, data.actions).view(-1)
+                critic1_a_values = self.critic(data.observations, data.actions).view(-1)
                 critic2_a_values = self.critic2(data.observations, data.actions).view(
                     -1
                 )
-                critic_loss = F.mse_loss(critic_a_values, next_q_value)
+                critic1_loss = F.mse_loss(critic1_a_values, next_q_value)
                 critic2_loss = F.mse_loss(critic2_a_values, next_q_value)
-                critic_loss = critic_loss + critic2_loss
+                critic_loss = critic1_loss + critic2_loss
 
                 # optimize the model
                 self.critic_optimizer.zero_grad()
@@ -796,10 +842,34 @@ class LearningTD3(LearningInterface):
                         )
 
                 if global_step % 100 == 0:
-                    self.critic_values.append(critic_a_values.mean().item())
+                    self.writer.add_scalar(
+                        "losses/critic1_values",
+                        critic1_a_values.mean().item(),
+                        global_step,
+                    )
+                    self.writer.add_scalar(
+                        "losses/critic2_values",
+                        critic2_a_values.mean().item(),
+                        global_step,
+                    )
+                    self.writer.add_scalar(
+                        "losses/critic1_loss", critic1_loss.item(), global_step
+                    )
+                    self.writer.add_scalar(
+                        "losses/critic2_loss", critic2_loss.item(), global_step
+                    )
+                    self.writer.add_scalar(
+                        "losses/critic_loss", critic_loss.item() / 2.0, global_step
+                    )
+                    self.writer.add_scalar(
+                        "losses/actor_loss", actor_loss.item(), global_step
+                    )
+
+                    self.critic_values.append(critic1_a_values.mean().item())
                     self.critic2_values.append(critic2_a_values.mean().item())
-                    self.critic_loss.append(critic_loss.item())
+                    self.critic1_loss.append(critic_loss.item())
                     self.critic2_loss.append(critic2_loss.item())
+                    self.critic_loss.append(critic_loss.item() / 2.0)
                     self.actor_loss.append(actor_loss.item())
 
     def save(self, folder_path: str) -> None:
