@@ -42,6 +42,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         initial_covariance: Optional[npt.NDArray[np.float64]] = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         total_timesteps: int = 500_000,
+        max_steps_per_episode: int = 500,
         log_mode: bool = True,
     ) -> None:
         """
@@ -56,13 +57,15 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             initial_covariance (npt.NDArray[np.float64], optional): Initial Covariance. Defaults to Identity Matrix.
             initial_step_size (npt.NDArray[np.float64], optional): Initial Step Size. Defaults to 1.0.
             total_timesteps (int, optional): The number of the total time steps in the whole episode. Defaults to 500_000.
+            max_steps_per_episode (int, optional): Maximum Steps per Episode. Defaults to 500.
             log_mode (bool, optional): The controller if reward function returns the logarithmic form. Defaults to True.
         """
         super().__init__()
 
         self.sample_dim: int = int(np.prod(initial_sample.shape))  # Sample Dimension
-        self.steps: int = 0  # Iteration Time
+        self.current_step: int = 0  # Iteration Time
         self.total_timesteps = total_timesteps  # Total Time Steps
+        self.max_steps_per_episode = max_steps_per_episode  # Maximum Steps per Episode
 
         # Log Target Probability Density Functions without Numerical Stabilization
         self.log_target_pdf_unsafe = log_target_pdf_unsafe
@@ -359,31 +362,31 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             accepted_covariance (npt.NDArray[np.float64]): Accepted Covariance
         """
         # Store Sample
-        self.store_current_sample[self.steps, :] = current_sample
-        self.store_proposed_sample[self.steps, :] = proposed_sample
+        self.store_current_sample[self.current_step, :] = current_sample
+        self.store_proposed_sample[self.current_step, :] = proposed_sample
 
         # Store Mean
-        self.store_current_mean[self.steps, :] = current_mean
-        self.store_proposed_mean[self.steps, :] = proposed_mean
+        self.store_current_mean[self.current_step, :] = current_mean
+        self.store_proposed_mean[self.current_step, :] = proposed_mean
 
         # Store Covariance
-        self.store_current_covariance[self.steps, :, :] = current_covariance
-        self.store_proposed_covariance[self.steps, :, :] = proposed_covariance
+        self.store_current_covariance[self.current_step, :, :] = current_covariance
+        self.store_proposed_covariance[self.current_step, :, :] = proposed_covariance
 
         # Store Log Densities
-        self.store_log_target_current[self.steps] = log_target_current
-        self.store_log_target_proposed[self.steps] = log_target_proposed
+        self.store_log_target_current[self.current_step] = log_target_current
+        self.store_log_target_proposed[self.current_step] = log_target_proposed
 
-        self.store_log_proposal_current[self.steps] = log_proposal_current
-        self.store_log_proposal_proposed[self.steps] = log_proposal_proposed
+        self.store_log_proposal_current[self.current_step] = log_proposal_current
+        self.store_log_proposal_proposed[self.current_step] = log_proposal_proposed
 
         # Store Acceptance
-        self.store_accepted_status[self.steps] = accepted_status
-        self.store_log_acceptance_rate[self.steps] = log_alpha
+        self.store_accepted_status[self.current_step] = accepted_status
+        self.store_log_acceptance_rate[self.current_step] = log_alpha
 
-        self.store_accepted_sample[self.steps, :] = accepted_sample
-        self.store_accepted_mean[self.steps, :] = accepted_mean
-        self.store_accepted_covariance[self.steps, :, :] = accepted_covariance
+        self.store_accepted_sample[self.current_step, :] = accepted_sample
+        self.store_accepted_mean[self.current_step, :] = accepted_mean
+        self.store_accepted_covariance[self.current_step, :, :] = accepted_covariance
 
     @abstractmethod
     def sample_generator(self, *args, **kwargs) -> npt.NDArray[np.float64]:
@@ -441,7 +444,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         # Call the super class reset to handle seeding and other logic
         super().reset(seed=seed, options=options)
 
-        if self.steps == 0:
+        if self.current_step == 0:
             self._initialize_state()
 
         return self.state, {}
@@ -481,6 +484,7 @@ class BarkerEnv(MCMCEnvBase):
         initial_covariance: Optional[npt.NDArray[np.float64]] = None,
         initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
         total_timesteps: int = 500_000,
+        max_steps_per_episode: int = 500,
         log_mode: bool = True,
     ) -> None:
         """
@@ -493,6 +497,7 @@ class BarkerEnv(MCMCEnvBase):
             initial_covariance (Optional[npt.NDArray[np.float64]], optional): _description_. Defaults to None.
             initial_step_size (npt.NDArray[np.float64], optional): _description_. Defaults to np.array([1.0]).
             total_timesteps (int, optional): _description_. Defaults to 500_000.
+            max_steps_per_episode (int, optional): _description_. Defaults to 500.
             log_mode (bool, optional): _description_. Defaults to True.
         """
         super().__init__(
@@ -502,6 +507,7 @@ class BarkerEnv(MCMCEnvBase):
             initial_covariance,
             initial_step_size,
             total_timesteps,
+            max_steps_per_episode,
             log_mode,
         )
 
@@ -756,14 +762,14 @@ class BarkerEnv(MCMCEnvBase):
         )
 
         # Store
-        self.store_observation[self.steps, :] = observation
-        self.store_action[self.steps, :] = action
-        self.store_reward[self.steps] = reward
+        self.store_observation[self.current_step, :] = observation
+        self.store_action[self.current_step, :] = action
+        self.store_reward[self.current_step] = reward
 
         # Update Steps
-        self.steps += 1
+        self.current_step += 1
+        truncated: bool = (self.current_step + 1) % self.max_steps_per_episode == 0
         terminated: bool = False
-        truncated: bool = False
         info: Dict[None, None] = {}
 
         return self.state, reward.item(), terminated, truncated, info

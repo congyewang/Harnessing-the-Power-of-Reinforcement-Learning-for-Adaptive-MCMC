@@ -43,6 +43,7 @@ class AlgorithmGeneralConfig:
         env_id (str): Environment ID.
         total_timesteps (int): Total timesteps.
         predicted_timesteps (int): Predicted timesteps.
+        max_steps_per_episode (int): Maximum steps per episode.
         learning_starts (int): Learning starts.
         buffer_size (int): Buffer size.
         batch_size (int): Batch size.
@@ -65,6 +66,7 @@ class AlgorithmGeneralConfig:
     env_id: str
     total_timesteps: int
     predicted_timesteps: int
+    max_steps_per_episode: int
     learning_starts: int
     buffer_size: int
     batch_size: int

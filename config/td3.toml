@@ -29,6 +29,8 @@ env_id = "BarkerEnv-v1.0"
 total_timesteps = 50_000
 # total timesteps of the prediction
 predicted_timesteps = 5_000
+# the number of steps per episode
+max_steps_per_episode = 500
 # timestep to start learning
 learning_starts = 48
 # the replay memory buffer size

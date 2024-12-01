@@ -318,9 +318,7 @@ class PreparationInterface(ABC):
         torch.backends.cudnn.deterministic = self.args.experiments.torch_deterministic
 
     def init_env(
-        self,
-        env_id: str | EnvSpec,
-        total_timesteps: int,
+        self, env_id: str | EnvSpec, total_timesteps: int, max_steps_per_episode: int
     ) -> Callable[[], MCMCEnvBase]:
         """
         Initialize environment to the function.
@@ -347,6 +345,7 @@ class PreparationInterface(ABC):
                 initial_covariance=self.initial_covariance,
                 initial_step_size=self.initial_step_size,
                 total_timesteps=total_timesteps,
+                max_steps_per_episode=max_steps_per_episode,
                 log_mode=self.log_mode,
             )
             env = gym.wrappers.RecordEpisodeStatistics(env)
@@ -368,6 +367,7 @@ class PreparationInterface(ABC):
                 self.init_env(
                     env_id=self.args.algorithm.general.env_id,
                     total_timesteps=self.args.algorithm.general.total_timesteps,
+                    max_steps_per_episode=self.args.algorithm.general.max_steps_per_episode,
                 )
             ]
         )
@@ -381,6 +381,7 @@ class PreparationInterface(ABC):
                 self.init_env(
                     env_id=self.args.algorithm.general.env_id,
                     total_timesteps=self.args.algorithm.general.predicted_timesteps,
+                    max_steps_per_episode=self.args.algorithm.general.max_steps_per_episode,
                 )
             ]
         )
@@ -391,9 +392,7 @@ class PreparationInterface(ABC):
 
         return envs, predicted_envs
 
-    def make_actor(
-        self, compile: bool
-    ) -> Tuple[PolicyNetwork, PolicyNetwork]:
+    def make_actor(self, compile: bool) -> Tuple[PolicyNetwork, PolicyNetwork]:
         """
         Make actor.
 

@@ -35,6 +35,7 @@ class Toolbox:
         initial_sample: np.float64 | npt.NDArray[np.float64],
         initial_covariance: Optional[np.float64 | npt.NDArray[np.float64]] = None,
         total_timesteps: int = 500_000,
+        max_steps_per_episode: int = 500,
         log_mode: bool = True,
         seed: int = 42,
     ) -> Callable[[], gym.Env]:
@@ -48,6 +49,7 @@ class Toolbox:
             initial_sample (np.float64 | npt.NDArray[np.float64]): Initial sample.
             initial_covariance (Optional[np.float64 | npt.NDArray[np.float64]], optional): Initial covariance. Defaults to None.
             total_timesteps (int, optional): Total timesteps. Defaults to 500_000.
+            max_steps_per_episode (int, optional): Max steps per episode. Defaults to 500.
             log_mode (bool, optional): Log mode. Defaults to True.
             seed (int, optional): Seed. Defaults to 42.
 
@@ -69,6 +71,7 @@ class Toolbox:
                 initial_sample=initial_sample,
                 initial_covariance=initial_covariance,
                 total_timesteps=total_timesteps,
+                max_steps_per_episode=max_steps_per_episode,
                 log_mode=log_mode,
             )
             env = gym.wrappers.RecordEpisodeStatistics(env)
