@@ -1,0 +1,331 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Utils &mdash; pyrlmala  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Examples" href="examples.html" />
+    <link rel="prev" title="Learning" href="pyrlmala.learning.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            pyrlmala
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">pyrlmala</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="pyrlmala.html">Module contents</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="pyrlmala.agent.html">Agent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pyrlmala.config.html">Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pyrlmala.envs.html">Envs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pyrlmala.learning.html">Learning</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Utils</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#pyrlmala.utils.Toolbox"><code class="docutils literal notranslate"><span class="pre">Toolbox</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">pyrlmala</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">pyrlmala</a></li>
+          <li class="breadcrumb-item"><a href="pyrlmala.html">Module contents</a></li>
+      <li class="breadcrumb-item active">Utils</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/pyrlmala.utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-pyrlmala.utils">
+<span id="utils"></span><h1>Utils<a class="headerlink" href="#module-pyrlmala.utils" title="Link to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyrlmala.utils.</span></span><span class="sig-name descname"><span class="pre">Toolbox</span></span><a class="headerlink" href="#pyrlmala.utils.Toolbox" title="Link to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Toolbox class. Contains utility functions. All methods are static.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.create_folder">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_folder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.create_folder" title="Link to this definition"></a></dt>
+<dd><p>Create a folder if it does not exist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>file_path</strong> (<em>str</em>) – File path.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.imbalanced_mash_2d">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">imbalanced_mash_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_range</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.imbalanced_mash_2d" title="Link to this definition"></a></dt>
+<dd><p>Construct a 2D meshgrid from x and y ranges.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_range</strong> (<em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;x_range&quot;</em><em>]</em>) – x range.</p></li>
+<li><p><strong>y_range</strong> (<em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;y_range&quot;</em><em>]</em>) – y range.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>2D meshgrid.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Float[torch.Tensor, “mesh_2d”]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.isPD">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">isPD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">B</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.isPD" title="Link to this definition"></a></dt>
+<dd><p>Returns true when input is positive-definite, via Cholesky, det, and _PSD from scipy.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>B</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – Input array.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if input is positive-definite, False otherwise.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.make_env">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_env</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_covariance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_timesteps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps_per_episode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.make_env" title="Link to this definition"></a></dt>
+<dd><p>Make an environment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>env_id</strong> (<em>str</em><em> | </em><em>EnvSpec</em>) – Environment ID.</p></li>
+<li><p><strong>log_target_pdf</strong> (<em>Callable</em><em>[</em><em>[</em><em>float</em><em> | </em><em>np.float64</em><em> | </em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>float</em><em> | </em><em>np.float64</em><em>]</em>) – Log target pdf function.</p></li>
+<li><p><strong>grad_log_target_pdf</strong> (<em>Callable</em><em>[</em><em>[</em><em>float</em><em> | </em><em>np.float64</em><em> | </em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>float</em><em> | </em><em>np.float64</em><em>]</em>) – Gradient log target pdf function.</p></li>
+<li><p><strong>initial_sample</strong> (<em>np.float64</em><em> | </em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – Initial sample.</p></li>
+<li><p><strong>initial_covariance</strong> (<em>Optional</em><em>[</em><em>np.float64</em><em> | </em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>optional</em>) – Initial covariance. Defaults to None.</p></li>
+<li><p><strong>total_timesteps</strong> (<em>int</em><em>, </em><em>optional</em>) – Total timesteps. Defaults to 500_000.</p></li>
+<li><p><strong>max_steps_per_episode</strong> (<em>int</em><em>, </em><em>optional</em>) – Max steps per episode. Defaults to 500.</p></li>
+<li><p><strong>log_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – Log mode. Defaults to True.</p></li>
+<li><p><strong>seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Seed. Defaults to 42.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Environment thunk.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Callable[[], gym.Env]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.make_grad_log_target_pdf">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_grad_log_target_pdf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stan_code_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">posterior_data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.make_grad_log_target_pdf" title="Link to this definition"></a></dt>
+<dd><p>Create a gradient log target pdf function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stan_code_path</strong> (<em>str</em>) – Stan code path.</p></li>
+<li><p><strong>posterior_data</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>  |  </em><em>int</em><em>]</em>) – Posterior data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Gradient log target pdf function.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.make_log_target_pdf">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_log_target_pdf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stan_code_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">posterior_data</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.make_log_target_pdf" title="Link to this definition"></a></dt>
+<dd><p>Create a log target pdf function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stan_code_path</strong> (<em>str</em>) – Stan code path.</p></li>
+<li><p><strong>posterior_data</strong> (<em>Dict</em><em>[</em><em>str</em><em>, </em><em>float</em><em>  |  </em><em>int</em><em>]</em>) – Posterior data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Log target pdf function.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.nearestPD">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">nearestPD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.nearestPD" title="Link to this definition"></a></dt>
+<dd><p>Find the nearest positive-definite matrix to input
+A Python/Numpy port of John D’Errico’s <cite>nearestSPD</cite> MATLAB code [1], which
+credits [2].</p>
+<p>[1] <a class="reference external" href="https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd">https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd</a></p>
+<dl class="simple">
+<dt>[2] N.J. Higham, “Computing a nearest symmetric positive semidefinite</dt><dd><p>matrix” (1988): <a class="reference external" href="https://doi.org/10.1016/0024-3795(88)90223-6">https://doi.org/10.1016/0024-3795(88)90223-6</a></p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>A</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – Input array.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Nearest positive-definite matrix.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>npt.NDArray[np.float64]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.plot_agent">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">plot_agent</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">indicate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">steps_per_episode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.plot_agent" title="Link to this definition"></a></dt>
+<dd><p>Plot the agent’s performance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>indicate</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – Indicate array.</p></li>
+<li><p><strong>steps_per_episode</strong> (<em>int</em><em>, </em><em>optional</em>) – Steps per episode. Defaults to 100.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.policy_plot_2D_heatmap">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">policy_plot_2D_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">policy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">softplus_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.policy_plot_2D_heatmap" title="Link to this definition"></a></dt>
+<dd><p>Plot the policy heatmap.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>policy</strong> (<em>Callable</em><em>[</em><em>[</em><em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;state&quot;</em><em>]</em><em>]</em><em>, </em><em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;action&quot;</em><em>]</em><em>]</em>) – Policy function.</p></li>
+<li><p><strong>x_range</strong> (<em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;x&quot;</em><em>]</em><em>, </em><em>optional</em>) – x range. e.g. torch.arange(-5, 5, 0.1).</p></li>
+<li><p><strong>y_range</strong> (<em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;y&quot;</em><em>]</em><em>, </em><em>optional</em>) – y range. e.g. torch.arange(-5, 5, 0.1).</p></li>
+<li><p><strong>softplus_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – Softplus mode. Defaults to True.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.reward_plot">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reward_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_per_episode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.reward_plot" title="Link to this definition"></a></dt>
+<dd><p>Plot the average reward and moving average. Save the plot if save_path is provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>reward</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – Immediate reward per step.</p></li>
+<li><p><strong>step_per_episode</strong> (<em>int</em><em>, </em><em>optional</em>) – Steps per episode. Defaults to 500.</p></li>
+<li><p><strong>window_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Window size for moving average. Defaults to 5.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pyrlmala.learning.html" class="btn btn-neutral float-left" title="Learning" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="examples.html" class="btn btn-neutral float-right" title="Examples" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Congye Wang.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
