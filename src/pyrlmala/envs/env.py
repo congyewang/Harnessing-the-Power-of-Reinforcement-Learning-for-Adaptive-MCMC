@@ -183,7 +183,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
     def expected_entropy_reward(
         self,
         log_target_current: npt.NDArray[np.float64],
-        log_target_accepted: npt.NDArray[np.float64],
+        log_target_proposed: npt.NDArray[np.float64],
         log_proposal_current: npt.NDArray[np.float64],
         log_alpha: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
@@ -192,7 +192,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
 
         Args:
             log_target_current (npt.NDArray[np.float64]): Log target density at current sample.
-            log_target_accepted (npt.NDArray[np.float64]): Log target density at accepted sample.
+            log_target_proposed (npt.NDArray[np.float64]): Log target density at proposed sample.
             log_proposal_current (npt.NDArray[np.float64]): Log proposal density at current sample.
             log_alpha (npt.NDArray[np.float64]): Log acceptance rate.
 
@@ -203,7 +203,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         if np.isinf(log_one_minus_alpha) or np.isnan(log_one_minus_alpha):
             log_one_minus_alpha = -np.finfo(np.float64).max
 
-        transient_item = log_target_accepted - log_target_current
+        transient_item = np.exp(log_alpha) * (log_target_proposed - log_target_current)
         entropy_item = (
             -np.exp(log_one_minus_alpha) * log_one_minus_alpha
             - np.exp(log_alpha) * log_alpha
@@ -749,16 +749,16 @@ class BarkerEnv(MCMCEnvBase):
         self.state = observation
 
         # Calculate Reward
-        log_target_current, _, _ = self.log_target_process(
+        log_target_current, log_target_proposed, _ = self.log_target_process(
             current_sample, proposed_sample
         )
-        log_target_accepted = self.log_target_pdf(accepted_sample)
+
         log_proposal_current, _, _ = self.log_proposal_process(
             current_sample, proposed_sample, current_phi, proposed_phi
         )
 
         reward = self.expected_entropy_reward(
-            log_target_current, log_target_accepted, log_proposal_current, log_alpha
+            log_target_current, log_target_proposed, log_proposal_current, log_alpha
         )
 
         # Store
