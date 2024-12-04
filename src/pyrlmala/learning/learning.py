@@ -1,7 +1,7 @@
 import time
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, TypeVar
 
 import gymnasium as gym
 import numpy as np
@@ -17,6 +17,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
 from ..utils import Toolbox
+
+T = TypeVar("T")
 
 
 class LearningInterface(ABC):
@@ -87,6 +89,7 @@ class LearningInterface(ABC):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
+        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Initialize the Learning Interface.
@@ -117,6 +120,7 @@ class LearningInterface(ABC):
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
+            callback (Optional[Callable[..., T]], optional): Callback. Defaults to None.
 
         Raises:
             ValueError: If the observation space is not continuous
@@ -190,6 +194,18 @@ class LearningInterface(ABC):
 
         self.writer = SummaryWriter(f"runs/{run_name}")
 
+        self.callback = callback or (self.default_callback)
+
+    def default_callback(self, *args: T, **kwargs: T) -> None:
+        """
+        Default callback function.
+
+        Args:
+            args (T): Arguments.
+            kwargs (T): Keyword arguments.
+        """
+        pass
+
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
     ) -> Float[torch.Tensor, "gradient"]:
@@ -231,7 +247,7 @@ class LearningInterface(ABC):
         return partial(self.soft_clipping, t=gradient_threshold, p=gradient_norm)
 
     @abstractmethod
-    def train(self) -> None:
+    def train(self, *args: T, **kwargs: T) -> None:
         """
         Training method. Must be implemented in the subclass.
 
@@ -364,6 +380,7 @@ class LearningDDPG(LearningInterface):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
+        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Initialize the DDPG Learning Interface.
@@ -394,6 +411,7 @@ class LearningDDPG(LearningInterface):
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
+            callback (Optional[Callable[..., T]], optional): Callback. Defaults to None.
 
         Raises:
             ValueError: If the observation space is not continuous.
@@ -424,10 +442,13 @@ class LearningDDPG(LearningInterface):
             device=device,
             verbose=verbose,
             run_name=run_name,
+            callback=callback,
         )
 
     def train(
         self,
+        *args: T,
+        **kwargs: T,
     ) -> None:
         """
         Training Session for DDPG.
@@ -545,6 +566,8 @@ class LearningDDPG(LearningInterface):
                     self.critic_loss.append(critic_loss.item())
                     self.actor_loss.append(actor_loss.item())
 
+            self.callback(*args, **kwargs)
+
     def save(self, folder_path: str) -> None:
         """
         Save the model.
@@ -597,6 +620,10 @@ class LearningTD3(LearningInterface):
         actor_loss (List[float]): Actor loss.
         policy_noise (float): Policy noise.
         noise_clip (float): Noise clip.
+        critic2 (torch.nn.Module): Critic 2.
+        target_critic2 (torch.nn.Module): Target critic 2.
+        critic2_values (List[float]): Critic 2 values.
+        critic2_loss (List[float]): Critic 2 loss.
     """
 
     def __init__(
@@ -630,6 +657,7 @@ class LearningTD3(LearningInterface):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
+        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Initialize the TD3 Learning Interface.
@@ -664,6 +692,7 @@ class LearningTD3(LearningInterface):
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
+            callback (Optional[Callable[..., T]], optional): Callback. Defaults to None.
 
         Raises:
             ValueError: If the observation space is not continuous.
@@ -694,6 +723,7 @@ class LearningTD3(LearningInterface):
             device=device,
             verbose=verbose,
             run_name=run_name,
+            callback=callback,
         )
 
         self.critic2 = critic2
@@ -716,7 +746,7 @@ class LearningTD3(LearningInterface):
         """
         return self.critic_values
 
-    def train(self) -> None:
+    def train(self, *args: T, **kwargs: T) -> None:
         """
         Training Session for TD3.
         """
@@ -879,6 +909,8 @@ class LearningTD3(LearningInterface):
                     self.critic2_loss.append(critic2_loss.item())
                     self.critic_loss.append(critic_loss.item() / 2.0)
                     self.actor_loss.append(actor_loss.item())
+
+            self.callback(*args, **kwargs)
 
     def save(self, folder_path: str) -> None:
         """

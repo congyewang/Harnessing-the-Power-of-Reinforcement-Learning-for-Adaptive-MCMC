@@ -273,6 +273,7 @@ class Toolbox:
         y_range: Float[torch.Tensor, "y"],
         softplus_mode: bool = True,
         save_path: Optional[str] = None,
+        title_addition: str = "",
     ) -> None:
         """
         Plot the policy heatmap.
@@ -319,7 +320,7 @@ class Toolbox:
             )
 
         ax = plt.gca()
-        ax.set_title("Policy Heatmap")
+        ax.set_title(f"Policy Heatmap {title_addition}")
         ax.set_xlabel("x")
         ax.set_ylabel("y")
 
