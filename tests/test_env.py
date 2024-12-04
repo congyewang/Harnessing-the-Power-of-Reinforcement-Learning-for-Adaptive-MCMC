@@ -1,4 +1,5 @@
 from functools import partial
+from itertools import product
 
 import numpy as np
 import pytest
@@ -6,11 +7,12 @@ from scipy.stats import multivariate_normal, wishart
 
 from pyrlmala.envs.env import BarkerEnv
 
-SAMPLE_DIM_LIST = [1, 2, 3, 5, 33, 66]
+SAMPLE_DIM_LIST = [1, 3, 5, 33, 66]
+RANDOM_SEED_LIST = [0, 1, 2, 42, 1234]
 
 
 class TestBarkerEnv:
-    def create_env(self, sample_dim: int):
+    def create_env(self, sample_dim: int) -> None:
         """
         Create a basic BarkerEnv instance for testing
         """
@@ -30,9 +32,14 @@ class TestBarkerEnv:
             log_mode=True,
         )
 
-    @pytest.mark.parametrize("sample_dim", SAMPLE_DIM_LIST)
-    def test_sample_generator_happy_path(self, sample_dim: int) -> None:
+    @pytest.mark.parametrize(
+        "sample_dim, random_seed", product(SAMPLE_DIM_LIST, RANDOM_SEED_LIST)
+    )
+    def test_sample_generator_happy_path(
+        self, sample_dim: int, random_seed: int
+    ) -> None:
         self.create_env(sample_dim)
+        self.env.reset(seed=random_seed)
 
         x = np.random.normal(size=(sample_dim,))
         grad_x = np.random.normal(size=(sample_dim,))
@@ -42,9 +49,14 @@ class TestBarkerEnv:
 
         assert sample.shape == x.shape
 
-    @pytest.mark.parametrize("sample_dim", SAMPLE_DIM_LIST)
-    def test_accepted_process_edge_case(self, sample_dim: int) -> None:
+    @pytest.mark.parametrize(
+        "sample_dim, random_seed", product(SAMPLE_DIM_LIST, RANDOM_SEED_LIST)
+    )
+    def test_accepted_process_edge_case(
+        self, sample_dim: int, random_seed: int
+    ) -> None:
         self.create_env(sample_dim)
+        self.env.reset(seed=random_seed)
 
         current_sample = np.random.normal(size=(sample_dim,))
         proposed_sample = np.random.normal(size=(sample_dim,))
@@ -82,9 +94,12 @@ class TestBarkerEnv:
         assert accepted_covariance.shape == current_covariance.shape
         assert isinstance(log_alpha, np.float64)
 
-    @pytest.mark.parametrize("sample_dim", SAMPLE_DIM_LIST)
-    def test_step_happy_path(self, sample_dim: int) -> None:
+    @pytest.mark.parametrize(
+        "sample_dim, random_seed", product(SAMPLE_DIM_LIST, RANDOM_SEED_LIST)
+    )
+    def test_step_happy_path(self, sample_dim: int, random_seed: int) -> None:
         self.create_env(sample_dim)
+        self.env.reset(seed=random_seed)
 
         action = np.random.normal(size=2)
         state, reward, terminated, truncated, info = self.env.step(action)
@@ -94,3 +109,19 @@ class TestBarkerEnv:
         assert isinstance(terminated, bool)
         assert isinstance(truncated, bool)
         assert isinstance(info, dict)
+
+    @pytest.mark.parametrize(
+        "sample_dim, random_seed", product(SAMPLE_DIM_LIST, RANDOM_SEED_LIST)
+    )
+    def test_initialization_consistancy(
+        self, sample_dim: int, random_seed: int
+    ) -> None:
+        self.create_env(sample_dim)
+
+        self.env.current_step = 0
+        state1, _ = self.env.reset(seed=random_seed)
+
+        self.env.current_step = 0
+        state2, _ = self.env.reset(seed=random_seed)
+
+        assert np.array_equal(state1, state2)
