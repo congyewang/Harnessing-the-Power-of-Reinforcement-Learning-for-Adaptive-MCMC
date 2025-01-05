@@ -1,3 +1,4 @@
+from .buffers import NStepReplayBuffer
 from .factory import LearningFactory
 from .learning import LearningDDPG, LearningTD3
 from .pretrain import PretrainFactory, PretrainMockDataset
@@ -8,4 +9,5 @@ __all__ = [
     "LearningFactory",
     "PretrainMockDataset",
     "PretrainFactory",
+    "NStepReplayBuffer",
 ]

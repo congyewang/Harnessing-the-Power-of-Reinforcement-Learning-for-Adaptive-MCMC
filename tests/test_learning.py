@@ -3,7 +3,9 @@ import numpy as np
 import pytest
 import torch
 from stable_baselines3.common.buffers import ReplayBuffer
+from stable_baselines3.common.type_aliases import ReplayBufferSamples
 
+from pyrlmala.learning.buffers import NStepReplayBuffer
 from pyrlmala.learning.learning import LearningDDPG, LearningTD3
 
 
@@ -151,3 +153,89 @@ class TestLearningTD3:
                 critic_optimizer=critic_optimizer,
                 replay_buffer=replay_buffer,
             )
+
+
+class TestNStepReplayBuffer:
+    @pytest.fixture
+    def buffer(self):
+        observation_space = gym.spaces.Box(
+            low=-np.inf, high=np.inf, shape=(4,), dtype=np.float64
+        )
+        action_space = gym.spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float64)
+        return NStepReplayBuffer(
+            buffer_size=100,
+            observation_space=observation_space,
+            action_space=action_space,
+            device="cpu",
+            n_envs=1,
+            n_step=3,
+            gamma=0.99,
+        )
+
+    def test_add_and_store_transition(self, buffer):
+        obs = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        next_obs = np.array([2.0, 3.0, 4.0, 5.0], dtype=np.float64)
+        action = np.array([0.1, -0.1], dtype=np.float64)
+        reward = 1.0
+        done = False
+
+        # Add transitions
+        for _ in range(3):
+            buffer.add(obs, next_obs, action, reward, done)
+
+        # The trajectory buffer should have one stored transition
+        assert len(buffer.traj_buffer) == 1
+
+        # Check the values inside the main buffer after transition
+        assert np.allclose(buffer.observations[0, 0], obs)
+        assert np.allclose(buffer.actions[0, 0], action)
+        assert np.allclose(buffer.next_observations[0, 0], next_obs)
+        assert buffer.rewards[0, 0] == pytest.approx(
+            1.99, rel=1e-3
+        )  # 1 + 0.99 + 0.99**2
+
+    def test_buffer_overflow(self, buffer):
+        obs = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        next_obs = np.array([2.0, 3.0, 4.0, 5.0], dtype=np.float64)
+        action = np.array([0.1, -0.1], dtype=np.float64)
+        reward = 1.0
+
+        for i in range(110):
+            done = i % 10 == 0  # Add some done flags to break the trajectories
+            buffer.add(obs, next_obs, action, reward, done)
+
+        # Check that the buffer size is respected
+        assert buffer.full
+        assert buffer.pos == 10
+
+    def test_sample(self, buffer):
+        obs = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        next_obs = np.array([2.0, 3.0, 4.0, 5.0], dtype=np.float64)
+        action = np.array([0.1, -0.1], dtype=np.float64)
+        reward = 1.0
+
+        for _ in range(10):
+            buffer.add(obs, next_obs, action, reward, False)
+
+        sample = buffer.sample(batch_size=5)
+        assert isinstance(sample, ReplayBufferSamples)
+
+        # Check sample shapes
+        assert sample.observations.shape == (5, 4)
+        assert sample.actions.shape == (5, 2)
+        assert sample.next_observations.shape == (5, 4)
+        assert sample.rewards.shape == (5, 1)
+        assert sample.dones.shape == (5, 1)
+
+    def test_transition_on_done(self, buffer):
+        obs = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        next_obs = np.array([2.0, 3.0, 4.0, 5.0], dtype=np.float64)
+        action = np.array([0.1, -0.1], dtype=np.float64)
+        reward = 1.0
+
+        buffer.add(obs, next_obs, action, reward, done=True)
+
+        # Since the done is True, the transition should be stored immediately
+        assert len(buffer.traj_buffer) == 0
+        assert np.allclose(buffer.observations[0, 0], obs)
+        assert buffer.rewards[0, 0] == reward
