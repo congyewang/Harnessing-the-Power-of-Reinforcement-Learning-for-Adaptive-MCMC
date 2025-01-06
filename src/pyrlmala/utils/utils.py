@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import bridgestan as bs
 import gymnasium as gym
@@ -363,3 +363,37 @@ class Toolbox:
             plt.savefig(save_path)
         else:
             plt.show()
+
+    @staticmethod
+    def detect_environment() -> str:
+        """
+        Detect the current execution environment.
+
+        Returns:
+            str: The detected environment type: 'jupyter', 'ipython', or 'terminal'.
+        """
+        try:
+            shell = get_ipython().__class__.__name__
+            if shell == "ZMQInteractiveShell":  # Jupyter Notebook or JupyterLab
+                return "jupyter"
+            elif shell == "TerminalInteractiveShell":  # IPython terminal
+                return "ipython"
+            else:
+                return "terminal"
+        except NameError:
+            return "terminal"
+
+    @staticmethod
+    def get_clear_function() -> Callable[[bool], Any]:
+        """
+        Get the appropriate clear function based on the environment.
+
+        Returns:
+            callable: The function to clear output in the terminal or notebook.
+        """
+        if Toolbox.detect_environment() == "jupyter":
+            from IPython.display import clear_output as clear
+
+            return clear
+        else:
+            return lambda wait=False: os.system("cls" if os.name == "nt" else "clear")
