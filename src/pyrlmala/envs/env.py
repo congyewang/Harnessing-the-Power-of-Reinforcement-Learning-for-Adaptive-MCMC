@@ -1,6 +1,16 @@
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, SupportsFloat, Tuple
+from collections import defaultdict
+from typing import (
+    Any,
+    Callable,
+    DefaultDict,
+    Dict,
+    List,
+    Optional,
+    SupportsFloat,
+    Tuple,
+)
 
 import gymnasium as gym
 import numpy as np
@@ -156,6 +166,9 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             (total_timesteps, self.sample_dim, self.sample_dim)
         )
 
+        # Track the items in reward
+        self.reward_items: DefaultDict[str, List[np.float64]] = defaultdict(list)
+
     def softplus(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """
         Softplus Function for Numerical Stability.
@@ -209,6 +222,12 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             - np.exp(log_alpha) * log_alpha
         )
         expected_square_jump_distance_item = -np.exp(log_alpha) * log_proposal_current
+
+        self.reward_items["transient"].append(transient_item.item())
+        self.reward_items["entropy"].append(entropy_item.item())
+        self.reward_items["expected_square_jump_distance"].append(
+            expected_square_jump_distance_item.item()
+        )
 
         if self.log_mode:
             res = transient_item + entropy_item + expected_square_jump_distance_item
