@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import bridgestan as bs
 import gymnasium as gym
@@ -370,6 +370,110 @@ class Toolbox:
             plt.savefig(save_path)
         else:
             plt.show()
+
+    @staticmethod
+    def target_plot_1d(
+        x_range: Tuple[float, float, int],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            x_range (Tuple[float, float, int]): x range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function for 1D.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        x = np.linspace(*x_range)
+        res = np.exp([log_target_pdf(np.array([i], dtype=np.float64)) for i in x])
+
+        plt.plot(x, res)
+        plt.title("Target distribution")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @staticmethod
+    def target_plot_2d(
+        x_mesh_range: Tuple[float, float, int],
+        y_mesh_range: Tuple[float, float, int],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            x_mesh_range (Tuple[float, float, int]): x mesh range.
+            y_mesh_range (Tuple[float, float, int]): y mesh range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function for 2D.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        mesh_x, mesh_y = np.meshgrid(
+            np.linspace(*x_mesh_range), np.linspace(*y_mesh_range)
+        )
+        x, y = mesh_x.reshape(1, -1), mesh_y.reshape(1, -1)
+        data = np.concatenate([x, y], axis=0).T
+
+        res = np.exp(
+            np.array([log_target_pdf(np.array([i], dtype=np.float64)) for i in data])
+        )
+
+        plt.contourf(mesh_x, mesh_y, res.reshape(x_mesh_range[2], y_mesh_range[2]))
+        plt.colorbar()
+        plt.title("Target distribution")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @staticmethod
+    def target_plot_multi(
+        data_range: Tuple[Tuple[float, float, int], ...],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            data_range (Tuple[Tuple[float, float, int], ...]): Data range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        for i in data_range:
+            Toolbox.target_plot_1d(i, log_target_pdf, save_path)
+
+    @staticmethod
+    def target_plot(
+        data_range: Tuple[Tuple[float, float, int], ...],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            data_range (Tuple[Tuple[float, float, int], ...]): Data range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        sample_dim = len(data_range)
+        match sample_dim:
+            case 1:
+                Toolbox.target_plot_1d(data_range[0], log_target_pdf, save_path)
+            case 2:
+                Toolbox.target_plot_2d(
+                    data_range[0], data_range[1], log_target_pdf, save_path
+                )
+            case _:
+                Toolbox.target_plot_multi(data_range, log_target_pdf, save_path)
 
     @staticmethod
     def detect_environment() -> str:
