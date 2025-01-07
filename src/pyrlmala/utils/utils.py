@@ -11,6 +11,7 @@ import numpy.typing as npt
 import torch
 from gymnasium.envs.registration import EnvSpec
 from jaxtyping import Float
+from matplotlib.axes import Axes
 from scipy.stats._multivariate import _PSD
 from toolz import pipe
 from torch.nn import functional as F
@@ -276,6 +277,7 @@ class Toolbox:
         softplus_mode: bool = True,
         save_path: Optional[str] = None,
         title_addition: str = "",
+        axes: Optional[Axes] = None,
     ) -> None:
         """
         Plot the policy heatmap.
@@ -286,10 +288,13 @@ class Toolbox:
             y_range (Float[torch.Tensor, "y"], optional): y range. e.g. torch.arange(-5, 5, 0.1).
             softplus_mode (bool, optional): Softplus mode. Defaults to True.
             save_path (Optional[str], optional): Save path. Defaults to None.
+            axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
         """
+        if axes is None:
+            _, axes = plt.subplots()
 
-        # Plot
-        heatmap_plot = lambda x: plt.imshow(
+        # Plot heatmap
+        heatmap_plot = lambda x: axes.imshow(
             x.T,
             extent=[x_range.min(), x_range.max(), y_range.min(), y_range.max()],
             origin="lower",
@@ -321,12 +326,12 @@ class Toolbox:
                 heatmap_plot,
             )
 
-        ax = plt.gca()
-        ax.set_title(f"Policy Heatmap {title_addition}")
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
+        axes.set_title(f"Policy Heatmap {title_addition}")
+        axes.set_xlabel("x")
+        axes.set_ylabel("y")
 
-        plt.colorbar(label="Action")
+        cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
+        cbar.set_label("Action")
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
