@@ -1,74 +1,72 @@
-import json
 import os
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from .preparation import PreparationInterface
-
 
 class ConfigChangeHandler(FileSystemEventHandler):
-    def __init__(self, file_path: str, callback: Callable[[Dict[Any, Any]], None]):
-        self.file_path = file_path
+    """
+    Event handler for configuration file changes.
+
+    Attributes:
+        callback (Callable): Function to call when the file changes.
+    """
+
+    def __init__(self, callback: Callable[..., Any]):
+        """
+        Event handler for configuration file changes.
+
+        Args:
+            callback (Callable[..., Any]): Function to call when the file changes.
+        """
         self.callback = callback
 
-    def on_modified(self, event):
-        if event.src_path == self.file_path:
-            with open(self.file_path, "r") as f:
-                updated_config = json.load(f)
-            self.callback(updated_config)
+    def on_modified(self, event: Any):
+        """
+        Handle the file modification event.
+
+        Args:
+            event (Any): The event object.
+        """
+        if event.is_directory:
+            return
+        self.callback()
 
 
 class ConfigObserver:
-    def __init__(
-        self, config_path: str, update_callback: Callable[[Dict[Any, Any]], None]
-    ):
-        self.config_path = config_path
-        self.update_callback = update_callback
-        self.event_handler = ConfigChangeHandler(self.config_path, self.update_callback)
+    """
+    Observer class that uses watchdog to monitor configuration files.
+
+    Attributes:
+        file_path (str): The path to the configuration file.
+        callback (Callable): Function to call when the file changes.
+    """
+
+    def __init__(self, file_path: str, callback: Callable[..., Any]) -> None:
+        """
+        Observer class that uses watchdog to monitor configuration files.
+
+        Args:
+            file_path (str): The path to the configuration file.
+            callback (Callable[..., Any]): Function to call when the file changes.
+        """
+        self.file_path = file_path
+        self.callback = callback
+        self.event_handler = ConfigChangeHandler(self.callback)
         self.observer = Observer()
 
-    def start(self):
-        config_dir = os.path.dirname(self.config_path)
-        self.observer.schedule(self.event_handler, config_dir, recursive=False)
+    def start(self) -> None:
+        """
+        Start the watchdog observer to monitor the configuration file.
+        """
+        directory = os.path.dirname(self.file_path)
+        self.observer.schedule(self.event_handler, directory, recursive=False)
         self.observer.start()
 
-    def stop(self):
+    def stop(self) -> None:
+        """
+        Stop the watchdog observer.
+        """
         self.observer.stop()
         self.observer.join()
-
-
-class ReflectionMixin:
-    """
-    Mixin class to enable reflection-based updates of runtime attributes.
-    """
-
-    def update_attributes(self, updated_config: Dict[Any, Any]):
-        for key, value in updated_config.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-                print(f"Updated {key} to {value}")
-            else:
-                print(f"Warning: Attribute {key} does not exist.")
-
-
-class PreparationInterfaceWithObserver(PreparationInterface, ReflectionMixin):
-    def __init__(self, *args, hyperparameter_config_path: str = "", **kwargs):
-        super().__init__(
-            *args, hyperparameter_config_path=hyperparameter_config_path, **kwargs
-        )
-
-        # Initialize config observer
-        self.config_observer = ConfigObserver(
-            config_path=hyperparameter_config_path,
-            update_callback=self.on_config_update,
-        )
-        self.config_observer.start()
-
-    def on_config_update(self, updated_config: Dict[Any, Any]):
-        print("Configuration file modified. Applying updates...")
-        self.update_attributes(updated_config)
-
-    def __del__(self):
-        self.config_observer.stop()
