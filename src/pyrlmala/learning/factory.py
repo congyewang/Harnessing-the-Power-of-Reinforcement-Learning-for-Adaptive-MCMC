@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Type
 
-from .learning import LearningDDPG, LearningTD3
+from .learning import LearningDDPG, LearningInterface, LearningTD3
 from .preparation import PreparationDDPG, PreparationTD3
 
 
@@ -116,7 +116,7 @@ class LearningFactory:
         actor_config_path="",
         critic_config_path="",
         **kwargs,
-    ) -> LearningAlgorithmFactory:
+    ) -> LearningInterface:
         """
         Create a learning algorithm instance.
 
@@ -130,7 +130,7 @@ class LearningFactory:
             ValueError: Unsupported algorithm.
 
         Returns:
-            LearningAlgorithmFactory: The learning algorithm instance.
+            LearningInterface: The learning algorithm instance.
         """
         factory_callable = cls._factories.get(algorithm.lower())
         if not factory_callable:
