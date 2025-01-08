@@ -65,7 +65,7 @@ class PlotterBase(ABC):
         Returns:
             npt.NDArray[np.float64]: The sliced sample.
         """
-        return store_sample[0:current_step]
+        return store_sample[0 : current_step - 1]
 
     @abstractmethod
     def plot(self, step: int, axes: Axes) -> None:
@@ -360,7 +360,7 @@ class TrainingVisualizer:
             clear(wait=True)
             plt.close("all")
 
-            _, axs = plt.subplots(1, 2, figsize=(10, 5))
+            _, axs = plt.subplots(1, 2, figsize=(13, 5))
             self._policy_plot(current_step + 1, axs[0])
             self._scatter_plot(current_step + 1, axs[1])
 
