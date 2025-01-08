@@ -175,7 +175,7 @@
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.make_env">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_env</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_covariance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_timesteps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps_per_episode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.make_env" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">make_env</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">env_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grad_log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_covariance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial_step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_timesteps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps_per_episode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">42</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.make_env" title="Link to this definition"></a></dt>
 <dd><p>Make an environment.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -284,7 +284,7 @@ credits [2].</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.policy_plot_2D_heatmap">
-<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">policy_plot_2D_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">policy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">softplus_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_addition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.policy_plot_2D_heatmap" title="Link to this definition"></a></dt>
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">policy_plot_2D_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">policy</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">softplus_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title_addition</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.policy_plot_2D_heatmap" title="Link to this definition"></a></dt>
 <dd><p>Plot the policy heatmap.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -294,6 +294,7 @@ credits [2].</p>
 <li><p><strong>y_range</strong> (<em>Float</em><em>[</em><em>torch.Tensor</em><em>, </em><em>&quot;y&quot;</em><em>]</em><em>, </em><em>optional</em>) – y range. e.g. torch.arange(-5, 5, 0.1).</p></li>
 <li><p><strong>softplus_mode</strong> (<em>bool</em><em>, </em><em>optional</em>) – Softplus mode. Defaults to True.</p></li>
 <li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+<li><p><strong>axes</strong> (<em>Optional</em><em>[</em><em>plt.Axes</em><em>]</em>) – External axes for subplots. If None, creates a new figure.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
@@ -312,6 +313,79 @@ credits [2].</p>
 <li><p><strong>reward</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – Immediate reward per step.</p></li>
 <li><p><strong>step_per_episode</strong> (<em>int</em><em>, </em><em>optional</em>) – Steps per episode. Defaults to 500.</p></li>
 <li><p><strong>window_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Window size for moving average. Defaults to 5.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.target_plot">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">target_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.target_plot" title="Link to this definition"></a></dt>
+<dd><p>Plot the target distribution. Save the plot if save_path is provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_range</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>, </em><em>int</em><em>]</em><em>, </em><em>...</em><em>]</em>) – Data range.</p></li>
+<li><p><strong>log_target_pdf</strong> (<em>Callable</em><em>[</em><em>[</em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>np.float64</em><em>]</em>) – Log target pdf function.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.target_plot_1d">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">target_plot_1d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.target_plot_1d" title="Link to this definition"></a></dt>
+<dd><p>Plot the target distribution. Save the plot if save_path is provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_range</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>, </em><em>int</em><em>]</em>) – x range.</p></li>
+<li><p><strong>log_target_pdf</strong> (<em>Callable</em><em>[</em><em>[</em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>np.float64</em><em>]</em>) – Log target pdf function for 1D.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.target_plot_2d">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">target_plot_2d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x_mesh_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_mesh_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.target_plot_2d" title="Link to this definition"></a></dt>
+<dd><p>Plot the target distribution. Save the plot if save_path is provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_mesh_range</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>, </em><em>int</em><em>]</em>) – x mesh range.</p></li>
+<li><p><strong>y_mesh_range</strong> (<em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>, </em><em>int</em><em>]</em>) – y mesh range.</p></li>
+<li><p><strong>log_target_pdf</strong> (<em>Callable</em><em>[</em><em>[</em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>np.float64</em><em>]</em>) – Log target pdf function for 2D.</p></li>
+<li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="pyrlmala.utils.Toolbox.target_plot_multi">
+<em class="property"><span class="pre">static</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">target_plot_multi</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_range</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_target_pdf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.utils.Toolbox.target_plot_multi" title="Link to this definition"></a></dt>
+<dd><p>Plot the target distribution. Save the plot if save_path is provided.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_range</strong> (<em>Tuple</em><em>[</em><em>Tuple</em><em>[</em><em>float</em><em>, </em><em>float</em><em>, </em><em>int</em><em>]</em><em>, </em><em>...</em><em>]</em>) – Data range.</p></li>
+<li><p><strong>log_target_pdf</strong> (<em>Callable</em><em>[</em><em>[</em><em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em><em>]</em><em>, </em><em>np.float64</em><em>]</em>) – Log target pdf function.</p></li>
 <li><p><strong>save_path</strong> (<em>Optional</em><em>[</em><em>str</em><em>]</em><em>, </em><em>optional</em>) – Save path. Defaults to None.</p></li>
 </ul>
 </dd>

@@ -53,9 +53,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#pyrlmala.learning.LearningDDPG"><code class="docutils literal notranslate"><span class="pre">LearningDDPG</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#pyrlmala.learning.LearningFactory"><code class="docutils literal notranslate"><span class="pre">LearningFactory</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#pyrlmala.learning.LearningTD3"><code class="docutils literal notranslate"><span class="pre">LearningTD3</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#pyrlmala.learning.NStepReplayBuffer"><code class="docutils literal notranslate"><span class="pre">NStepReplayBuffer</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#pyrlmala.learning.PretrainFactory"><code class="docutils literal notranslate"><span class="pre">PretrainFactory</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#pyrlmala.learning.PretrainMockDataset"><code class="docutils literal notranslate"><span class="pre">PretrainMockDataset</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="pyrlmala.utils.html">Utils</a></li>
@@ -959,63 +957,6 @@
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="pyrlmala.learning.NStepReplayBuffer">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyrlmala.learning.</span></span><span class="sig-name descname"><span class="pre">NStepReplayBuffer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">buffer_size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">observation_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action_space</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'auto'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_envs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gamma</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.99</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.NStepReplayBuffer" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseBuffer</span></code></p>
-<p>N-step TD replay buffer used in off-policy algorithms like DDPG/TD3.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>buffer_size</strong> (<em>int</em>) – Max number of element in the buffer</p></li>
-<li><p><strong>observation_space</strong> (<em>spaces.Space</em><em>[</em><em>Any</em><em>]</em>) – Observation space</p></li>
-<li><p><strong>action_space</strong> (<em>spaces.Space</em><em>[</em><em>Any</em><em>]</em>) – Action space</p></li>
-<li><p><strong>device</strong> (<em>torch.device</em><em> | </em><em>str</em>) – PyTorch device</p></li>
-<li><p><strong>n_envs</strong> (<em>int</em>) – Number of parallel environments</p></li>
-<li><p><strong>n_step</strong> (<em>int</em>) – Number of steps to look ahead for TD</p></li>
-<li><p><strong>gamma</strong> (<em>float</em>) – Discount factor</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="py method">
-<dt class="sig sig-object py" id="pyrlmala.learning.NStepReplayBuffer.add">
-<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">obs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">next_obs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reward</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">done</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.NStepReplayBuffer.add" title="Link to this definition"></a></dt>
-<dd><p>Add a new transition to the buffer.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>obs</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – observation</p></li>
-<li><p><strong>next_obs</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – next observation</p></li>
-<li><p><strong>action</strong> (<em>npt.NDArray</em><em>[</em><em>np.float64</em><em>]</em>) – action</p></li>
-<li><p><strong>reward</strong> (<em>np.float64</em>) – reward</p></li>
-<li><p><strong>done</strong> (<em>bool</em>) – done</p></li>
-</ul>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></span></p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="pyrlmala.learning.NStepReplayBuffer.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">batch_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.NStepReplayBuffer.sample" title="Link to this definition"></a></dt>
-<dd><p>Sample a batch of transitions.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>batch_size</strong> (<em>int</em>) – Number of element to sample in the batch from the replay buffer.</p>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A batch of transitions sampled from the replay buffer with n-step rewards and next observations calculated.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>ReplayBufferSamples</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
 <dt class="sig sig-object py" id="pyrlmala.learning.PretrainFactory">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyrlmala.learning.</span></span><span class="sig-name descname"><span class="pre">PretrainFactory</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainFactory" title="Link to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
@@ -1043,121 +984,6 @@
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="pyrlmala.agent.html#pyrlmala.agent.PolicyNetwork" title="pyrlmala.agent.PolicyNetwork">PolicyNetwork</a></p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">pyrlmala.learning.</span></span><span class="sig-name descname"><span class="pre">PretrainMockDataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">initial_sample</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset" title="Link to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Dataset</span></code></p>
-<p>Pretrain Mock Dataset for Actor.</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.initial_sample">
-<span class="sig-name descname"><span class="pre">initial_sample</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.initial_sample" title="Link to this definition"></a></dt>
-<dd><p>Initial sample.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Float[torch.Tensor, “initial sample”]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.sample_dim">
-<span class="sig-name descname"><span class="pre">sample_dim</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.sample_dim" title="Link to this definition"></a></dt>
-<dd><p>Sample dimension.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.step_size">
-<span class="sig-name descname"><span class="pre">step_size</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.step_size" title="Link to this definition"></a></dt>
-<dd><p>Step size.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>float</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.num">
-<span class="sig-name descname"><span class="pre">num</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.num" title="Link to this definition"></a></dt>
-<dd><p>Number of samples.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.mock_state">
-<span class="sig-name descname"><span class="pre">mock_state</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.mock_state" title="Link to this definition"></a></dt>
-<dd><p>Mock state.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Float[torch.Tensor, “state”]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.mock_step_size">
-<span class="sig-name descname"><span class="pre">mock_step_size</span></span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.mock_step_size" title="Link to this definition"></a></dt>
-<dd><p>Mock step size.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Float[torch.Tensor, “step size”]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.inverse_softplus">
-<span class="sig-name descname"><span class="pre">inverse_softplus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.inverse_softplus" title="Link to this definition"></a></dt>
-<dd><p>Inverse softplus function.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Output.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Float[torch.Tensor, “output”]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.mock_state_generator">
-<span class="sig-name descname"><span class="pre">mock_state_generator</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.mock_state_generator" title="Link to this definition"></a></dt>
-<dd><p>Mock state generator.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>State.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Float[torch.Tensor, “state”]</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="pyrlmala.learning.PretrainMockDataset.mock_step_size_generator">
-<span class="sig-name descname"><span class="pre">mock_step_size_generator</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#pyrlmala.learning.PretrainMockDataset.mock_step_size_generator" title="Link to this definition"></a></dt>
-<dd><p>Mock step size generator.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Step size.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>Float[torch.Tensor, “step size”]</p>
 </dd>
 </dl>
 </dd></dl>
