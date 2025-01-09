@@ -309,12 +309,12 @@ class ScatterPlotter(PlotterBase):
             alpha (float): The transparency of the plot.
         """
         axes.plot(data[:, 0], data[:, 1], "o-", alpha=alpha)
-
+        axes.plot(data[-1, 0], data[-1, 1], "ro")
         axes.set_title(f"Scatter Plot Step: {step}")
         axes.set_xlabel("x")
         axes.set_ylabel("y")
 
-    def plot(self, step: int, axes: Axes, alpha: float = 1.0) -> None:
+    def plot(self, step: int, axes: Axes, alpha: float = 0.1) -> None:
         """
         Helper function to plot a 2D sample scatter plot.
 
