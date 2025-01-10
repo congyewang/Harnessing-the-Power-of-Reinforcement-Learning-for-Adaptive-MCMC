@@ -26,6 +26,8 @@ dependencies = [
     "torch-tb-profiler>=0.4.3",
     "jaxtyping>=0.2.36",
     "watchdog>=6.0.0",
+    "dash>=2.18.2",
+    "pandas>=2.2.3",
 ]
 
 [dependency-groups]
