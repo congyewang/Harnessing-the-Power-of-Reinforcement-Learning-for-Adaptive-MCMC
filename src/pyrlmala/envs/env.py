@@ -792,3 +792,303 @@ class BarkerEnv(MCMCEnvBase):
         info: Dict[None, None] = {}
 
         return self.state, reward.item(), terminated, truncated, info
+
+
+class MALAEnv(MCMCEnvBase):
+    """
+    Metropolis-Adjusted Langevin Algorithm (MALA) Environment.
+
+    Attributes:
+        log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the log target probability density function without numerical stabilization.
+        grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the gradient of the log target probability density function without numerical stabilization.
+        initial_sample (npt.NDArray[np.float64]): Initial Sample.
+        initial_covariance (npt.NDArray[np.float64]): Initial Covariance.
+        initial_step_size (npt.NDArray[np.float64]): Initial Step Size.
+        total_timesteps (int): The number of the total time steps in the whole episode.
+        log_mode (bool): The controller if reward function returns the logarithmic form.
+        sample_dim (int): Sample Dimension.
+        steps (int): Iteration Time.
+        observation_space (gym.spaces.Box): Observation Specification.
+        action_space (gym.spaces.Box): Action Specification.
+        state (npt.NDArray[np.float64]): State.
+        covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance.
+    """
+
+    def __init__(
+        self,
+        log_target_pdf_unsafe: Callable[
+            [npt.NDArray[np.float64]], npt.NDArray[np.float64]
+        ],
+        grad_log_target_pdf_unsafe: Callable[
+            [npt.NDArray[np.float64]], npt.NDArray[np.float64]
+        ],
+        initial_sample: npt.NDArray[np.float64],
+        initial_covariance: Optional[npt.NDArray[np.float64]] = None,
+        initial_step_size: npt.NDArray[np.float64] = np.array([1.0]),
+        total_timesteps: int = 500_000,
+        max_steps_per_episode: int = 500,
+        log_mode: bool = True,
+    ) -> None:
+        """
+        Initialize the Environment.
+
+        Args:
+            log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]): _description_
+            grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]): _description_
+            initial_sample (npt.NDArray[np.float64]): _description_
+            initial_covariance (Optional[npt.NDArray[np.float64]], optional): _description_. Defaults to None.
+            initial_step_size (npt.NDArray[np.float64], optional): _description_. Defaults to np.array([1.0]).
+            total_timesteps (int, optional): _description_. Defaults to 500_000.
+            max_steps_per_episode (int, optional): _description_. Defaults to 500.
+            log_mode (bool, optional): _description_. Defaults to True.
+        """
+        super().__init__(
+            log_target_pdf_unsafe,
+            grad_log_target_pdf_unsafe,
+            initial_sample,
+            initial_covariance,
+            initial_step_size,
+            total_timesteps,
+            max_steps_per_episode,
+            log_mode,
+        )
+
+    def sample_generator(
+        self,
+        mean: npt.NDArray[np.float64],
+        covariance: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """
+        MALA Proposal. This function is used to generate the next proposed sample.
+
+        Args:
+            mean (npt.NDArray[np.float64]): Mean.
+            covariance (npt.NDArray[np.float64]): Covariance.
+
+        Returns:
+            npt.NDArray[np.float64]: Next Proposed Sample.
+        """
+        return self.np_random.multivariate_normal(mean, covariance, size=1).flatten()
+
+    def log_proposal_pdf(
+        self,
+        x: npt.NDArray[np.float64],
+        mean: npt.NDArray[np.float64],
+        covariance: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """
+        Log Proposal Probability Density Function. This function is used to compute the log proposal probability density function.
+
+        Args:
+            x (npt.NDArray[np.float64]): Sample.
+            mean (npt.NDArray[np.float64]): Mean.
+            covariance (npt.NDArray[np.float64]): Covariance.
+
+        Returns:
+            npt.NDArray[np.float64]: Log Proposal Probability Density.
+        """
+        res = multivariate_normal.logpdf(x, mean, covariance)
+
+        if np.isinf(res) or np.isnan(res):
+            res = -np.finfo(np.float64).max
+            warnings.warn(f"log_proposal_pdf is inf or -inf, where x: {x}.")
+
+        return res
+
+    def log_proposal_process(
+        self,
+        current_sample: npt.NDArray[np.float64],
+        proposed_sample: npt.NDArray[np.float64],
+        current_covariance: npt.NDArray[np.float64],
+        proposed_covariance: npt.NDArray[np.float64],
+    ) -> Tuple[
+        npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+    ]:
+        """
+        Log Proposal Process.
+
+        Args:
+            current_sample (npt.NDArray[np.float64]): Current Sample
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample
+            current_covariance (npt.NDArray[np.float64]): Current Covariance
+            proposed_covariance (npt.NDArray[np.float64]): Proposed Covariance
+
+        Returns:
+            Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+                Log Proposal Current, Log Proposal Proposed, Log Proposal Ratio
+        """
+        log_proposal_current = self.log_proposal_pdf(
+            current_sample, proposed_sample, current_covariance
+        )
+        log_proposal_proposed = self.log_proposal_pdf(
+            proposed_sample, current_sample, proposed_covariance
+        )
+
+        log_proposal_ratio = log_proposal_proposed - log_proposal_current
+
+        return log_proposal_current, log_proposal_proposed, log_proposal_ratio
+
+    def accepted_process(
+        self,
+        current_sample: npt.NDArray[np.float64],
+        proposed_sample: npt.NDArray[np.float64],
+        current_mean: npt.NDArray[np.float64],
+        proposed_mean: npt.NDArray[np.float64],
+        current_covariance: npt.NDArray[np.float64],
+        proposed_covariance: npt.NDArray[np.float64],
+    ) -> Tuple[
+        bool,
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+        npt.NDArray[np.float64],
+    ]:
+        """
+        Accepted / Rejected Process. This function is used to determine whether the proposed sample is accepted or rejected.
+
+        Args:
+            current_sample (npt.NDArray[np.float64]): Current Sample.
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample.
+            current_mean (npt.NDArray[np.float64]): Current Mean.
+            proposed_mean (npt.NDArray[np.float64]): Proposed Mean.
+            current_covariance (npt.NDArray[np.float64]): Current Covariance.
+            proposed_covariance (npt.NDArray[np.float64]): Proposed Covariance.
+
+        Returns:
+            Tuple[ bool, npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64], np.float64]:
+                Accepted Status, Accepted Sample, Accepted Mean, Accepted Covariance, Log Acceptance Rate
+        """
+        # Calculate Log Target Density
+        log_target_current, log_target_proposed, log_target_ratio = (
+            self.log_target_process(current_sample, proposed_sample)
+        )
+
+        # Calculate Log Proposal Densitys
+        log_proposal_current, log_proposal_proposed, log_proposed_ratio = (
+            self.log_proposal_process(
+                current_sample, proposed_sample, current_covariance, proposed_covariance
+            )
+        )
+
+        # Calculate Log Acceptance Rate
+        log_alpha = np.minimum(0.0, log_target_ratio + log_proposed_ratio)
+
+        # Accept or Reject
+        if np.log(self.np_random.random()) < log_alpha:
+            accepted_status = True
+            accepted_sample = proposed_sample
+            accepted_mean = proposed_mean
+            accepted_covariance = proposed_covariance
+        else:
+            accepted_status = False
+            accepted_sample = current_sample
+            accepted_mean = current_mean
+            accepted_covariance = current_covariance
+
+        # Store
+        self.store_process(
+            current_sample,
+            proposed_sample,
+            current_mean,
+            proposed_mean,
+            current_covariance,
+            proposed_covariance,
+            log_target_current,
+            log_target_proposed,
+            log_proposal_current,
+            log_proposal_proposed,
+            accepted_status,
+            log_alpha,
+            accepted_sample,
+            accepted_mean,
+            accepted_covariance,
+        )
+
+        return (
+            accepted_status,
+            accepted_sample,
+            accepted_mean,
+            accepted_covariance,
+            log_alpha,
+        )
+
+    def step(
+        self, action: npt.NDArray[np.float64]
+    ) -> Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]:
+        """
+        Step Function for Environment. This function is used to update the environment state.
+
+        Args:
+            action (npt.NDArray[np.float64]): Step Size Before Softplus Function, which is unconstrained.
+
+        Returns:
+            Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]: State, Reward, Terminated, Truncated, Info.
+        """
+        # Unpack state
+        current_sample, proposed_sample = np.split(self.state, 2)
+
+        # Unpack action
+        current_psi, proposed_psi = np.split(action, 2)
+
+        # Calculate phi
+        current_phi = self.softplus(current_psi)
+        proposed_phi = self.softplus(proposed_psi)
+
+        # Mean and Coveriance
+        current_grad_log_pdf = self.grad_log_target_pdf(current_sample)
+        proposed_grad_log_pdf = self.grad_log_target_pdf(proposed_sample)
+
+        current_mean = (
+            current_sample + current_phi * self.covariance @ current_grad_log_pdf
+        )
+        proposed_mean = (
+            proposed_sample + proposed_phi * self.covariance @ proposed_grad_log_pdf
+        )
+
+        current_covariance = 2 * current_phi**2 * self.covariance
+        proposed_covariance = 2 * proposed_phi**2 * self.covariance
+
+        # Accept or Reject
+        _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
+            self.accepted_process(
+                current_sample,
+                proposed_sample,
+                current_mean,
+                proposed_mean,
+                current_covariance,
+                proposed_covariance,
+            )
+        )
+
+        # Update Observation
+        next_proposed_sample = self.sample_generator(accepted_mean, accepted_covariance)
+        observation = np.concatenate((accepted_sample, next_proposed_sample))
+        self.state = observation
+
+        # Calculate Reward
+        log_target_current, log_target_proposed, _ = self.log_target_process(
+            current_sample, proposed_sample
+        )
+
+        log_proposal_current, _, _ = self.log_proposal_process(
+            current_sample, proposed_sample, current_covariance, proposed_covariance
+        )
+
+        reward = self.expected_entropy_reward(
+            log_target_current, log_target_proposed, log_proposal_current, log_alpha
+        )
+
+        # Store
+        self.store_observation[self.current_step, :] = observation
+        self.store_action[self.current_step, :] = action
+        self.store_reward[self.current_step] = reward
+
+        # Update Steps
+        self.current_step += 1
+        truncated: bool = (self.current_step + 1) % self.max_steps_per_episode == 0
+        terminated: bool = False
+        info: Dict[None, None] = {}
+
+        return self.state, reward.item(), terminated, truncated, info
