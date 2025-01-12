@@ -83,9 +83,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
 
         self.initial_sample = initial_sample
         if initial_covariance is None:
-            initial_covariance = (2.38 / np.sqrt(self.sample_dim)) * np.eye(
-                self.sample_dim
-            )
+            initial_covariance = np.eye(self.sample_dim)
         self.initial_covariance: npt.NDArray[np.float64] = initial_covariance
         self.covariance: npt.NDArray[np.float64] = initial_covariance
         self.initial_step_size: npt.NDArray[np.float64] = initial_step_size
@@ -734,12 +732,8 @@ class BarkerEnv(MCMCEnvBase):
         # Unpack state
         current_sample, proposed_sample = np.split(self.state, 2)
 
-        # Unpack action
-        current_psi, proposed_psi = np.split(action, 2)
-
         # Calculate phi
-        current_phi = self.softplus(current_psi)
-        proposed_phi = self.softplus(proposed_psi)
+        current_phi, proposed_phi = self.softplus(action)
 
         # Mean and Coveriance
         [current_mean, proposed_mean] = [current_sample for _ in range(2)]
@@ -854,6 +848,30 @@ class MALAEnv(MCMCEnvBase):
             max_steps_per_episode,
             log_mode,
         )
+
+    def _compute_mean_and_covariance(
+        self,
+        sample: npt.NDArray[np.float64],
+        step_size: npt.NDArray[np.float64],
+        covariance: npt.NDArray[np.float64],
+        grad_log_pdf: npt.NDArray[np.float64],
+    ) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """
+        Compute Mean and Covariance. This function is used to compute the mean and covariance.
+
+        Args:
+            sample (npt.NDArray[np.float64]): Sample.
+            step_size (npt.NDArray[np.float64]): Step Size.
+            covariance (npt.NDArray[np.float64]): Covariance.
+            grad_log_pdf (npt.NDArray[np.float64]): Gradient of Log Target Probability Density at sample.
+
+        Returns:
+            Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]: Mean, Covariance
+        """
+        mean = sample + step_size**2 / 2 * covariance @ grad_log_pdf
+        covariance = step_size**2 * covariance
+
+        return mean, covariance
 
     def sample_generator(
         self,
@@ -1029,26 +1047,20 @@ class MALAEnv(MCMCEnvBase):
         # Unpack state
         current_sample, proposed_sample = np.split(self.state, 2)
 
-        # Unpack action
-        current_psi, proposed_psi = np.split(action, 2)
-
         # Calculate phi
-        current_phi = self.softplus(current_psi)
-        proposed_phi = self.softplus(proposed_psi)
+        current_phi, proposed_phi = self.softplus(action)
 
         # Mean and Coveriance
-        current_grad_log_pdf = self.grad_log_target_pdf(current_sample)
-        proposed_grad_log_pdf = self.grad_log_target_pdf(proposed_sample)
+        current_grad_log_pdf, proposed_grad_log_pdf = self.grad_log_target_pdf(
+            current_sample
+        ), self.grad_log_target_pdf(proposed_sample)
 
-        current_mean = (
-            current_sample + current_phi * self.covariance @ current_grad_log_pdf
+        current_mean, current_covariance = self._compute_mean_and_covariance(
+            current_sample, current_phi, self.covariance, current_grad_log_pdf
         )
-        proposed_mean = (
-            proposed_sample + proposed_phi * self.covariance @ proposed_grad_log_pdf
+        proposed_mean, proposed_covariance = self._compute_mean_and_covariance(
+            proposed_sample, proposed_phi, self.covariance, proposed_grad_log_pdf
         )
-
-        current_covariance = 2 * current_phi * self.covariance
-        proposed_covariance = 2 * proposed_phi * self.covariance
 
         # Accept or Reject
         _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
