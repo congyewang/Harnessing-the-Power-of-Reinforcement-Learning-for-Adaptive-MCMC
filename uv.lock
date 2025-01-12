@@ -2425,6 +2425,7 @@ dependencies = [
 dev = [
     { name = "ipython" },
     { name = "jupyter" },
+    { name = "pysnooper" },
     { name = "pytest" },
 ]
 
@@ -2462,7 +2463,17 @@ requires-dist = [
 dev = [
     { name = "ipython", specifier = ">=8.29.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
+    { name = "pysnooper", specifier = ">=1.2.1" },
     { name = "pytest", specifier = ">=8.3.3" },
+]
+
+[[package]]
+name = "pysnooper"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/2f/1cec82aaff770c953717cbbdad26d30504689f4d492332dd816296fd9029/PySnooper-1.2.1.tar.gz", hash = "sha256:d832ddf26c80440a9456b3a664daff957f737e7313c40b76250ebdb5ccdb6a31", size = 46212 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/04/8f4be140e8d919c283ddfc2ba956dc5caea75fdbfbc8493117a269a562a4/PySnooper-1.2.1-py2.py3-none-any.whl", hash = "sha256:7717ac193e27a0f9c5673015812386ee7828ad205f705045b2e019f4800b42a0", size = 15098 },
 ]
 
 [[package]]
@@ -3455,7 +3466,7 @@ name = "triton"
 version = "3.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "filelock", marker = "sys_platform == 'linux'" },
+    { name = "filelock", marker = "python_full_version < '3.13' and sys_platform == 'linux'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/98/29/69aa56dc0b2eb2602b553881e34243475ea2afd9699be042316842788ff5/triton-3.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6b0dd10a925263abbe9fa37dcde67a5e9b2383fc269fdf59f5657cac38c5d1d8", size = 209460013 },
