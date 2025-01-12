@@ -1047,8 +1047,8 @@ class MALAEnv(MCMCEnvBase):
             proposed_sample + proposed_phi * self.covariance @ proposed_grad_log_pdf
         )
 
-        current_covariance = 2 * current_phi**2 * self.covariance
-        proposed_covariance = 2 * proposed_phi**2 * self.covariance
+        current_covariance = 2 * current_phi * self.covariance
+        proposed_covariance = 2 * proposed_phi * self.covariance
 
         # Accept or Reject
         _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
