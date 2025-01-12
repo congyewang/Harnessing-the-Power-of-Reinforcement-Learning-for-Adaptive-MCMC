@@ -528,6 +528,29 @@ class BarkerEnv(MCMCEnvBase):
             log_mode,
         )
 
+    def _log_mu_sigma(
+        self,
+        x: npt.NDArray[np.float64],
+        y: npt.NDArray[np.float64],
+        step_size: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """
+        Log of mu_{sigma}.
+
+        Args:
+            x (npt.NDArray[np.float64]): Sample.
+            y (npt.NDArray[np.float64]): Sample.
+            step_size (np.float64): Step Size.
+
+        Returns:
+            npt.NDArray[np.float64]: Log of mu_{sigma}.
+        """
+        position = (y - x) / step_size
+
+        return -self.sample_dim * np.log(step_size) + multivariate_normal.logpdf(
+            position, np.zeros(self.sample_dim), np.eye(self.sample_dim)
+        )
+
     def sample_generator(
         self,
         x: npt.NDArray[np.float64],
@@ -551,29 +574,6 @@ class BarkerEnv(MCMCEnvBase):
 
         return x + z * b
 
-    def log_mu_sigma(
-        self,
-        x: npt.NDArray[np.float64],
-        y: npt.NDArray[np.float64],
-        step_size: npt.NDArray[np.float64],
-    ) -> npt.NDArray[np.float64]:
-        """
-        Log of mu_{sigma}.
-
-        Args:
-            x (npt.NDArray[np.float64]): Sample.
-            y (npt.NDArray[np.float64]): Sample.
-            step_size (np.float64): Step Size.
-
-        Returns:
-            npt.NDArray[np.float64]: Log of mu_{sigma}.
-        """
-        position = (y - x) / step_size
-
-        return -self.sample_dim * np.log(step_size) + multivariate_normal.logpdf(
-            position, np.zeros(self.sample_dim), np.eye(self.sample_dim)
-        )
-
     def log_proposal_pdf(
         self,
         x: npt.NDArray[np.float64],
@@ -592,7 +592,7 @@ class BarkerEnv(MCMCEnvBase):
             npt.NDArray[np.float64]: Log Proposal Probability Density.
         """
         return self.sample_dim * np.log(2) + np.sum(
-            self.log_mu_sigma(x, y, step_size_x)
+            self._log_mu_sigma(x, y, step_size_x)
             - self.softplus((x - y) * self.grad_log_target_pdf(x))
         )
 
