@@ -1,12 +1,15 @@
-from typing import Any, Dict
+import warnings
 from abc import abstractmethod
+from typing import Any, Dict
+
 import ipywidgets as widgets
 import tomli_w
 import tomllib
 from IPython.display import display
+
 from ...utils import Toolbox
 from .base import PluginBase
-import warnings
+
 
 class SliderBase(PluginBase):
     """
@@ -78,7 +81,7 @@ class SliderBase(PluginBase):
         raise NotImplementedError("Method '_create_slider' must be implemented.")
 
 
-class Slider(SliderBase):
+class ActorLearningRateSlider(SliderBase):
     """
     A plugin to create a slider to change the actor learning rate.
 
