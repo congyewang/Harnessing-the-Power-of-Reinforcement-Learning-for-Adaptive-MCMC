@@ -169,3 +169,7 @@ cython_debug/
 # Tensorboard
 # https://tensorboard.dev/
 **/runs
+
+# Numpy Files
+**/*.npy
+**/*.npz
