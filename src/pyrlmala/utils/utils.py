@@ -508,3 +508,16 @@ class Toolbox:
             return clear
         else:
             return lambda wait=False: os.system("cls" if os.name == "nt" else "clear")
+
+    @staticmethod
+    def inverse_softplus(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """
+        Inverse softplus Function for Numerical Stability. y = log(exp(x) - 1).
+
+        Args:
+            x (npt.NDArray[np.float64]): Input array.
+
+        Returns:
+            npt.NDArray[np.float64]: Inverse softplus of the input with numerical stabilization.
+        """
+        return x + np.log1p(-np.exp(-x))
