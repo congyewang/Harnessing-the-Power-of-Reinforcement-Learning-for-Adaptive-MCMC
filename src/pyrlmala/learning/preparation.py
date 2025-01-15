@@ -76,7 +76,6 @@ class PosteriorDBFunctionsGenerator:
 
         if self.posterior_data is None:
             stan_data = json.dumps(posterior.data.values())
-            print(stan_data)
         else:
             stan_data = json.dumps(self.posterior_data)
 

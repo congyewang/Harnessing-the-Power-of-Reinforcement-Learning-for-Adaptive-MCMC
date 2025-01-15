@@ -135,10 +135,6 @@ class LearningRateConfigBase(RuntimeCongfigBase):
         self._check_learning_rate(runtime_learning_rate)
         optimizer.param_groups[0].update(lr=runtime_learning_rate)
 
-        print(
-            f"Runtime {learning_rate_type.value} learning rate set to {runtime_learning_rate}."
-        )
-
 
 class ActorLearningRateConfig(LearningRateConfigBase):
     """

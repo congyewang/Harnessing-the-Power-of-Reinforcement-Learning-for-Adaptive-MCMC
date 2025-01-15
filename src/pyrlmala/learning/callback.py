@@ -6,12 +6,20 @@ from .learning import LearningInterface
 from .observer import ConfigObserver
 from .plugins import (
     ActorLearningRateConfig,
+    ActorLearningRateSlider,
     CriticLearningRateConfig,
     TrainingVisualizer,
 )
 
 
 class CallbackBase(ABC):
+    """
+    Base class for callbacks.
+
+    Attributes:
+        learning_instance (LearningInterface): The learning instance to be trained.
+    """
+
     def __init__(
         self,
         learning_instance: LearningInterface,
@@ -47,6 +55,16 @@ class CallbackBase(ABC):
 
 
 class Callback(CallbackBase):
+    """
+    Callback for training the learning instance.
+
+    Attributes:
+        learning_instance (LearningInterface): The learning instance to be trained.
+        plotter (TrainingVisualizer): The training visualizer.
+        observer (ConfigObserver): The configuration observer.
+        runtime_actor_learning_rate_slider (ActorLearningRateSlider): The actor learning rate slider.
+    """
+
     def __init__(
         self,
         learning_instance: LearningInterface,
@@ -60,8 +78,10 @@ class Callback(CallbackBase):
 
         Args:
             learning_instance (LearningInterface): The learning instance to be trained.
-            ranges (Tuple[Tuple[int, int, float], Tuple[int, int, float]]): The ranges for the 2D plot.
             plot_frequency (int, optional): The frequency of plotting the policy. Defaults to 10.
+            num_of_mesh (int, optional): The number of mesh points. Defaults to 10.
+            auto_start (bool, optional): Whether to start the observer automatically. Defaults to True.
+            runtime_config_path (Optional[str], optional): The path to the runtime configuration file. Defaults to None.
         """
         super().__init__(learning_instance)
 
@@ -115,11 +135,20 @@ class Callback(CallbackBase):
         self.observer.start()
         print(f"{self.__class__.__name__} observer started.")
 
+        self.actor_learning_rate_slider = ActorLearningRateSlider(runtime_config_path)
+        self._make_actor_learning_rate_slider()
+
     def _execute_runtime_config(self) -> None:
         """
         Execute the runtime configuration.
         """
         self.runtime_actor_learning_rate_configger.execute()
+
+    def _make_actor_learning_rate_slider(self) -> None:
+        """
+        Make the actor learning rate slider.
+        """
+        self.actor_learning_rate_slider.execute()
 
     def _callback(self) -> None:
         """
