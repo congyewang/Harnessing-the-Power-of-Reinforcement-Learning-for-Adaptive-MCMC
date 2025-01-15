@@ -156,7 +156,6 @@ class PreparationInterface(ABC):
         critic_config_path: str = "",
         compile: bool = False,
         verbose: bool = True,
-        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Factory class for creating learning algorithms based on reinforcement learning strategies.
@@ -172,7 +171,6 @@ class PreparationInterface(ABC):
             critic_config_path (str, optional): The path to the critic configuration file. Defaults to "".
             compile (bool, optional): Whether to compile the model or not. Defaults to False.
             verbose (bool, optional): Whether to show the verbose message or not. Defaults to True.
-            callback (Optional[Callable[..., T]], optional): The callback function. Defaults to None.
 
         Raises:
             ValueError: If log_target_pdf or grad_log_target_pdf is not provided, model_name and posteriordb_path cannot be None.
@@ -217,9 +215,6 @@ class PreparationInterface(ABC):
 
         # Make Replay Buffer
         self.replay_buffer = self.make_replay_buffer()
-
-        # Callback
-        self.callback = callback
 
     def make_target_functions(
         self,
@@ -664,7 +659,6 @@ class PreparationDDPG(PreparationInterface):
             device=self.device,
             verbose=self.verbose,
             run_name=f"{self.args.algorithm.general.env_id}__{self.args.experiments.exp_name}__{self.args.experiments.seed}__{int(time.time())}",
-            callback=self.callback,
         )
 
 
@@ -829,5 +823,4 @@ class PreparationTD3(PreparationInterface):
             policy_noise=self.args.algorithm.specific.policy_noise,
             noise_clip=self.args.algorithm.specific.noise_clip,
             run_name=f"{self.args.algorithm.general.env_id}__{self.args.experiments.exp_name}__{self.args.experiments.seed}__{int(time.time())}",
-            callback=self.callback,
         )

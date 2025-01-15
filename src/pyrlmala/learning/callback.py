@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from .events import TrainEvents
 from .learning import LearningInterface
 from .observer import ConfigObserver
 from .plugins import (
@@ -23,6 +24,13 @@ class CallbackBase(ABC):
         """
         self.learning_instance = learning_instance
         self.learning_instance.callback = self._callback
+
+    @abstractmethod
+    def _register_all(self) -> None:
+        """
+        Register all the events.
+        """
+        raise NotImplementedError("Method `_register_all` must be implemented.")
 
     @abstractmethod
     def _callback(self) -> None:
@@ -66,6 +74,8 @@ class Callback(CallbackBase):
                 raise ValueError("Runtime config path must be provided.")
 
             self._observer_start(learning_instance, runtime_config_path)
+
+        self._register_all(learning_instance)
 
     def __del__(self) -> None:
         """
@@ -116,3 +126,8 @@ class Callback(CallbackBase):
         Execute the callback.
         """
         self.plotter.execute()
+
+    def _register_all(self, learning_instance) -> None:
+        learning_instance.event_manager.register(
+            TrainEvents.WITHIN_TRAIN, self._callback
+        )

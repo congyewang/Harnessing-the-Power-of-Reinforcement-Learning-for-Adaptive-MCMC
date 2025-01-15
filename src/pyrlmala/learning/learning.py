@@ -17,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
 from ..utils import Toolbox
+from .events import EventManager, TrainEvents
 
 T = TypeVar("T")
 
@@ -89,7 +90,6 @@ class LearningInterface(ABC):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
-        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Initialize the Learning Interface.
@@ -120,7 +120,6 @@ class LearningInterface(ABC):
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
-            callback (Optional[Callable[..., T]], optional): Callback. Defaults to None.
 
         Raises:
             ValueError: If the observation space is not continuous
@@ -194,17 +193,7 @@ class LearningInterface(ABC):
 
         self.writer = SummaryWriter(f"runs/{run_name}")
 
-        self.callback = callback or (self.default_callback)
-
-    def default_callback(self, *args: T, **kwargs: T) -> None:
-        """
-        Default callback function.
-
-        Args:
-            args (T): Arguments.
-            kwargs (T): Keyword arguments.
-        """
-        pass
+        self.event_manager = EventManager()
 
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
@@ -246,15 +235,73 @@ class LearningInterface(ABC):
 
         return partial(self.soft_clipping, t=gradient_threshold, p=gradient_norm)
 
+    def actor_gradient_clipping(self) -> None:
+        """
+        Actor gradient clipping.
+        """
+        if self.actor_gradient_clipping:
+            for p_actor in self.actor.parameters():
+                p_actor.register_hook(
+                    self.currying_gradient_clipping(
+                        self.actor_gradient_threshold, self.actor_gradient_norm
+                    )
+                )
+
+    def critic_gradient_clipping(self) -> None:
+        """
+        Critic gradient clipping.
+        """
+        if self.critic_gradient_clipping:
+            for p_critic in self.critic.parameters():
+                p_critic.register_hook(
+                    self.currying_gradient_clipping(
+                        self.critic_gradient_threshold, self.critic_gradient_norm
+                    )
+                )
+
     @abstractmethod
-    def train(self, *args: T, **kwargs: T) -> None:
+    def trainning_loop(self, global_step: int) -> None:
+        """
+        Training process. Must be implemented in the subclass.
+
+        Args:
+            global_step (int): Global step.
+
+        Raises:
+            NotImplementedError: If the method is not implemented.
+        """
+        raise NotImplementedError("train_process method is not implemented")
+
+    def train(self) -> None:
         """
         Training method. Must be implemented in the subclass.
 
         Raises:
             NotImplementedError: If the method is not implemented.
         """
-        raise NotImplementedError("train method is not implemented")
+        # Trigger before step event
+        self.event_manager.trigger(TrainEvents.BEFORE_TRAIN)
+
+        # Gradient clipping
+        if self.actor_gradient_clipping:
+            self.actor_gradient_clipping(
+                self.actor_gradient_threshold, self.actor_gradient_norm
+            )
+
+        if self.critic_gradient_clipping:
+            self.critic_gradient_clipping(
+                self.critic_gradient_threshold, self.critic_gradient_norm
+            )
+
+        # Training loop
+        for global_step in trange(self.total_timesteps, disable=not self.verbose):
+            self.trainning_loop(global_step)
+
+            # Trigger within train event
+            self.event_manager.trigger(TrainEvents.WITHIN_TRAIN)
+
+        # Trigger after step event
+        self.event_manager.trigger(TrainEvents.AFTER_TRAIN)
 
     def predict(
         self,
@@ -380,7 +427,6 @@ class LearningDDPG(LearningInterface):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
-        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Initialize the DDPG Learning Interface.
@@ -411,7 +457,6 @@ class LearningDDPG(LearningInterface):
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
-            callback (Optional[Callable[..., T]], optional): Callback. Defaults to None.
 
         Raises:
             ValueError: If the observation space is not continuous.
@@ -442,131 +487,105 @@ class LearningDDPG(LearningInterface):
             device=device,
             verbose=verbose,
             run_name=run_name,
-            callback=callback,
         )
 
-    def train(
-        self,
-        *args: T,
-        **kwargs: T,
-    ) -> None:
+    def trainning_loop(self, global_step: int) -> None:
         """
         Training Session for DDPG.
         """
-        # Gradient clipping
-        if self.actor_gradient_clipping:
-            for p_actor in self.actor.parameters():
-                p_actor.register_hook(
-                    self.currying_gradient_clipping(
-                        self.actor_gradient_threshold, self.actor_gradient_norm
+        if global_step < self.learning_starts:
+            actions = np.concatenate(
+                [self.initial_step_size, self.initial_step_size], axis=0
+            ).reshape(1, -1)
+        else:
+            with torch.no_grad():
+                actions = self.actor(torch.from_numpy(self.obs).to(self.device))
+                actions += torch.normal(
+                    0, torch.ones_like(actions) * self.exploration_noise
+                )
+                actions = (
+                    actions.cpu()
+                    .numpy()
+                    .clip(
+                        self.env.single_action_space.low,
+                        self.env.single_action_space.high,
                     )
                 )
+        next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
-        if self.critic_gradient_clipping:
-            for p_critic in self.critic.parameters():
-                p_critic.register_hook(
-                    self.currying_gradient_clipping(
-                        self.critic_gradient_threshold, self.critic_gradient_norm
+        if "final_info" in infos:
+            for info in infos["final_info"]:
+                self.writer.add_scalar(
+                    "charts/episodic_return", info["episode"]["r"], global_step
+                )
+                self.writer.add_scalar(
+                    "charts/episodic_length", info["episode"]["l"], global_step
+                )
+                break
+
+        real_next_obs = next_obs.copy()
+        self.replay_buffer.add(
+            self.obs, real_next_obs, actions, rewards, terminations, infos
+        )
+
+        self.obs = next_obs
+
+        if global_step > self.learning_starts:
+            data = self.replay_buffer.sample(self.batch_size)
+            with torch.no_grad():
+                next_state_actions = self.target_actor(data.next_observations)
+                critic_next_target = self.target_critic(
+                    data.next_observations, next_state_actions
+                )
+                next_q_value = data.rewards.flatten() + (
+                    1 - data.dones.flatten()
+                ) * self.gamma * (critic_next_target).view(-1)
+            critic_a_values = self.critic(data.observations, data.actions).view(-1)
+            critic_loss = F.mse_loss(critic_a_values, next_q_value)
+
+            # optimize the model
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
+
+            if global_step % self.policy_frequency == 0:
+                actor_loss = -self.critic(
+                    data.observations, self.actor(data.observations)
+                ).mean()
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor_optimizer.step()
+
+                # update the target network
+                for param, target_param in zip(
+                    self.actor.parameters(), self.target_actor.parameters()
+                ):
+                    target_param.data.copy_(
+                        self.tau * param.data + (1 - self.tau) * target_param.data
                     )
+                for param, target_param in zip(
+                    self.critic.parameters(), self.target_critic.parameters()
+                ):
+                    target_param.data.copy_(
+                        self.tau * param.data + (1 - self.tau) * target_param.data
+                    )
+
+            if global_step % 100 == 0 and global_step > self.policy_frequency:
+                self.writer.add_scalar(
+                    "losses/critic_values",
+                    critic_a_values.mean().item(),
+                    global_step,
+                )
+                self.writer.add_scalar(
+                    "losses/critic_loss", critic_loss.item(), global_step
+                )
+                self.writer.add_scalar(
+                    "losses/actor_loss", actor_loss.item(), global_step
                 )
 
-        # Training loop
-        for global_step in trange(self.total_timesteps, disable=not self.verbose):
-            if global_step < self.learning_starts:
-                actions = np.concatenate(
-                    [self.initial_step_size, self.initial_step_size], axis=0
-                ).reshape(1, -1)
-            else:
-                with torch.no_grad():
-                    actions = self.actor(torch.from_numpy(self.obs).to(self.device))
-                    actions += torch.normal(
-                        0, torch.ones_like(actions) * self.exploration_noise
-                    )
-                    actions = (
-                        actions.cpu()
-                        .numpy()
-                        .clip(
-                            self.env.single_action_space.low,
-                            self.env.single_action_space.high,
-                        )
-                    )
-            next_obs, rewards, terminations, _, infos = self.env.step(actions)
-
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    self.writer.add_scalar(
-                        "charts/episodic_return", info["episode"]["r"], global_step
-                    )
-                    self.writer.add_scalar(
-                        "charts/episodic_length", info["episode"]["l"], global_step
-                    )
-                    break
-
-            real_next_obs = next_obs.copy()
-            self.replay_buffer.add(
-                self.obs, real_next_obs, actions, rewards, terminations, infos
-            )
-
-            self.obs = next_obs
-
-            if global_step > self.learning_starts:
-                data = self.replay_buffer.sample(self.batch_size)
-                with torch.no_grad():
-                    next_state_actions = self.target_actor(data.next_observations)
-                    critic_next_target = self.target_critic(
-                        data.next_observations, next_state_actions
-                    )
-                    next_q_value = data.rewards.flatten() + (
-                        1 - data.dones.flatten()
-                    ) * self.gamma * (critic_next_target).view(-1)
-                critic_a_values = self.critic(data.observations, data.actions).view(-1)
-                critic_loss = F.mse_loss(critic_a_values, next_q_value)
-
-                # optimize the model
-                self.critic_optimizer.zero_grad()
-                critic_loss.backward()
-                self.critic_optimizer.step()
-
-                if global_step % self.policy_frequency == 0:
-                    actor_loss = -self.critic(
-                        data.observations, self.actor(data.observations)
-                    ).mean()
-                    self.actor_optimizer.zero_grad()
-                    actor_loss.backward()
-                    self.actor_optimizer.step()
-
-                    # update the target network
-                    for param, target_param in zip(
-                        self.actor.parameters(), self.target_actor.parameters()
-                    ):
-                        target_param.data.copy_(
-                            self.tau * param.data + (1 - self.tau) * target_param.data
-                        )
-                    for param, target_param in zip(
-                        self.critic.parameters(), self.target_critic.parameters()
-                    ):
-                        target_param.data.copy_(
-                            self.tau * param.data + (1 - self.tau) * target_param.data
-                        )
-
-                if global_step % 100 == 0 and global_step > self.policy_frequency:
-                    self.writer.add_scalar(
-                        "losses/critic_values",
-                        critic_a_values.mean().item(),
-                        global_step,
-                    )
-                    self.writer.add_scalar(
-                        "losses/critic_loss", critic_loss.item(), global_step
-                    )
-                    self.writer.add_scalar(
-                        "losses/actor_loss", actor_loss.item(), global_step
-                    )
-
-                    self.critic_values.append(critic_a_values.mean().item())
-                    self.critic_loss.append(critic_loss.item())
-                    self.actor_loss.append(actor_loss.item())
-
-            self.callback(*args, **kwargs)
+                self.critic_values.append(critic_a_values.mean().item())
+                self.critic_loss.append(critic_loss.item())
+                self.actor_loss.append(actor_loss.item())
 
     def save(self, folder_path: str) -> None:
         """
@@ -657,7 +676,6 @@ class LearningTD3(LearningInterface):
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
-        callback: Optional[Callable[..., T]] = None,
     ) -> None:
         """
         Initialize the TD3 Learning Interface.
@@ -692,7 +710,6 @@ class LearningTD3(LearningInterface):
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
-            callback (Optional[Callable[..., T]], optional): Callback. Defaults to None.
 
         Raises:
             ValueError: If the observation space is not continuous.
@@ -723,7 +740,6 @@ class LearningTD3(LearningInterface):
             device=device,
             verbose=verbose,
             run_name=run_name,
-            callback=callback,
         )
 
         self.critic2 = critic2
@@ -746,19 +762,7 @@ class LearningTD3(LearningInterface):
         """
         return self.critic_values
 
-    def train(self, *args: T, **kwargs: T) -> None:
-        """
-        Training Session for TD3.
-        """
-        # Gradient clipping
-        if self.actor_gradient_clipping:
-            for p_actor in self.actor.parameters():
-                p_actor.register_hook(
-                    self.currying_gradient_clipping(
-                        self.actor_gradient_threshold, self.actor_gradient_norm
-                    )
-                )
-
+    def critic_gradient_clipping(self) -> None:
         if self.critic_gradient_clipping:
             for p_critic in self.critic.parameters():
                 p_critic.register_hook(
@@ -774,143 +778,141 @@ class LearningTD3(LearningInterface):
                     )
                 )
 
-        # Training loop
-        for global_step in trange(self.total_timesteps, disable=not self.verbose):
-            if global_step < self.learning_starts:
-                actions = np.concatenate(
-                    [self.initial_step_size, self.initial_step_size], axis=0
-                ).reshape(1, -1)
-            else:
-                with torch.no_grad():
-                    actions = self.actor(torch.from_numpy(self.obs).to(self.device))
-                    actions += torch.normal(
-                        0, torch.ones_like(actions) * self.exploration_noise
-                    )
-                    actions = (
-                        actions.cpu()
-                        .numpy()
-                        .clip(
-                            self.env.single_action_space.low,
-                            self.env.single_action_space.high,
-                        )
-                    )
-
-            next_obs, rewards, terminations, _, infos = self.env.step(actions)
-
-            if "final_info" in infos:
-                for info in infos["final_info"]:
-                    self.writer.add_scalar(
-                        "charts/episodic_return", info["episode"]["r"], global_step
-                    )
-                    self.writer.add_scalar(
-                        "charts/episodic_length", info["episode"]["l"], global_step
-                    )
-                    break
-
-            real_next_obs = next_obs.copy()
-            self.replay_buffer.add(
-                self.obs, real_next_obs, actions, rewards, terminations, infos
-            )
-
-            self.obs = next_obs
-
-            if global_step > self.learning_starts:
-                data = self.replay_buffer.sample(self.batch_size)
-                with torch.no_grad():
-                    clipped_noise = (
-                        torch.randn_like(data.actions, device=self.device)
-                        * self.policy_noise
-                    ).clamp(-self.noise_clip, self.noise_clip)
-                    next_state_actions = (
-                        self.target_actor(data.next_observations) + clipped_noise
-                    )
-
-                    critic_next_target = self.target_critic(
-                        data.next_observations, next_state_actions
-                    )
-                    critic2_next_target = self.target_critic2(
-                        data.next_observations, next_state_actions
-                    )
-                    min_critic_next_target = torch.min(
-                        critic_next_target, critic2_next_target
-                    )
-                    next_q_value = data.rewards.flatten() + (
-                        1 - data.dones.flatten()
-                    ) * self.gamma * (min_critic_next_target).view(-1)
-
-                critic1_a_values = self.critic(data.observations, data.actions).view(-1)
-                critic2_a_values = self.critic2(data.observations, data.actions).view(
-                    -1
+    def trainning_loop(self, global_step: int) -> None:
+        """
+        Training Session for TD3.
+        """
+        if global_step < self.learning_starts:
+            actions = np.concatenate(
+                [self.initial_step_size, self.initial_step_size], axis=0
+            ).reshape(1, -1)
+        else:
+            with torch.no_grad():
+                actions = self.actor(torch.from_numpy(self.obs).to(self.device))
+                actions += torch.normal(
+                    0, torch.ones_like(actions) * self.exploration_noise
                 )
-                critic1_loss = F.mse_loss(critic1_a_values, next_q_value)
-                critic2_loss = F.mse_loss(critic2_a_values, next_q_value)
-                critic_loss = critic1_loss + critic2_loss
-
-                # optimize the model
-                self.critic_optimizer.zero_grad()
-                critic_loss.backward()
-                self.critic_optimizer.step()
-
-                if global_step % self.policy_frequency == 0:
-                    actor_loss = -self.critic(
-                        data.observations, self.actor(data.observations)
-                    ).mean()
-                    self.actor_optimizer.zero_grad()
-                    actor_loss.backward()
-                    self.actor_optimizer.step()
-
-                    # update the target network
-                    for param, target_param in zip(
-                        self.actor.parameters(), self.target_actor.parameters()
-                    ):
-                        target_param.data.copy_(
-                            self.tau * param.data + (1 - self.tau) * target_param.data
-                        )
-                    for param, target_param in zip(
-                        self.critic.parameters(), self.target_critic.parameters()
-                    ):
-                        target_param.data.copy_(
-                            self.tau * param.data + (1 - self.tau) * target_param.data
-                        )
-                    for param, target_param in zip(
-                        self.critic2.parameters(), self.target_critic2.parameters()
-                    ):
-                        target_param.data.copy_(
-                            self.tau * param.data + (1 - self.tau) * target_param.data
-                        )
-
-                if global_step % 100 == 0:
-                    self.writer.add_scalar(
-                        "losses/critic1_values",
-                        critic1_a_values.mean().item(),
-                        global_step,
+                actions = (
+                    actions.cpu()
+                    .numpy()
+                    .clip(
+                        self.env.single_action_space.low,
+                        self.env.single_action_space.high,
                     )
-                    self.writer.add_scalar(
-                        "losses/critic2_values",
-                        critic2_a_values.mean().item(),
-                        global_step,
+                )
+
+        next_obs, rewards, terminations, _, infos = self.env.step(actions)
+
+        if "final_info" in infos:
+            for info in infos["final_info"]:
+                self.writer.add_scalar(
+                    "charts/episodic_return", info["episode"]["r"], global_step
+                )
+                self.writer.add_scalar(
+                    "charts/episodic_length", info["episode"]["l"], global_step
+                )
+                break
+
+        real_next_obs = next_obs.copy()
+        self.replay_buffer.add(
+            self.obs, real_next_obs, actions, rewards, terminations, infos
+        )
+
+        self.obs = next_obs
+
+        if global_step > self.learning_starts:
+            data = self.replay_buffer.sample(self.batch_size)
+            with torch.no_grad():
+                clipped_noise = (
+                    torch.randn_like(data.actions, device=self.device)
+                    * self.policy_noise
+                ).clamp(-self.noise_clip, self.noise_clip)
+                next_state_actions = (
+                    self.target_actor(data.next_observations) + clipped_noise
+                )
+
+                critic_next_target = self.target_critic(
+                    data.next_observations, next_state_actions
+                )
+                critic2_next_target = self.target_critic2(
+                    data.next_observations, next_state_actions
+                )
+                min_critic_next_target = torch.min(
+                    critic_next_target, critic2_next_target
+                )
+                next_q_value = data.rewards.flatten() + (
+                    1 - data.dones.flatten()
+                ) * self.gamma * (min_critic_next_target).view(-1)
+
+            critic1_a_values = self.critic(data.observations, data.actions).view(-1)
+            critic2_a_values = self.critic2(data.observations, data.actions).view(-1)
+            critic1_loss = F.mse_loss(critic1_a_values, next_q_value)
+            critic2_loss = F.mse_loss(critic2_a_values, next_q_value)
+            critic_loss = critic1_loss + critic2_loss
+
+            # optimize the model
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
+
+            if global_step % self.policy_frequency == 0:
+                actor_loss = -self.critic(
+                    data.observations, self.actor(data.observations)
+                ).mean()
+                self.actor_optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor_optimizer.step()
+
+                # update the target network
+                for param, target_param in zip(
+                    self.actor.parameters(), self.target_actor.parameters()
+                ):
+                    target_param.data.copy_(
+                        self.tau * param.data + (1 - self.tau) * target_param.data
                     )
-                    self.writer.add_scalar(
-                        "losses/critic1_loss", critic1_loss.item(), global_step
+                for param, target_param in zip(
+                    self.critic.parameters(), self.target_critic.parameters()
+                ):
+                    target_param.data.copy_(
+                        self.tau * param.data + (1 - self.tau) * target_param.data
                     )
-                    self.writer.add_scalar(
-                        "losses/critic2_loss", critic2_loss.item(), global_step
-                    )
-                    self.writer.add_scalar(
-                        "losses/critic_loss", critic_loss.item() / 2.0, global_step
-                    )
-                    self.writer.add_scalar(
-                        "losses/actor_loss", actor_loss.item(), global_step
+                for param, target_param in zip(
+                    self.critic2.parameters(), self.target_critic2.parameters()
+                ):
+                    target_param.data.copy_(
+                        self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-                    self.critic_values.append(critic1_a_values.mean().item())
-                    self.critic2_values.append(critic2_a_values.mean().item())
-                    self.critic1_loss.append(critic_loss.item())
-                    self.critic2_loss.append(critic2_loss.item())
-                    self.critic_loss.append(critic_loss.item() / 2.0)
-                    self.actor_loss.append(actor_loss.item())
+            if global_step % 100 == 0:
+                self.writer.add_scalar(
+                    "losses/critic1_values",
+                    critic1_a_values.mean().item(),
+                    global_step,
+                )
+                self.writer.add_scalar(
+                    "losses/critic2_values",
+                    critic2_a_values.mean().item(),
+                    global_step,
+                )
+                self.writer.add_scalar(
+                    "losses/critic1_loss", critic1_loss.item(), global_step
+                )
+                self.writer.add_scalar(
+                    "losses/critic2_loss", critic2_loss.item(), global_step
+                )
+                self.writer.add_scalar(
+                    "losses/critic_loss", critic_loss.item() / 2.0, global_step
+                )
+                self.writer.add_scalar(
+                    "losses/actor_loss", actor_loss.item(), global_step
+                )
 
-            self.callback(*args, **kwargs)
+                self.critic_values.append(critic1_a_values.mean().item())
+                self.critic2_values.append(critic2_a_values.mean().item())
+                self.critic1_loss.append(critic_loss.item())
+                self.critic2_loss.append(critic2_loss.item())
+                self.critic_loss.append(critic_loss.item() / 2.0)
+                self.actor_loss.append(actor_loss.item())
 
     def save(self, folder_path: str) -> None:
         """
