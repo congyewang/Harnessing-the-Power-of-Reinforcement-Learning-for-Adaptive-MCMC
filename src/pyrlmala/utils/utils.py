@@ -386,7 +386,7 @@ class Toolbox:
             save_path (Optional[str], optional): Save path. Defaults to None.
         """
         x = np.linspace(*x_range)
-        res = np.exp([log_target_pdf(np.array([i], dtype=np.float64)) for i in x])
+        res = np.exp([log_target_pdf(np.array(i, dtype=np.float64)) for i in x])
 
         plt.plot(x, res)
         plt.title("Target distribution")
@@ -420,7 +420,7 @@ class Toolbox:
         data = np.concatenate([x, y], axis=0).T
 
         res = np.exp(
-            np.array([log_target_pdf(np.array([i], dtype=np.float64)) for i in data])
+            np.array([log_target_pdf(np.array(i, dtype=np.float64)) for i in data])
         )
 
         plt.contourf(mesh_x, mesh_y, res.reshape(x_mesh_range[2], y_mesh_range[2]))
