@@ -1,3 +1,4 @@
+import threading
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -154,7 +155,7 @@ class Callback(CallbackBase):
         """
         Execute the callback.
         """
-        self.plotter.execute()
+        threading.Thread(target=self.plotter.execute).start()
 
     def _register_all(self, learning_instance) -> None:
         learning_instance.event_manager.register(

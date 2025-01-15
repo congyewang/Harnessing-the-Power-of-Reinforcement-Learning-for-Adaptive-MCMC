@@ -1,3 +1,4 @@
+import threading
 import warnings
 from abc import abstractmethod
 from typing import Any, Dict
@@ -5,6 +6,7 @@ from typing import Any, Dict
 import ipywidgets as widgets
 import tomli_w
 import tomllib
+from filelock import FileLock
 from IPython.display import display
 
 from ...utils import Toolbox
@@ -28,6 +30,7 @@ class SliderBase(PluginBase):
         """
         super().__init__()
         self.runtime_config_path = runtime_config_path
+        self.lock = FileLock(f"{runtime_config_path}.lock")
 
     def _load_config(self) -> Dict[str, Any]:
         """
@@ -60,8 +63,12 @@ class SliderBase(PluginBase):
         config = self._load_config()
         config.update(new_parameters)
 
-        with open(self.runtime_config_path, "wb") as f:
-            tomli_w.dump(config, f)
+        with self.lock:
+            with open(self.runtime_config_path, "wb") as f:
+                tomli_w.dump(config, f)
+
+    def _slider_update_thread(self, change: Dict[str, Any]) -> None:
+        threading.Thread(target=self._on_slider_change, args=(change,)).start()
 
     @abstractmethod
     def _on_slider_change(self, change: Dict[str, Any]) -> None:
@@ -79,6 +86,17 @@ class SliderBase(PluginBase):
         Create a slider to change the runtime configuration parameters.
         """
         raise NotImplementedError("Method '_create_slider' must be implemented.")
+
+    def execute(self) -> None:
+        """
+        Execute the plugin.
+        """
+        if Toolbox.detect_environment() == "jupyter":
+            self._create_slider()
+        else:
+            warnings.warn(
+                "Slider plugin only works in Jupyter Notebook environment. Skipping..."
+            )
 
 
 class ActorLearningRateSlider(SliderBase):
@@ -118,16 +136,5 @@ class ActorLearningRateSlider(SliderBase):
             readout_format=".2e",
         )
 
-        slider.observe(self._on_slider_change, names="value")
+        slider.observe(self._slider_update_thread, names="value")
         display(slider)
-
-    def execute(self) -> None:
-        """
-        Execute the plugin.
-        """
-        if Toolbox.detect_environment() == "jupyter":
-            self._create_slider()
-        else:
-            warnings.warn(
-                "Slider plugin only works in Jupyter Notebook environment. Skipping..."
-            )
