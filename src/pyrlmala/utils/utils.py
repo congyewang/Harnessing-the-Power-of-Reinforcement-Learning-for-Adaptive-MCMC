@@ -523,6 +523,39 @@ class Toolbox:
         return x + np.log1p(-np.exp(-x))
 
     @staticmethod
+    def median_trick(gs: npt.NDArray[np.float64]) -> float:
+        """
+        Compute the median trick.
+
+        Args:
+            gs (npt.NDArray[np.float64]): Gold standard array.
+
+        Returns:
+            float: Median trick.
+        """
+        return (0.5 * np.median(pdist(gs))).item()
+
+    @staticmethod
+    def gaussian_kernel(
+        x: Float[torch.Tensor, "x"], y: Float[torch.Tensor, "y"], sigma: float = 1.0
+    ) -> torch.Tensor:
+        """
+        Compute the RBF (Gaussian) kernel between x and y.
+
+        Args:
+            x (Float[torch.Tensor, "x"]): Input tensor x.
+            y (Float[torch.Tensor, "y"]): Input tensor y.
+            sigma (float, optional): Sigma. Defaults to 1.0.
+
+        Returns:
+            torch.Tensor: RBF kernel.
+        """
+
+        beta = 1.0 / (2.0 * sigma**2)
+        dist_sq = torch.cdist(x, y, p=2) ** 2
+        return torch.exp(-beta * dist_sq)
+
+    @staticmethod
     def batched_mmd(
         x: Float[torch.Tensor, "x"],
         y: Float[torch.Tensor, "y"],
