@@ -12,6 +12,7 @@ import torch
 from gymnasium.envs.registration import EnvSpec
 from jaxtyping import Float
 from matplotlib.axes import Axes
+from scipy.spatial.distance import pdist
 from scipy.stats._multivariate import _PSD
 from toolz import pipe
 from torch.nn import functional as F
