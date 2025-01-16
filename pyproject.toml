@@ -33,6 +33,7 @@ dependencies = [
     "mcmctoolbox>=0.20.0",
     "ipywidgets>=8.1.5",
     "tomli-w>=1.1.0",
+    "prettytable>=3.12.0",
 ]
 
 [dependency-groups]
