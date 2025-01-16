@@ -521,3 +521,65 @@ class Toolbox:
             npt.NDArray[np.float64]: Inverse softplus of the input with numerical stabilization.
         """
         return x + np.log1p(-np.exp(-x))
+
+    @staticmethod
+    def batched_mmd(
+        x: Float[torch.Tensor, "x"],
+        y: Float[torch.Tensor, "y"],
+        batch_size: int = 100,
+        sigma: float = 1.0,
+    ) -> Float[torch.Tensor, "mmd"]:
+        """
+        Compute the Maximum Mean Discrepancy (MMD) between x and y.
+
+        Args:
+            x (Float[torch.Tensor, "x"]): Input tensor x.
+            y (Float[torch.Tensor, "y"]): Input tensor y.
+            batch_size (int, optional): Batch size. Defaults to 100.
+            sigma (float, optional): Sigma. Defaults to 1.0.
+
+        Returns:
+            Float[torch.Tensor, "mmd"]: MMD estimate.
+        """
+
+        m = x.size(0)
+        n = y.size(0)
+        mmd_estimate_xx, mmd_estimate_yy, mmd_estimate_xy = 0.0, 0.0, 0.0
+
+        # Compute the MMD estimate in mini-batches
+        for i in range(0, m, batch_size):
+            x_batch = x[i : i + batch_size]
+            for j in range(0, n, batch_size):
+                y_batch = y[j : j + batch_size]
+
+                xx_kernel = Toolbox.gaussian_kernel(x_batch, x_batch, sigma)
+                yy_kernel = Toolbox.gaussian_kernel(y_batch, y_batch, sigma)
+                xy_kernel = Toolbox.gaussian_kernel(x_batch, y_batch, sigma)
+
+                # Compute the MMD estimate for this mini-batch
+                mmd_estimate_xx += xx_kernel.sum()
+                mmd_estimate_yy += yy_kernel.sum()
+                mmd_estimate_xy += xy_kernel.sum()
+
+        # Normalize the MMD estimate
+        mmd_estimate = (
+            mmd_estimate_xx / m**2
+            + mmd_estimate_yy / n**2
+            - 2 * mmd_estimate_xy / (m * n)
+        )
+
+        return mmd_estimate
+
+    @staticmethod
+    def expected_square_jump_distance(data: npt.NDArray[np.float64]) -> np.float64:
+        """
+        Compute the expected square jump distance.
+
+        Args:
+            data (npt.NDArray[np.float64]): Sample data.
+
+        Returns:
+            np.float64: Expected square jump distance.
+        """
+        distances = np.linalg.norm(data[1:] - data[:-1], axis=1)
+        return np.mean(distances)
