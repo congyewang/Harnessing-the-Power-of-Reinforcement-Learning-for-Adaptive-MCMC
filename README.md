@@ -31,8 +31,9 @@ uv sync
 
 Please note that this project has not been tested in Windows system, consult the `Stan` and `Bridgestan`.
 
-# Task (Update 09/01/2025)
-- [ ] add an interactive slider for the learning rate
-- [ ]  also explore RL-MALA
+# Task (Update 17/01/2025)
+- [X] add an interactive slider for the learning rate
+- [X]  also explore RL-MALA
 - [ ] think about whether we can have parallel environments (i.e. parallel MCMC, all driven by one agent)
-- [ ] work towards a results table for one test problem (e.g. banana) whose columns are {ESJD , MMD}, and whose rows are e.g. {MALA ($\sigma$ = 0.1) , MALA ($\sigma$ = 0.5), MALA ($\sigma$ = 1), MALA ($\sigma$ = 2) , Barker ($\sigma$ = 0.1), Barker ($\sigma$ = 0.5), Barker ($\sigma$ = 1), Barker ($\sigma$ = 2), RL-MALA (trained on ESJD), RL-MALA (trained on Matthew's reward), RL-Barker (trained on ESJD), RL-Barker (trained on Matthew's reward) }  For the RL-algorithms, we would stop the policy optimisation and then use the (fixed) learned policy to generate the samples used for this assessment - let's not worry too much about equating the computational demands of the different methods for the moment.
+- [X] work towards a results table for one test problem (e.g. banana) whose columns are {ESJD , MMD}, and whose rows are e.g. {MALA ($\sigma$ = 0.1) , MALA ($\sigma$ = 0.5), MALA ($\sigma$ = 1), MALA ($\sigma$ = 2) , Barker ($\sigma$ = 0.1), Barker ($\sigma$ = 0.5), Barker ($\sigma$ = 1), Barker ($\sigma$ = 2), RL-MALA (trained on ESJD), RL-MALA (trained on Matthew's reward), RL-Barker (trained on ESJD), RL-Barker (trained on Matthew's reward) }  For the RL-algorithms, we would stop the policy optimisation and then use the (fixed) learned policy to generate the samples used for this assessment - let's not worry too much about equating the computational demands of the different methods for the moment.
+- [ ] 2D Normal, Heavy, Light Tail Distribution.
