@@ -868,8 +868,8 @@ class MALAEnv(MCMCEnvBase):
         Returns:
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]: Mean, Covariance
         """
-        mean = sample + step_size**2 / 2 * covariance @ grad_log_pdf
-        covariance = step_size**2 * covariance
+        mean = sample + step_size / 2 * covariance @ grad_log_pdf
+        covariance = step_size * covariance
 
         return mean, covariance
 
