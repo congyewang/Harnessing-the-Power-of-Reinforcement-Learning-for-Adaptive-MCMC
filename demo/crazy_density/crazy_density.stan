@@ -23,7 +23,7 @@ functions {
     scale_matrix[1,2] = 0.0;
     scale_matrix[2,1] = 0.0;
     scale_matrix[2,2] = 1.0;
-    
+
     vector[2] scaled_x = scale_matrix * x;
     return -sum(multiquadratic(scaled_x, power, bias));
   }
@@ -51,7 +51,7 @@ functions {
    */
   real log_den_n_mixture(vector x, int n) {
     real sum_exp_terms = 0.0;
-    
+
     for (i in 1:n) {
       real i0    = i - 1;              // so i0 goes 0..(n-1)
       real power = pow(0.4, i0 + 1);   // 0.4^(i0 + 1)
@@ -59,20 +59,19 @@ functions {
       real scale = pow(1.5, n - i0);   // 1.5^(n - i0)
       sum_exp_terms += exp(log_den_imbalanced_rotate(x, angle, power, scale));
     }
-    
+
     return log(sum_exp_terms);
   }
 }
 
 data {
-  int<lower=1> n;  // number of mixture components
+  int<lower=1> n;
 }
 
 parameters {
-  vector[2] x;  // The 2D parameter you want to sample
+  vector[2] x;
 }
 
 model {
-  // Here is where we “tell” Stan our unnormalized log density:
   target += log_den_n_mixture(x, n);
 }
