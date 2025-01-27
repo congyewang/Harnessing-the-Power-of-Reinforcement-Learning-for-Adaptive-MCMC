@@ -4,10 +4,10 @@ from typing import Callable, Tuple, TypeVar
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from cytoolz import curry, pipe
 from jaxtyping import Float
 from matplotlib.axes import Axes
 from numpy import typing as npt
-from toolz import curry, pipe
 from torch.nn import functional as F
 
 from ...envs import MCMCEnvBase
