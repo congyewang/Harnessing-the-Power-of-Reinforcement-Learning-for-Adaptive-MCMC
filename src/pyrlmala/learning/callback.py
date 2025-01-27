@@ -137,7 +137,7 @@ class Callback(CallbackBase):
         print(f"{self.__class__.__name__} observer started.")
 
         self.actor_learning_rate_slider = ActorLearningRateSlider(runtime_config_path)
-        self._make_actor_learning_rate_slider()
+        # self._make_actor_learning_rate_slider()
 
     def _execute_runtime_config(self) -> None:
         """
