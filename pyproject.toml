@@ -17,7 +17,6 @@ dependencies = [
     "stable-baselines3>=2.3.2",
     "tqdm>=4.66.6",
     "wandb>=0.18.7",
-    "toolz>=1.0.0",
     "pytest-mock>=3.14.0",
     "sphinx-autodoc-typehints>=2.5.0",
     "myst-parser>=4.0.0",
