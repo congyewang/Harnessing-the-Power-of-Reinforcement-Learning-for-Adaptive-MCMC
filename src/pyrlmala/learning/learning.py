@@ -235,7 +235,7 @@ class LearningInterface(ABC):
 
         return partial(self.soft_clipping, t=gradient_threshold, p=gradient_norm)
 
-    def actor_gradient_clipping(self) -> None:
+    def actor_gradient_clipping_function(self) -> None:
         """
         Actor gradient clipping.
         """
@@ -247,7 +247,7 @@ class LearningInterface(ABC):
                     )
                 )
 
-    def critic_gradient_clipping(self) -> None:
+    def critic_gradient_clipping_function(self) -> None:
         """
         Critic gradient clipping.
         """
@@ -284,14 +284,10 @@ class LearningInterface(ABC):
 
         # Gradient clipping
         if self.actor_gradient_clipping:
-            self.actor_gradient_clipping(
-                self.actor_gradient_threshold, self.actor_gradient_norm
-            )
+            self.actor_gradient_clipping_function()
 
         if self.critic_gradient_clipping:
-            self.critic_gradient_clipping(
-                self.critic_gradient_threshold, self.critic_gradient_norm
-            )
+            self.critic_gradient_clipping_function()
 
         # Training loop
         for global_step in trange(self.total_timesteps, disable=not self.verbose):
