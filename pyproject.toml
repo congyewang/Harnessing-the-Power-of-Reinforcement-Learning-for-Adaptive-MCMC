@@ -36,6 +36,7 @@ dependencies = [
     "prettytable>=3.12.0",
     "cmdstanpy>=1.2.5",
     "xarray>=2025.1.1",
+    "cytoolz>=1.0.1",
 ]
 
 [dependency-groups]
