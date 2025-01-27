@@ -494,8 +494,12 @@ class LearningDDPG(LearningInterface):
         Training Session for DDPG.
         """
         if global_step < self.learning_starts:
+            initial_step_size_unconstrained = Toolbox.inverse_softplus(
+                self.initial_step_size
+            )
             actions = np.concatenate(
-                [self.initial_step_size, self.initial_step_size], axis=0
+                [initial_step_size_unconstrained, initial_step_size_unconstrained],
+                axis=0,
             ).reshape(1, -1)
         else:
             with torch.no_grad():
@@ -783,8 +787,12 @@ class LearningTD3(LearningInterface):
         Training Session for TD3.
         """
         if global_step < self.learning_starts:
+            initial_step_size_unconstrained = Toolbox.inverse_softplus(
+                self.initial_step_size
+            )
             actions = np.concatenate(
-                [self.initial_step_size, self.initial_step_size], axis=0
+                [initial_step_size_unconstrained, initial_step_size_unconstrained],
+                axis=0,
             ).reshape(1, -1)
         else:
             with torch.no_grad():
