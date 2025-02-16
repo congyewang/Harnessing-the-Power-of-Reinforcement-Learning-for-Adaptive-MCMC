@@ -1,6 +1,11 @@
-# pyrlmala
+<h1 align="center">
+  <a href="https://github.com/congyewang/pyrlmala" target="_blank">
+  </a>
+  <br>
+  <small>PyRLMALA - The python implementation of Reinforcement Learning for Adaptive MALA</small>
+</h1>
 
-The python implementation of Reinforcement Learning for Adaptive MALA.
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 # Requirement
 
@@ -30,3 +35,7 @@ uv sync
 ```
 
 Please note that this project has not been tested in Windows system, consult the `Stan` and `Bridgestan`.
+
+## License
+
+PyRLMALA is released under the MIT License. See the [LICENSE](LICENSE) file for details.
