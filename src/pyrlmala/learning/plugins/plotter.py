@@ -36,7 +36,7 @@ class PlotterBase(ABC):
         """
         self.learning_instance = learning_instance
 
-    def _get_current_step(self, env: MCMCEnvBase) -> npt.NDArray[np.float64]:
+    def _get_current_step(self, env: MCMCEnvBase) -> int:
         """
         Get the current step of the environment.
 
