@@ -1,6 +1,6 @@
 import threading
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 from .events import TrainEvents
 from .learning import LearningInterface
@@ -8,6 +8,7 @@ from .observer import ConfigObserver
 from .plugins import (
     ActorLearningRateConfig,
     ActorLearningRateSlider,
+    ActorSaver,
     CriticLearningRateConfig,
     TrainingVisualizer,
 )
@@ -35,7 +36,7 @@ class CallbackBase(ABC):
         self.learning_instance.callback = self._callback
 
     @abstractmethod
-    def _register_all(self) -> None:
+    def _register_all(self, *args: Any, **kwargs: Any) -> None:
         """
         Register all the events.
         """
@@ -89,6 +90,7 @@ class Callback(CallbackBase):
         self.plotter = TrainingVisualizer(
             learning_instance, plot_frequency, num_of_mesh
         )
+        self.actor_saver = ActorSaver(learning_instance, ".", 1, 1)
 
         if auto_start:
             if runtime_config_path is None:
@@ -151,13 +153,20 @@ class Callback(CallbackBase):
         """
         self.actor_learning_rate_slider.execute()
 
+    def _save_actor(self) -> None:
+        """
+        Save the actor.
+        """
+        self.actor_saver.execute()
+
     def _callback(self) -> None:
         """
         Execute the callback.
         """
         threading.Thread(target=self.plotter.execute).start()
+        self._save_actor()
 
-    def _register_all(self, learning_instance) -> None:
+    def _register_all(self, learning_instance: LearningInterface) -> None:
         learning_instance.event_manager.register(
             TrainEvents.WITHIN_TRAIN, self._callback
         )

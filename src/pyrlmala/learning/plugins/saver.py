@@ -1,6 +1,8 @@
 import re
 import time
 
+import torch
+
 from ...agent import AgentType
 from ...utils import Toolbox
 from ..learning import LearningInterface
@@ -74,8 +76,14 @@ class SaverBase(PluginBase):
             if current_step % self.save_frequency == 0:
                 model_path = f"{self.folder_path}/{algorithm_name}_{agent_type.value}.{time.time()}.pth"
 
+                # Create the folder if it does not exist
                 Toolbox.create_folder(model_path)
-                torch.save(self.learning_instance.model_dict, model_path)
+
+                # Save the model
+                agent_state = getattr(
+                    self.learning_instance, agent_type.value
+                ).state_dict()
+                torch.save(agent_state, model_path)
 
 
 class ActorSaver(SaverBase):
@@ -92,7 +100,7 @@ class ActorSaver(SaverBase):
     def __init__(
         self,
         learning_instance: LearningInterface,
-        folder_path: str,
+        folder_path: str = "./weights/actor",
         save_after_steps: int = 1,
         save_frequency: int = 1,
     ) -> None:
@@ -130,7 +138,7 @@ class CriticSaver(SaverBase):
     def __init__(
         self,
         learning_instance: LearningInterface,
-        folder_path: str,
+        folder_path: str = "./weights/critic",
         save_after_steps: int = 1,
         save_frequency: int = 1,
     ) -> None:
