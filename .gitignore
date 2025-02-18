@@ -173,3 +173,6 @@ cython_debug/
 # Numpy Files
 **/*.npy
 **/*.npz
+
+# PyTorch files
+**/*.pth
