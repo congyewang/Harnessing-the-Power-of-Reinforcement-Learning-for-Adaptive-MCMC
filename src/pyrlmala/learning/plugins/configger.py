@@ -24,7 +24,7 @@ class RuntimeCongfigBase(PluginBase):
             learning_instance (LearningInterface): The learning instance.
             file_path (str): The path to the configuration file.
         """
-        self.learning_instance = learning_instance
+        super().__init__(learning_instance=learning_instance)
         self.file_path = file_path
 
     def _get_config(self, file_path: str) -> Dict[str, float | int | bool]:

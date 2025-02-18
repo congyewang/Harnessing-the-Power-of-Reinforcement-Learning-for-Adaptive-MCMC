@@ -26,7 +26,7 @@ class SaverBase(PluginBase):
             save_after_steps (int): Steps after which to save the model.
             save_frequency (int): Frequency of saving the model.
         """
-        self.learning_instance = learning_instance
+        super().__init__(learning_instance=learning_instance)
         self.folder_path = folder_path
         self.save_after_steps = save_after_steps
         self.save_frequency = save_frequency

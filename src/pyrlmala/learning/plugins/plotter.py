@@ -351,8 +351,9 @@ class TrainingVisualizer(PluginBase):
             learning_instance (LearningInterface): The learning instance to be trained.
             ranges (Tuple[Tuple[int, int, float], Tuple[int, int, float]]): The ranges for the 2D plot.
             plot_frequency (int, optional): The frequency of plotting the policy. Defaults to 10.
+            num_of_mesh (int, optional): The number of mesh points. Defaults to 10.
         """
-        self.learning_instance = learning_instance
+        super().__init__(learning_instance=learning_instance)
         self.plot_frequency = plot_frequency
         self.num_of_mesh = num_of_mesh
         self.sample_dim = self._get_sample_dim()

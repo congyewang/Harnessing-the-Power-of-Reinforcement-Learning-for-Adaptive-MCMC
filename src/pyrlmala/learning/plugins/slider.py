@@ -27,8 +27,9 @@ class SliderBase(PluginBase):
 
         Args:
             runtime_config_path (str): Path to the runtime configuration file.
+            learning_instance (LearningInterface): The learning instance.
         """
-        super().__init__()
+        super().__init__(learning_instance=None)
         self.runtime_config_path = runtime_config_path
         self.lock = FileLock(f"{runtime_config_path}.lock")
 
