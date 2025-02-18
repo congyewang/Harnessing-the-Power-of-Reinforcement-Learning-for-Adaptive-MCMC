@@ -1,23 +1,10 @@
-from enum import Enum
 from typing import Dict
 
 import tomllib
 
+from ...agent import AgentType
 from ..learning import LearningInterface
 from .base import PluginBase
-
-
-class AgentType(Enum):
-    """
-    Enum for the agent type.
-
-    Attributes:
-        ACTOR (str): The actor agent.
-        CRITIC (str): The critic agent.
-    """
-
-    ACTOR = "actor"
-    CRITIC = "critic"
 
 
 class RuntimeCongfigBase(PluginBase):
