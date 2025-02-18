@@ -10,6 +10,7 @@ from .plugins import (
     ActorLearningRateSlider,
     ActorSaver,
     CriticLearningRateConfig,
+    CriticSaver,
     TrainingVisualizer,
 )
 
@@ -74,6 +75,12 @@ class Callback(CallbackBase):
         num_of_mesh: int = 10,
         auto_start: bool = True,
         runtime_config_path: Optional[str] = None,
+        actor_folder_path: str = "./weights/actor",
+        actor_save_after_steps: int = 1,
+        actor_save_frequency: int = 1,
+        critic_folder_path: str = "./weights/critic",
+        critic_save_after_steps: int = 1,
+        critic_save_frequency: int = 1,
     ) -> None:
         """
         Callback for plotting the policy of the learning instance in 2D. Only works for 2D environments.
@@ -84,13 +91,31 @@ class Callback(CallbackBase):
             num_of_mesh (int, optional): The number of mesh points. Defaults to 10.
             auto_start (bool, optional): Whether to start the observer automatically. Defaults to True.
             runtime_config_path (Optional[str], optional): The path to the runtime configuration file. Defaults to None.
+            actor_folder_path (str, optional): The path to save the actor model. Defaults to "./weights/actor".
+            actor_save_after_steps (int, optional): Steps after which to save the actor model. Defaults to 1.
+            actor_save_frequency (int, optional): Frequency of saving the actor model. Defaults to 1.
+            critic_folder_path (str, optional): The path to save the critic model. Defaults to "./weights/critic".
+            critic_save_after_steps (int, optional): Steps after which to save the critic model. Defaults to 1.
+            critic_save_frequency (int, optional): Frequency of saving the critic model. Defaults to 1.
         """
         super().__init__(learning_instance)
 
         self.plotter = TrainingVisualizer(
             learning_instance, plot_frequency, num_of_mesh
         )
-        self.actor_saver = ActorSaver(learning_instance, ".", 1, 1)
+
+        self.actor_saver = ActorSaver(
+            learning_instance,
+            actor_folder_path,
+            actor_save_after_steps,
+            actor_save_frequency,
+        )
+        self.critic_saver = CriticSaver(
+            learning_instance,
+            critic_folder_path,
+            critic_save_after_steps,
+            critic_save_frequency,
+        )
 
         if auto_start:
             if runtime_config_path is None:
@@ -159,12 +184,19 @@ class Callback(CallbackBase):
         """
         self.actor_saver.execute()
 
+    def _save_critic(self) -> None:
+        """
+        Save the critic.
+        """
+        self.critic_saver.execute()
+
     def _callback(self) -> None:
         """
         Execute the callback.
         """
         threading.Thread(target=self.plotter.execute).start()
         self._save_actor()
+        # self._save_critic()
 
     def _register_all(self, learning_instance: LearningInterface) -> None:
         learning_instance.event_manager.register(

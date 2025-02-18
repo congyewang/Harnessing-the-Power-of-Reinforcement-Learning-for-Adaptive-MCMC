@@ -10,7 +10,6 @@ from matplotlib.axes import Axes
 from numpy import typing as npt
 from torch.nn import functional as F
 
-from ...envs import MCMCEnvBase
 from ...utils import Toolbox
 from ..learning import LearningInterface
 from .base import PluginBase
@@ -36,29 +35,25 @@ class PlotterBase(ABC):
         """
         self.learning_instance = learning_instance
 
-    def _get_current_step(self, env: MCMCEnvBase) -> int:
+    def _get_current_step(self) -> int:
         """
         Get the current step of the environment.
-
-        Args:
-            env (MCMCEnvBase): The environment.
 
         Returns:
             npt.NDArray[np.float64]: The current step.
         """
-        return env.envs[0].get_wrapper_attr("current_step")
+        return self.learning_instance.env.envs[0].get_wrapper_attr("current_step")
 
-    def _get_store_accepted_sample(self, env: MCMCEnvBase) -> npt.NDArray[np.float64]:
+    def _get_store_accepted_sample(self) -> npt.NDArray[np.float64]:
         """
         Get the stored accepted sample of the environment.
-
-        Args:
-            env (MCMCEnvBase): The environment.
 
         Returns:
             npt.NDArray[np.float64]: The stored accepted sample.
         """
-        return env.envs[0].get_wrapper_attr("store_accepted_sample")
+        return self.learning_instance.env.envs[0].get_wrapper_attr(
+            "store_accepted_sample"
+        )
 
     def _slice_to_current_step(
         self, store_sample: npt.NDArray[np.float64], current_step: int
@@ -261,10 +256,9 @@ class PolicyPlotter(PlotterBase):
         policy = lambda x: self.learning_instance.actor(x.double())
 
         pipe(
-            self.learning_instance.env,
-            lambda env: (
-                self._get_current_step(env),
-                self._get_store_accepted_sample(env),
+            (
+                self._get_current_step(),
+                self._get_store_accepted_sample(),
             ),
             lambda tpl: (tpl[0], self._slice_to_current_step(tpl[1], tpl[0])),
             lambda tpl: self._convert_to_torch(tpl[1]),
@@ -327,7 +321,7 @@ class ScatterPlotter(PlotterBase):
             self.learning_instance.env,
             lambda env: (
                 step,
-                self._get_store_accepted_sample(env),
+                self._get_store_accepted_sample(),
             ),
             lambda tpl: (tpl[0], self._slice_to_current_step(tpl[1], tpl[0])),
             lambda tpl: self._scatter_plot(axes, tpl[1], tpl[0], alpha),
