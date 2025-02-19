@@ -1,5 +1,4 @@
 import re
-import time
 
 import torch
 
@@ -74,7 +73,7 @@ class SaverBase(PluginBase):
 
         if current_step % self.save_after_steps == 0 and current_step != 0:
             if current_step % self.save_frequency == 0:
-                model_path = f"{self.folder_path}/{algorithm_name}_{agent_type.value}.{time.time()}.pth"
+                model_path = f"{self.folder_path}/{algorithm_name}_{agent_type.value}.step_{current_step}.pth"
 
                 # Create the folder if it does not exist
                 Toolbox.create_folder(model_path)
