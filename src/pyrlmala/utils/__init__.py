@@ -1,3 +1,3 @@
-from .utils import AveragePolicy, NUTSFromPosteriorDB, Toolbox
+from .utils import AveragePolicy, CalculateMMD, NUTSFromPosteriorDB, Toolbox
 
-__all__ = ["AveragePolicy", "NUTSFromPosteriorDB", "Toolbox"]
+__all__ = ["AveragePolicy", "CalculateMMD", "NUTSFromPosteriorDB", "Toolbox"]

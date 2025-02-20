@@ -1,0 +1,2 @@
+hidden_layers = [8, 8]
+activation_function = "ReLU"

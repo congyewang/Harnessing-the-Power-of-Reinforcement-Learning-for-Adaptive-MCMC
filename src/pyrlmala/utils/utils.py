@@ -19,6 +19,8 @@ from cmdstanpy import CmdStanModel
 from cytoolz import compose_left, pipe, thread_last
 from cytoolz.curried import map, topk
 from gymnasium.envs.registration import EnvSpec
+from ignite.engine import Engine
+from ignite.metrics import MaximumMeanDiscrepancy
 from jaxtyping import Float
 from matplotlib.axes import Axes
 from posteriordb import PosteriorDatabase
@@ -945,3 +947,27 @@ class NUTSFromPosteriorDB:
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.close()
+
+
+class CalculateMMD:
+    @staticmethod
+    def eval_step(engine, batch):
+        return batch
+
+    @staticmethod
+    def calculate(gs, accepted_sample, *args, **kwargs):
+        default_evaluator = Engine(CalculateMMD.eval_step)
+
+        if len(accepted_sample) > len(gs):
+            accepted_sample = accepted_sample[-len(gs) :]
+
+        if not isinstance(gs, torch.Tensor):
+            gs = torch.from_numpy(gs)
+        if not isinstance(accepted_sample, torch.Tensor):
+            accepted_sample = torch.from_numpy(accepted_sample)
+
+        metric = MaximumMeanDiscrepancy(**kwargs)
+        metric.attach(default_evaluator, "mmd")
+        state = default_evaluator.run([[gs, accepted_sample]])
+
+        return state.metrics["mmd"]
