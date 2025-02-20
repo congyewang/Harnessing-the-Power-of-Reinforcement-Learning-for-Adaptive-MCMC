@@ -4,14 +4,16 @@ import json
 import os
 import re
 import tempfile
-from functools import partial
-from typing import Any, Callable, Dict, Optional, Tuple
+import warnings
+from functools import lru_cache, partial
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import bridgestan as bs
 import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import torch
 from cmdstanpy import CmdStanModel
 from cytoolz import compose_left, pipe, thread_last
@@ -624,6 +626,104 @@ class Toolbox:
         """
         distances = np.linalg.norm(data[1:] - data[:-1], axis=1)
         return np.mean(distances)
+
+    @staticmethod
+    @lru_cache(maxsize=46)
+    def gold_standard(
+        model_name: str,
+        posteriordb_path: str = os.path.join("posteriordb", "posterior_database"),
+    ) -> npt.NDArray[np.float64]:
+        """
+        Generate the gold standard for the given model.
+
+        Args:
+            model_name (str): Model name.
+            posteriordb_path (str, optional): Path to the database. Defaults to os.path.join("posteriordb", "posterior_database").
+
+        Returns:
+            npt.NDArray[np.float64]: Gold standard.
+        """
+        # Model Preparation
+        ## Load DataBase Locally
+        pdb_path = os.path.join(posteriordb_path)
+        my_pdb = PosteriorDatabase(pdb_path)
+
+        ## Load Dataset
+        posterior = my_pdb.posterior(model_name)
+
+        ## Gold Standard
+        gs_list = posterior.reference_draws()
+        df = pd.DataFrame(gs_list)
+        gs_constrain = np.zeros(
+            (
+                sum(Toolbox.flat(posterior.information["dimensions"].values())),
+                posterior.reference_draws_info()["diagnostics"]["ndraws"],
+            )
+        )
+        for i in range(len(df.keys())):
+            gs_s: List[str] = []
+            for j in range(len(df[df.keys()[i]])):
+                gs_s += df[df.keys()[i]][j]
+            gs_constrain[i] = gs_s
+        gs_constrain = gs_constrain.T
+
+        # Model Generation
+        model = Toolbox.generate_model(model_name, posteriordb_path)
+
+        gs_unconstrain = np.array(
+            [model.param_unconstrain(np.array(i)) for i in gs_constrain]
+        )
+
+        return gs_unconstrain
+
+    @staticmethod
+    def flat(nested_list: List[List[Any]]) -> List[Any]:
+        """
+        Expand nested list
+        """
+        res = []
+        for i in nested_list:
+            if isinstance(i, list):
+                res.extend(Toolbox.flat(i))
+            else:
+                res.append(i)
+        return res
+
+    @staticmethod
+    def generate_model(
+        model_name: str,
+        posteriordb_path: str = os.path.join("posteriordb", "posterior_database"),
+        verbose: bool = False,
+    ) -> Callable[[Any], Any]:
+        """
+        Generate a model from the given model name.
+
+        Args:
+            model_name (str): Model name.
+            posteriordb_path (str, optional): Path to the database. Defaults to os.path.join("posteriordb", "posterior_database").
+            verbose (bool, optional): If True, will print additional information. Defaults to False.
+
+        Returns:
+            Callable[[Any], Any]: _description_
+        """
+        # Load DataBase Locally
+        pdb_path = os.path.join(posteriordb_path)
+        my_pdb = PosteriorDatabase(pdb_path)
+
+        ## Load Dataset
+        posterior = my_pdb.posterior(model_name)
+        stan = posterior.model.stan_code_file_path()
+        data = json.dumps(posterior.data.values())
+
+        with warnings.catch_warnings():
+            if verbose:
+                warnings.simplefilter("default", category=UserWarning)
+            else:
+                warnings.simplefilter("ignore", category=UserWarning)
+
+            model = bs.StanModel.from_stan_file(stan, data)
+
+        return model
 
 
 class AveragePolicy:
