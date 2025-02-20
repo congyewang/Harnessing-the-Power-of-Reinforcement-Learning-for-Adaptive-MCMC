@@ -3,6 +3,7 @@ import itertools
 import json
 import os
 import re
+import tempfile
 from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple
 
@@ -12,11 +13,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
+from cmdstanpy import CmdStanModel
 from cytoolz import compose_left, pipe, thread_last
 from cytoolz.curried import map, topk
 from gymnasium.envs.registration import EnvSpec
 from jaxtyping import Float
 from matplotlib.axes import Axes
+from posteriordb import PosteriorDatabase
 from scipy.spatial.distance import pdist
 from scipy.stats._multivariate import _PSD
 from torch.nn import functional as F
@@ -804,3 +807,41 @@ class AveragePolicy:
             plt.savefig(save_path)
         else:
             plt.show()
+
+
+class NUTSFromPosteriorDB:
+    def __init__(self, model_name: str, posteriordb_path: str) -> None:
+        self.model_name = model_name
+        self.posteriordb_path = posteriordb_path
+        self.stan_data: Optional[str] = None
+        self.model: Optional[CmdStanModel] = None
+        self.temp_file_path = None
+
+    def load_posterior(self, *args: Any, **kwargs: Any) -> None:
+        pdb = PosteriorDatabase(self.posteriordb_path)
+        posterior = pdb.posterior(self.model_name)
+        stan_code = posterior.model.stan_code_file_path()
+        self.stan_data = json.dumps(posterior.data.values())
+
+        self.model = CmdStanModel(stan_file=stan_code, **kwargs)
+
+    def output_samples(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.float64]:
+        temp_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json")
+        self.temp_file_path = temp_file.name
+
+        temp_file.write(self.stan_data)
+        temp_file.close()
+
+        fit = self.model.sample(data=self.temp_file_path, **kwargs)
+
+        return fit.stan_variables()
+
+    def close(self) -> None:
+        if os.path.exists(self.temp_file_path):
+            os.remove(self.temp_file_path)
+
+    def __enter__(self) -> "NUTSFromPosteriorDB":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        self.close()
