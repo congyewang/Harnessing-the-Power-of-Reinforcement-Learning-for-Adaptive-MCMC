@@ -1,4 +1,3 @@
-from .utils import Toolbox
+from .utils import AveragePolicy, Toolbox
 
-
-__all__ = ["Toolbox"]
+__all__ = ["AveragePolicy", "Toolbox"]

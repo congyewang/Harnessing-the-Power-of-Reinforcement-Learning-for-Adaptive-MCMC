@@ -1,6 +1,9 @@
+import glob
+import itertools
 import json
 import os
 import re
+from functools import partial
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import bridgestan as bs
@@ -9,7 +12,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
-from cytoolz import pipe
+from cytoolz import compose_left, pipe, thread_last
+from cytoolz.curried import map, topk
 from gymnasium.envs.registration import EnvSpec
 from jaxtyping import Float
 from matplotlib.axes import Axes
@@ -224,7 +228,7 @@ class Toolbox:
             os.makedirs(folder_path)
 
     @staticmethod
-    def imbalanced_mash_2d(
+    def imbalanced_mesh_2d(
         x_range: Float[torch.Tensor, "x_range"], y_range: Float[torch.Tensor, "y_range"]
     ) -> Float[torch.Tensor, "mesh_2d"]:
         """
@@ -306,7 +310,7 @@ class Toolbox:
         if softplus_mode:
             pipe(
                 (x_range, y_range),
-                lambda ranges: Toolbox.imbalanced_mash_2d(*ranges),
+                lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
                 lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
                 lambda x: x.double(),
                 policy,
@@ -318,7 +322,7 @@ class Toolbox:
         else:
             pipe(
                 (x_range, y_range),
-                lambda ranges: Toolbox.imbalanced_mash_2d(*ranges),
+                lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
                 lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
                 lambda x: x.double(),
                 policy,
@@ -617,3 +621,186 @@ class Toolbox:
         """
         distances = np.linalg.norm(data[1:] - data[:-1], axis=1)
         return np.mean(distances)
+
+
+class AveragePolicy:
+    @staticmethod
+    def generate_state_mesh(
+        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]]
+    ) -> Callable[
+        [Tuple[Tuple[float, float, float], Tuple[float, float, float]]],
+        Float[torch.Tensor, "mesh_2d"],
+    ]:
+        """
+        Generate a mesh grid from ranges. The mesh grid is used to evaluate the policy.
+
+        Args:
+            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Ranges for the mesh grid.
+
+        Returns:
+            Callable[[Tuple[Tuple[float, float, float], Tuple[float, float, float]]], Float[torch.Tensor, "mesh_2d"]]: Mesh grid generator.
+        """
+        return pipe(
+            ranges,
+            map(lambda r: torch.linspace(*r)),
+            lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
+            lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+            lambda x: x.double(),
+        )
+
+    @staticmethod
+    def calculate_policy(
+        weights_path: str,
+        actor: Callable[
+            [Float[torch.Tensor, "mesh_2d"]], Float[torch.Tensor, "action"]
+        ],
+        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
+    ) -> Float[torch.Tensor, "action"]:
+        """
+        Calculate the policy based on the given ranges and weights.
+
+        Args:
+            weights_path (str): Path to the model weights.
+            actor (Callable[[Float[torch.Tensor, "mesh_2d"]], Float[torch.Tensor, "action"]]): Actor model that produces actions.
+            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
+
+        Returns:
+            Float[torch.Tensor, "action"]: The calculated actions from the policy.
+        """
+        # Load the weights
+        pipe(
+            weights_path,
+            torch.load,
+            actor.load_state_dict,
+        )
+
+        return pipe(
+            ranges,
+            AveragePolicy.generate_state_mesh,
+            actor,
+        )
+
+    @staticmethod
+    def calculate_mean_policy(
+        actor: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
+        weights_path: str,
+        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
+        last_step_num: int,
+        policy_slice_size: int,
+    ) -> Float[torch.Tensor, "average_action"]:
+        """
+        Calculate the mean policy based on the given weights.
+
+        Args:
+            actor (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Actor model that produces actions.
+            weights_path (str): Path to the model weights.
+            last_step_num (int): Last step number.
+            policy_slice_size (int): Policy slice size.
+            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
+
+        Returns:
+            Float[torch.Tensor, "average_action"]: The mean policy
+        """
+        partial_calculate_policy = partial(
+            AveragePolicy.calculate_policy,
+            actor=actor,
+            ranges=ranges,
+        )
+        extract_step_number = compose_left(
+            lambda x: re.search(r"\d+", x).group(),
+            int,
+        )
+        topk_by_step_num = partial(topk, key=extract_step_number)
+
+        return thread_last(
+            weights_path,
+            glob.glob,
+            topk_by_step_num(last_step_num),
+            map(partial_calculate_policy),
+            lambda x: itertools.islice(x, 0, None, policy_slice_size),
+            list,
+            lambda x: torch.stack(x, dim=0),
+            lambda x: torch.mean(x, dim=0),
+        )
+
+    @staticmethod
+    def plot_policy(
+        actor: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
+        weights_path: str,
+        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
+        last_step_num: int,
+        policy_slice_size: int,
+        softplus_mode: bool = True,
+        save_path: Optional[str] = None,
+        title_addition: str = "",
+        axes: Optional[Axes] = None,
+    ) -> None:
+        """
+        Plot the policy based on the provided actor and weights.
+
+        Args:
+            actor (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Actor function.
+            weights_path (str): Path to the weights.
+            last_step_num (int): Last step number to consider for the plot.
+            policy_slice_size (int): Number of policies to slice.
+            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
+            softplus_mode (bool, optional): Softplus mode. Defaults to True.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+            title_addition (str, optional): Title addition for the plot. Defaults to "".
+            axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
+        """
+        if axes is None:
+            _, axes = plt.subplots()
+
+        # Plot heatmap
+        heatmap_plot = lambda x: axes.imshow(
+            x.T,
+            extent=[ranges[0][0], ranges[0][1], ranges[1][0], ranges[1][1]],
+            origin="lower",
+            cmap="viridis",
+            aspect="auto",
+        )
+
+        # Calculate the policy
+        if softplus_mode:
+            pipe(
+                ranges,
+                lambda x: AveragePolicy.calculate_mean_policy(
+                    actor,
+                    weights_path,
+                    x,
+                    last_step_num,
+                    policy_slice_size,
+                ),
+                F.softplus,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(ranges[0][2], ranges[1][2]),
+                heatmap_plot,
+            )
+        else:
+            pipe(
+                ranges,
+                lambda x: AveragePolicy.calculate_mean_policy(
+                    actor,
+                    weights_path,
+                    x,
+                    last_step_num,
+                    policy_slice_size,
+                ),
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(ranges[0][2], ranges[1][2]),
+                heatmap_plot,
+            )
+
+        axes.set_title(f"Policy Heatmap {title_addition}")
+        axes.set_xlabel("x")
+        axes.set_ylabel("y")
+
+        cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
+        cbar.set_label("Action")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
