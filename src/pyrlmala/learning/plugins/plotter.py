@@ -218,7 +218,7 @@ class PolicyPlotter(PlotterBase):
         if softplus_mode:
             pipe(
                 (x_range, y_range),
-                lambda ranges: Toolbox.imbalanced_mash_2d(*ranges),
+                lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
                 lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
                 lambda x: x.double(),
                 policy,
@@ -230,7 +230,7 @@ class PolicyPlotter(PlotterBase):
         else:
             pipe(
                 (x_range, y_range),
-                lambda ranges: Toolbox.imbalanced_mash_2d(*ranges),
+                lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
                 lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
                 lambda x: x.double(),
                 policy,
