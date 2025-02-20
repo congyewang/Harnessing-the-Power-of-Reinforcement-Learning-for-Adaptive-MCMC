@@ -236,6 +236,35 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
 
         return res
 
+    def expected_square_jump_distance(
+        self,
+        current_sample: npt.NDArray[np.float64],
+        proposed_sample: npt.NDArray[np.float64],
+        log_alpha: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        """
+        Expected Square Jump Distance Reward Function.
+
+        Args:
+            current_sample (npt.NDArray[np.float64]): Current Sample.
+            proposed_sample (npt.NDArray[np.float64]): Proposed Sample.
+            log_alpha (npt.NDArray[np.float64]): Log Acceptance Rate.
+
+        Returns:
+            npt.NDArray[np.float64]: Expected Square Jump Distance Reward.
+        """
+        if self.log_mode:
+            reward = (
+                2 * np.log(np.linalg.norm(current_sample - proposed_sample, 2))
+                + log_alpha
+            )
+        else:
+            reward = np.linalg.norm(current_sample - proposed_sample, 2) ** 2 * np.exp(
+                log_alpha
+            )
+
+        return reward
+
     def log_target_pdf(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """
         Log Target Probability Density Function.
@@ -788,6 +817,91 @@ class BarkerEnv(MCMCEnvBase):
         return self.state, reward.item(), terminated, truncated, info
 
 
+class BarkerESJDEnv(BarkerEnv):
+    """
+    Barker Environment with Expected Square Jump Distance Reward.
+
+    Attributes:
+        log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the log target probability density function without numerical stabilization.
+        grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the gradient of the log target probability density function without numerical stabilization.
+        initial_sample (npt.NDArray[np.float64]): Initial Sample.
+        initial_covariance (npt.NDArray[np.float64]): Initial Covariance.
+        initial_step_size (npt.NDArray[np.float64]): Initial Step Size.
+        total_timesteps (int): The number of the total time steps in the whole episode.
+        log_mode (bool): The controller if reward function returns the logarithmic form.
+        sample_dim (int): Sample Dimension.
+        steps (int): Iteration Time.
+        observation_space (gym.spaces.Box): Observation Specification.
+        action_space (gym.spaces.Box): Action Specification.
+        state (npt.NDArray[np.float64]): State.
+        covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance.
+    """
+
+    def step(
+        self, action: npt.NDArray[np.float64]
+    ) -> Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]:
+        """
+        Step Function for Environment. This function is used to update the environment state.
+
+        Args:
+            action (npt.NDArray[np.float64]): Step Size Before Softplus Function, which is unconstrained.
+
+        Returns:
+            Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]: State, Reward, Terminated, Truncated, Info.
+        """
+        # Unpack state
+        current_sample, proposed_sample = np.split(self.state, 2)
+
+        # Calculate phi
+        current_phi, proposed_phi = self.softplus(action)
+
+        # Mean and Coveriance
+        [current_mean, proposed_mean] = [current_sample for _ in range(2)]
+        [current_covariance, proposed_covariance] = [self.covariance for _ in range(2)]
+
+        # Accept or Reject
+        accepted_status, accepted_sample, _, _, log_alpha = self.accepted_process(
+            current_sample,
+            proposed_sample,
+            current_mean,
+            proposed_mean,
+            current_covariance,
+            proposed_covariance,
+            current_phi,
+            proposed_phi,
+        )
+
+        # Update Observation
+        accepted_phi = proposed_phi if accepted_status else current_phi
+
+        accepted_grad_log_pdf = self.grad_log_target_pdf(accepted_sample)
+        next_proposed_sample = self.sample_generator(
+            accepted_sample, accepted_grad_log_pdf, accepted_phi
+        )
+        observation = np.concatenate((accepted_sample, next_proposed_sample))
+        self.state = observation
+
+        # Calculate Reward
+        reward = self.expected_square_jump_distance(
+            current_sample, proposed_sample, log_alpha
+        )
+
+        # Store
+        self.store_observation[self.current_step, :] = observation
+        self.store_action[self.current_step, :] = action
+        self.store_reward[self.current_step] = reward
+
+        # Update Steps
+        self.current_step += 1
+        truncated: bool = (self.current_step + 1) % self.max_steps_per_episode == 0
+        terminated: bool = False
+        info: Dict[None, None] = {}
+
+        return self.state, reward.item(), terminated, truncated, info
+
+
 class MALAEnv(MCMCEnvBase):
     """
     Metropolis-Adjusted Langevin Algorithm (MALA) Environment.
@@ -1090,6 +1204,95 @@ class MALAEnv(MCMCEnvBase):
 
         reward = self.expected_entropy_reward(
             log_target_current, log_target_proposed, log_proposal_current, log_alpha
+        )
+
+        # Store
+        self.store_observation[self.current_step, :] = observation
+        self.store_action[self.current_step, :] = action
+        self.store_reward[self.current_step] = reward
+
+        # Update Steps
+        self.current_step += 1
+        truncated: bool = (self.current_step + 1) % self.max_steps_per_episode == 0
+        terminated: bool = False
+        info: Dict[None, None] = {}
+
+        return self.state, reward.item(), terminated, truncated, info
+
+
+class MALAESJDEnv(MALAEnv):
+    """
+    MALAESJDEnv is an environment for performing MALA (Metropolis-Adjusted Langevin Algorithm) transitions
+    with expected square jump distance rewards.
+
+    Attributes:
+        log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the log target probability density function without numerical stabilization.
+        grad_log_target_pdf_unsafe (Callable[ [npt.NDArray[np.float64]], npt.NDArray[np.float64] ]):
+            Function to compute the gradient of the log target probability density function without numerical stabilization.
+        initial_sample (npt.NDArray[np.float64]): Initial Sample.
+        initial_covariance (npt.NDArray[np.float64]): Initial Covariance.
+        initial_step_size (npt.NDArray[np.float64]): Initial Step Size.
+        total_timesteps (int): The number of the total time steps in the whole episode.
+        log_mode (bool): The controller if reward function returns the logarithmic form.
+        sample_dim (int): Sample Dimension.
+        steps (int): Iteration Time.
+        observation_space (gym.spaces.Box): Observation Specification.
+        action_space (gym.spaces.Box): Action Specification.
+        state (npt.NDArray[np.float64]): State.
+        covariance (npt.NDArray[np.float64]): Covariance. Defaults to initial_covariance
+    """
+
+    def step(
+        self, action: npt.NDArray[np.float64]
+    ) -> Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]:
+        """
+        Step Function for Environment. This function is used to update the environment state.
+
+        Args:
+            action (npt.NDArray[np.float64]): Step Size Before Softplus Function, which is unconstrained.
+
+        Returns:
+            Tuple[npt.NDArray[np.float64], np.float64, bool, bool, Dict[Any, Any]]: State, Reward, Terminated, Truncated, Info.
+        """
+        # Unpack state
+        current_sample, proposed_sample = np.split(self.state, 2)
+
+        # Calculate phi
+        current_phi, proposed_phi = self.softplus(action)
+
+        # Mean and Coveriance
+        current_grad_log_pdf, proposed_grad_log_pdf = self.grad_log_target_pdf(
+            current_sample
+        ), self.grad_log_target_pdf(proposed_sample)
+
+        current_mean, current_covariance = self._compute_mean_and_covariance(
+            current_sample, current_phi, self.covariance, current_grad_log_pdf
+        )
+        proposed_mean, proposed_covariance = self._compute_mean_and_covariance(
+            proposed_sample, proposed_phi, self.covariance, proposed_grad_log_pdf
+        )
+
+        # Accept or Reject
+        _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
+            self.accepted_process(
+                current_sample,
+                proposed_sample,
+                current_mean,
+                proposed_mean,
+                current_covariance,
+                proposed_covariance,
+            )
+        )
+
+        # Update Observation
+        next_proposed_sample = self.sample_generator(accepted_mean, accepted_covariance)
+        observation = np.concatenate((accepted_sample, next_proposed_sample))
+        self.state = observation
+
+        # Calculate Reward
+        reward = self.expected_square_jump_distance(
+            current_sample, proposed_sample, log_alpha
         )
 
         # Store
