@@ -12,7 +12,6 @@ from gymnasium.vector import SyncVectorEnv
 from gymnasium.wrappers import RecordEpisodeStatistics
 from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
-from torch.optim.optimizer import Optimizer as Optimizer
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
