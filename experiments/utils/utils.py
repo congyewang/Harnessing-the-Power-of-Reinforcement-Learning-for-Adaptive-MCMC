@@ -16,11 +16,11 @@ class BenchmarkFactory:
 
     _model_list = ["gaussian", "laplace_1", "laplace_2", "laplace_4"]
     _mcmc_envs = {
-        # "mala": "MALAEnv",
+        "mala": "MALAEnv",
         "barker": "BarkerEnv",
     }
     _random_seed = 42
-    _step_size_list = [0.5 * (i + 1) for i in range(20)]
+    _step_size_list = [0.5 * (i + 1) for i in range(41)]
 
     @staticmethod
     def rander_template(template_dir_path: str, output_path: str, **kwargs) -> None:
