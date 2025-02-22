@@ -14,7 +14,12 @@ class BenchmarkFactory:
         _step_size_list (List[float]): The list of step sizes.
     """
 
-    _model_list = ["gaussian", "laplace_1", "laplace_2", "laplace_4"]
+    _model_dict = {
+        "gaussian": "test-multivariant_normal-test-multivariant_normal",
+        "laplace_1": "test-laplace_1-test-laplace_1",
+        "laplace_2": "test-laplace_2-test-laplace_2",
+        "laplace_4": "test-laplace_4-test-laplace_4",
+    }
     _mcmc_envs = {
         "mala": "MALAEnv",
         "barker": "BarkerEnv",
@@ -44,13 +49,13 @@ class BenchmarkFactory:
         root_dir: str = ".",
         template_relative_dir: str = os.path.join("template"),
     ) -> None:
-        for model_name in BenchmarkFactory._model_list:
+        for model_dir, model_name in BenchmarkFactory._model_dict.items():
             for mcmc_env_name, mcmc_env in BenchmarkFactory._mcmc_envs.items():
                 for step_size in BenchmarkFactory._step_size_list:
                     # Create output directory if not exists
                     output_dir = os.path.join(
                         root_dir,
-                        model_name,
+                        model_dir,
                         mcmc_env_name,
                         f"{mcmc_env_name}_{str(step_size).replace('.', '_')}",
                     )
