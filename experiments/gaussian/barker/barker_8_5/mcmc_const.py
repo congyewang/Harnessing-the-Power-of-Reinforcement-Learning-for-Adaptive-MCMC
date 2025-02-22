@@ -16,7 +16,7 @@ np.random.seed(RANDOM_SEED)
 torch.manual_seed(RANDOM_SEED)
 
 # Set Model and Posterior Database Path
-model_name = ""
+model_name = "test-multivariant_normal-test-multivariant_normal"
 posteriordb_path = "../../../posteriordb/posterior_database"
 
 # Generate Target PDF and Gradient of Target PDF
