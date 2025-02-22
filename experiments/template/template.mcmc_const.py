@@ -17,7 +17,7 @@ torch.manual_seed(RANDOM_SEED)
 
 # Set Model and Posterior Database Path
 model_name = "{{ model_name }}"
-posteriordb_path = "../../posteriordb/posterior_database"
+posteriordb_path = "../../../posteriordb/posterior_database"
 
 # Generate Target PDF and Gradient of Target PDF
 posteriordb_generator = PosteriorDBFunctionsGenerator(

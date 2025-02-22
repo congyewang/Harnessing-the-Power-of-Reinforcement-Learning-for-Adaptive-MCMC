@@ -44,7 +44,6 @@ class BenchmarkFactory:
         root_dir: str = ".",
         template_relative_dir: str = os.path.join("template"),
     ) -> None:
-        sh_scripts = []
         for model_name in BenchmarkFactory._model_list:
             for mcmc_env_name, mcmc_env in BenchmarkFactory._mcmc_envs.items():
                 for step_size in BenchmarkFactory._step_size_list:
@@ -74,14 +73,3 @@ class BenchmarkFactory:
                         ),
                         sh_script_path,
                     )
-                    sh_scripts.append(sh_script_path)
-
-        # Create sbatch script
-        sbatch_script_path = os.path.join(root_dir, "submit_all.sh")
-        with open(sbatch_script_path, "w+") as sbatch_file:
-            sbatch_file.write("#!/bin/bash\n\n")
-            for sh_script in sh_scripts:
-                sbatch_file.write(f"sbatch {sh_script}\n")
-
-        # Make sbatch script executable
-        os.chmod(sbatch_script_path, 0o755)
