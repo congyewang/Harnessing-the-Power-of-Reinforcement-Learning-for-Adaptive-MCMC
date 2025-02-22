@@ -31,7 +31,7 @@ sample_dim = 2
 initial_sample = 0.1 * np.ones(sample_dim)
 initial_step_size = np.array([STEP_SIZE])
 
-mcmc = MALAEnv(
+mcmc = {{ env_name }}(
     log_target_pdf_unsafe=log_target_pdf,
     grad_log_target_pdf_unsafe=grad_log_target_pdf,
     initial_sample=initial_sample,
