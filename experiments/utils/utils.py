@@ -62,6 +62,7 @@ class BenchmarkFactory:
                         random_seed=BenchmarkFactory._random_seed,
                         step_size=step_size,
                         env_name=mcmc_env,
+                        model_name=model_name,
                     )
 
                     sh_script_path = os.path.join(output_dir, "run-mcmc.sh")
