@@ -912,14 +912,38 @@ class AveragePolicy:
 
 
 class NUTSFromPosteriorDB:
+    """
+    NUTS sampler from the posterior database.
+
+    Attributes:
+        model_name (str): Model name.
+        posteriordb_path (str): Path to the posterior database.
+        stan_data (Optional[str]): Stan data.
+        model (Optional[CmdStanModel]): CmdStan model.
+        temp_file_path (Optional[str]): Temporary file path.
+    """
+
     def __init__(self, model_name: str, posteriordb_path: str) -> None:
+        """
+        Initialize the NUTS sampler from the posterior database
+
+        Args:
+            model_name (str): Model name.
+            posteriordb_path (str): Path to the posterior database.
+        """
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
         self.stan_data: Optional[str] = None
         self.model: Optional[CmdStanModel] = None
         self.temp_file_path = None
 
-    def load_posterior(self, *args: Any, **kwargs: Any) -> None:
+    def load_posterior(self, **kwargs: Any) -> None:
+        """
+        Load the posterior from the database.
+
+        Args:
+            **kwargs (Any): Additional arguments for the CmdStanModel.
+        """
         pdb = PosteriorDatabase(self.posteriordb_path)
         posterior = pdb.posterior(self.model_name)
         stan_code = posterior.model.stan_code_file_path()
@@ -927,7 +951,16 @@ class NUTSFromPosteriorDB:
 
         self.model = CmdStanModel(stan_file=stan_code, **kwargs)
 
-    def output_samples(self, *args: Any, **kwargs: Any) -> npt.NDArray[np.float64]:
+    def output_samples(self, **kwargs: Any) -> npt.NDArray[np.float64]:
+        """
+        Output the samples from the model.
+
+        Args:
+            **kwargs (Any): Additional arguments for the model sampling.
+
+        Returns:
+            npt.NDArray[np.float64]: Samples from the model.
+        """
         temp_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json")
         self.temp_file_path = temp_file.name
 
@@ -939,23 +972,60 @@ class NUTSFromPosteriorDB:
         return fit.stan_variables()
 
     def close(self) -> None:
+        """
+        Close the NUTS sampler.
+        """
         if os.path.exists(self.temp_file_path):
             os.remove(self.temp_file_path)
 
     def __enter__(self) -> "NUTSFromPosteriorDB":
+        """
+        Enter the NUTS sampler.
+
+        Returns:
+            NUTSFromPosteriorDB: NUTS sampler.
+        """
         return self
 
     def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
+        """
+        Exit the NUTS sampler.
+
+        Args:
+            exc_type (Any): Exception type.
+            exc_value (Any): Exception value.
+            traceback (Any): Traceback.
+        """
         self.close()
 
 
 class CalculateMMD:
+    """
+    Calculate the Maximum Mean Discrepancy (MMD) between two distributions.
+    """
+
     @staticmethod
     def eval_step(engine, batch):
         return batch
 
     @staticmethod
-    def calculate(gs, accepted_sample, *args, **kwargs):
+    def calculate(
+        gs: Float[torch.Tensor, "gold standard"] | npt.NDArray[np.float64],
+        accepted_sample: (
+            Float[torch.Tensor, "accepted sample"] | npt.NDArray[np.float64]
+        ),
+        **kwargs: Any,
+    ) -> float:
+        """
+        Calculate the Maximum Mean Discrepancy (MMD) between two distributions.
+
+        Args:
+            gs (Float[torch.Tensor, &quot;gold standard&quot;] | npt.NDArray[np.float64]): Gold standard.
+            accepted_sample (Float[torch.Tensor, &quot;accepted sample&quot;]  |  npt.NDArray[np.float64]): Accepted sample.
+
+        Returns:
+            float: Maximum Mean Discrepancy (MMD) between the two distributions.
+        """
         default_evaluator = Engine(CalculateMMD.eval_step)
 
         if len(accepted_sample) > len(gs):
