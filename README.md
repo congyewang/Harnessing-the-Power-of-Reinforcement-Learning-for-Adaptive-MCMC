@@ -31,6 +31,10 @@
   - pytest-mock == 3.14.0
 
 ```{bash}
+# Download parallel
+sudo apt install parallel
+
+# Download Python Packages
 uv sync
 ```
 
