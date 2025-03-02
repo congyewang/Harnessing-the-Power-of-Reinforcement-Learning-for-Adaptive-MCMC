@@ -1,11 +1,13 @@
 import argparse
 import random
+import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, Tuple, Type, TypeAliasType
+from typing import Any, Dict, List, Tuple, Type, TypeAliasType
 
 import numpy as np
+import pandas as pd
 import torch
 from numpy import typing as npt
 
@@ -204,3 +206,104 @@ class RewardBenchmark(BenchmarkBase):
         esjd = Toolbox.expected_square_jump_distance(self.env.store_accepted_sample)
 
         self.write_results("reward_esjd.csv", reward.item(), esjd.item())
+
+
+class BenchmarkGenerator:
+    @staticmethod
+    def generate_parallel_jobs(
+        model_dict: Dict[str, str],
+        mcmc_envs: List[str],
+        step_sizes: List[float],
+        random_seeds: List[int],
+        posteriordb_path: str,
+        jobs_path: str,
+        script_path: str,
+    ) -> None:
+        """
+        Generate parallel jobs for the benchmark. The parallel jobs are generated for the benchmark.
+
+        Args:
+            model_dict (Dict[str, str]): The model dictionary
+            mcmc_envs (List[str]): The MCMC environments
+            step_sizes (List[float]): The step sizes
+            random_seeds (List[int]): The random seeds
+            posteriordb_path (str): The path to the posterior database
+            jobs_path (str): The path to the jobs file
+            script_path (str): The path to the script file
+        """
+        with open(jobs_path, "w") as f:
+            for model_name in model_dict:
+                for mcmc_env in mcmc_envs:
+                    for step_size in step_sizes:
+                        for random_seed in random_seeds:
+                            f.write(
+                                f"python {Path(script_path).name} --random_seed {random_seed} --step_size {step_size} --model_name {model_dict[model_name]} --posteriordb_path {posteriordb_path} --mcmc_env {mcmc_env}\n"
+                            )
+
+    @staticmethod
+    def write_script(script_path: str, benchmark_type: str) -> None:
+        """
+        Write the MMD script to calculate the MMD for the benchmark.
+        The MMD script is written to calculate the MMD for the benchmark.
+        """
+        _class_name = {
+            "mmd": "MMDBenchMark",
+            "reward": "RewardBenchmark",
+        }
+
+        if benchmark_type not in _class_name.keys():
+            raise ValueError("Benchmark type must be one of 'mmd', 'reward'")
+
+        with open(script_path, "w") as f:
+            f.write(
+                f"from pyrlmala.utils.benchmark import {_class_name[benchmark_type]}\n\n\n{_class_name[benchmark_type]}().execute()\n"
+            )
+
+
+class BenchmarkExporter:
+    @staticmethod
+    def merge_csv_files(data_csv_file_path: str = "merged_data.csv") -> None:
+        """
+        Merge the CSV files into a single CSV file
+
+        Args:
+            data_csv_file_path (str, optional): The path to the merged CSV file. Defaults to "merged_data.csv".
+        """
+        cmd = f"awk '(NR == 1) || (FNR > 1)' *.csv > {data_csv_file_path}"
+        subprocess.run(cmd, shell=True, check=True)
+
+    @staticmethod
+    def group_data(
+        data_csv_file_path: str = "merged_data.csv",
+        output_file_path: str = "grouped_data.md",
+    ) -> None:
+        """
+        Group the data and write it to a markdown file
+
+        Args:
+            data_csv_file_path (str, optional): The path to the merged CSV file. Defaults to "merged_data.csv".
+            output_file_path (str, optional): The path to the output markdown file. Defaults to "grouped_data.md".
+        """
+        df = pd.read_csv(data_csv_file_path).sort_values(
+            by=["mcmc_env", "step_size", "random_seed"], ascending=[True, True, True]
+        )
+
+        grouped_reward = (
+            df.groupby(["mcmc_env", "step_size"])["res"]
+            .agg(mean="mean", std="std", count="count")
+            .assign(se=lambda df: df["std"] / np.sqrt(df["count"]))
+            .drop(columns=["std", "count"])
+            .rename(columns={"mean": "reward_mean", "se": "reward_se"})
+        )
+        grouped_esjd = (
+            df.groupby(["mcmc_env", "step_size"])["esjd"]
+            .agg(mean="mean", std="std", count="count")
+            .assign(se=lambda df: df["std"] / np.sqrt(df["count"]))
+            .drop(columns=["std", "count"])
+            .rename(columns={"mean": "esjd_mean", "se": "esjd_se"})
+        )
+
+        grouped_df = grouped_reward.merge(grouped_esjd, on=["mcmc_env", "step_size"])
+        grouped_df.to_markdown(
+            output_file_path, tablefmt="github", index=True, floatfmt=".4f"
+        )
