@@ -307,3 +307,15 @@ class BenchmarkExporter:
         grouped_df.to_markdown(
             output_file_path, tablefmt="github", index=True, floatfmt=".4f"
         )
+
+    @staticmethod
+    def optimal_step_size(data_csv_file_path: str = "merged_data.csv"):
+        return (
+            pd.read_csv(data_csv_file_path)
+            .groupby(["mcmc_env", "step_size"])["res"]
+            .mean()
+            .reset_index()
+            .sort_values(["mcmc_env", "res"], ascending=[True, False])
+            .groupby("mcmc_env")
+            .head(1)
+        )
