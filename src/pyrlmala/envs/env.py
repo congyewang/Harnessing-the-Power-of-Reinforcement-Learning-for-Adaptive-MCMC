@@ -17,6 +17,8 @@ import numpy as np
 import numpy.typing as npt
 from scipy.stats import multivariate_normal
 
+from ..utils import Toolbox
+
 
 class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
     """
@@ -985,7 +987,9 @@ class MALAEnv(MCMCEnvBase):
         mean = sample + step_size / 2 * covariance @ grad_log_pdf
         covariance = step_size * covariance
 
-        return mean, covariance
+        positive_covariance = Toolbox.nearestPD(covariance)
+
+        return mean, positive_covariance
 
     def sample_generator(
         self,
@@ -1177,16 +1181,29 @@ class MALAEnv(MCMCEnvBase):
         )
 
         # Accept or Reject
-        _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
-            self.accepted_process(
-                current_sample,
-                proposed_sample,
-                current_mean,
-                proposed_mean,
-                current_covariance,
-                proposed_covariance,
+        try:
+            _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
+                self.accepted_process(
+                    current_sample,
+                    proposed_sample,
+                    current_mean,
+                    proposed_mean,
+                    current_covariance,
+                    proposed_covariance,
+                )
             )
-        )
+        except np.linalg.LinAlgError:
+            print("LinAlgError")
+            print("current_sample", current_sample)
+            print("proposed_sample", proposed_sample)
+            print("current_mean", current_mean)
+            print("proposed_mean", proposed_mean)
+            print("current_covariance", current_covariance)
+            print("proposed_covariance", proposed_covariance)
+            print("current_phi", current_phi)
+            print("proposed_phi", proposed_phi)
+
+            raise
 
         # Update Observation
         next_proposed_sample = self.sample_generator(accepted_mean, accepted_covariance)
