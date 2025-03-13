@@ -512,15 +512,13 @@ class LearningDDPG(LearningInterface):
                 )
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
-        if "final_info" in infos:
-            for info in infos["final_info"]:
-                self.writer.add_scalar(
-                    "charts/episodic_return", info["episode"]["r"], global_step
-                )
-                self.writer.add_scalar(
-                    "charts/episodic_length", info["episode"]["l"], global_step
-                )
-                break
+        if "episode" in infos:
+            self.writer.add_scalar(
+                "charts/episodic_return", infos["episode"]["r"], global_step
+            )
+            self.writer.add_scalar(
+                "charts/episodic_length", infos["episode"]["l"], global_step
+            )
 
         real_next_obs = next_obs.copy()
         self.replay_buffer.add(
