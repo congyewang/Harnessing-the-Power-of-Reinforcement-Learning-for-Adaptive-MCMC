@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -136,6 +136,26 @@ class Config:
 
 
 @dataclass
+class NetworkConfig:
+    """
+    Configuration data class for the network.
+
+    Attributes:
+        hidden_layers (List[int]): Hidden layers.
+        activation_function (str): Activation function.
+    """
+
+    hidden_layers: List[int]
+    activation_function: str
+
+
+@dataclass
+class SchedulerConfig:
+    type: str
+    params: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class PolicyNetworkConfig:
     """
     Configuration data class for the policy network.
@@ -145,8 +165,8 @@ class PolicyNetworkConfig:
         activation_function (str): Activation function.
     """
 
-    hidden_layers: List[int]
-    activation_function: str
+    network: NetworkConfig
+    scheduler: SchedulerConfig
 
 
 @dataclass
@@ -159,5 +179,5 @@ class QNetworkConfig:
         activation_function (str): Activation function.
     """
 
-    hidden_layers: List[int]
-    activation_function: str
+    network: NetworkConfig
+    scheduler: SchedulerConfig

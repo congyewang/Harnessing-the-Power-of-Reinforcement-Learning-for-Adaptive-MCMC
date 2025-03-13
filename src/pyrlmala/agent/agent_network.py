@@ -37,8 +37,8 @@ class AgentNetworkBase(ABC, nn.Module):
         output_size = self._get_output_size()
 
         # Getting Hidden Layer Information from the Configuration
-        hidden_layers = getattr(config, "hidden_layers", [8, 8])
-        activation_function_name = getattr(config, "activation_function", "ReLU")
+        hidden_layers = getattr(config.network, "hidden_layers", [8, 8])
+        activation_function_name = getattr(config.network, "activation_function", "ReLU")
 
         # Getting Activation Function
         activation_function = getattr(nn, activation_function_name)()

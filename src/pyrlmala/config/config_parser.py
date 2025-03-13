@@ -198,6 +198,7 @@ class BaseInstanceConfigParser:
         config_type (str): Type of the configuration.
         config_instance (Any): Parsed configuration instance.
     """
+
     def __init__(self, config_file: str, config_type: str):
         """
         Initializing the parser and load the configuration file.
@@ -254,6 +255,7 @@ class HyperparameterConfigParser(BaseInstanceConfigParser):
         config_type (str): Type of the configuration.
         config_instance (Any): Parsed configuration instance.
     """
+
     def __init__(self, config_file: str):
         """
         Initialize the configuration parser.
@@ -273,6 +275,7 @@ class PolicyNetworkConfigParser(BaseInstanceConfigParser):
         config_type (str): Type of the configuration.
         config_instance (Any): Parsed configuration instance.
     """
+
     def __init__(self, config_file: str):
         """
         Initialize the configuration parser.
@@ -292,6 +295,7 @@ class QNetworkConfigParser(BaseInstanceConfigParser):
         config_type (str): Type of the configuration.
         config_instance (Any): Parsed configuration instance.
     """
+
     def __init__(self, config_file: str):
         """
         Initialize the configuration parser.
