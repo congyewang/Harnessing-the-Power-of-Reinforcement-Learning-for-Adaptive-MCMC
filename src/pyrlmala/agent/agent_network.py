@@ -3,7 +3,6 @@ from typing import Callable, List
 
 import torch
 import torch.nn as nn
-from gymnasium.vector import SyncVectorEnv
 from jaxtyping import Float
 
 from ..config import PolicyNetworkConfigParser, QNetworkConfigParser
@@ -14,25 +13,24 @@ class AgentNetworkBase(ABC, nn.Module):
     Base Class for the Agent Network.
 
     Attributes:
-        envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+        input_size (int): The Input Size of the Network.
         network (nn.Module): The Neural Network.
     """
 
     def __init__(
         self,
-        envs: SyncVectorEnv,
+        input_size: int,
         config: PolicyNetworkConfigParser | QNetworkConfigParser,
     ) -> None:
         """
         Initializes the Agent Network.
 
         Args:
-            envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+            input_size (int): The Input Size of the Network.
             config (PolicyNetworkConfigParser | QNetworkConfigParser): The Configuration.
         """
         super().__init__()
-
-        self.envs = envs
+        self.input_size = input_size
 
         # Getting Input and Output Sizes
         input_size = self._get_input_size()

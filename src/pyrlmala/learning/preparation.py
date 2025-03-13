@@ -399,6 +399,9 @@ class PreparationInterface(ABC):
 
         return envs, predicted_envs
 
+    def get_actor_input_size(self) -> int:
+        return self.envs.single_observation_space.shape[0] >> 1
+
     def make_actor(self, compile: bool) -> Tuple[PolicyNetwork, PolicyNetwork]:
         """
         Make actor.
@@ -409,9 +412,10 @@ class PreparationInterface(ABC):
         Returns:
             Tuple[PolicyNetwork, PolicyNetwork]: The actor.
         """
-        actor = PolicyNetwork(self.envs, self.actor_config).to(self.device).double()
+        input_size = self.get_actor_input_size()
+        actor = PolicyNetwork(input_size, self.actor_config).to(self.device).double()
         target_actor = (
-            PolicyNetwork(self.envs, self.actor_config).to(self.device).double()
+            PolicyNetwork(input_size, self.actor_config).to(self.device).double()
         )
 
         if compile:
@@ -439,6 +443,12 @@ class PreparationInterface(ABC):
         target_actor.load_state_dict(actor.state_dict())
 
         return actor, target_actor
+
+    def get_critic_input_size(self) -> int:
+        return (
+            self.envs.single_observation_space.shape[0]
+            + self.envs.single_action_space.shape[0]
+        )
 
     @abstractmethod
     def make_critic(
@@ -614,8 +624,9 @@ class PreparationDDPG(PreparationInterface):
         Returns:
             Tuple[QNetwork, QNetwork]: The critic.
         """
-        qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
-        target_qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        input_size = self.get_critic_input_size()
+        qf1 = QNetwork(input_size, self.critic_config).to(self.device).double()
+        target_qf1 = QNetwork(input_size, self.critic_config).to(self.device).double()
         if compile:
             qf1 = torch.compile(qf1)
             target_qf1 = torch.compile(target_qf1)
@@ -769,10 +780,11 @@ class PreparationTD3(PreparationInterface):
         Returns:
             Tuple[QNetwork, QNetwork, QNetwork, QNetwork]: The critic.
         """
-        qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
-        target_qf1 = QNetwork(self.envs, self.critic_config).to(self.device).double()
-        qf2 = QNetwork(self.envs, self.critic_config).to(self.device).double()
-        target_qf2 = QNetwork(self.envs, self.critic_config).to(self.device).double()
+        input_size = self.get_critic_input_size()
+        qf1 = QNetwork(input_size, self.critic_config).to(self.device).double()
+        target_qf1 = QNetwork(input_size, self.critic_config).to(self.device).double()
+        qf2 = QNetwork(input_size, self.critic_config).to(self.device).double()
+        target_qf2 = QNetwork(input_size, self.critic_config).to(self.device).double()
         if compile:
             qf1 = torch.compile(qf1)
             target_qf1 = torch.compile(target_qf1)

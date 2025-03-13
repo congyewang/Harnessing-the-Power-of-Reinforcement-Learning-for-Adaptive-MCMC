@@ -1,6 +1,4 @@
-import numpy as np
 import torch
-from gymnasium.vector import SyncVectorEnv
 from jaxtyping import Float
 
 from ...config import PolicyNetworkConfigParser
@@ -12,18 +10,19 @@ class PolicyNetwork(AgentNetworkBase):
     PolicyNetwork.
 
     Attributes:
-        envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+        input_size (int): The input size of the network.
         config (PolicyNetworkConfigParser): The configuration from the actor TOML file parsed by PolicyNetworkConfigParser.
     """
-    def __init__(self, envs: SyncVectorEnv, config: PolicyNetworkConfigParser) -> None:
+
+    def __init__(self, input_size: int, config: PolicyNetworkConfigParser) -> None:
         """
         Initialize the PolicyNetwork.
 
         Args:
-            envs (SyncVectorEnv): The SyncVectorEnv environment inherited from env.MCMCEnvBase Class.
+            input_size (int): The input size of the network.
             config (PolicyNetworkConfigParser): The configuration from the actor TOML file parsed by PolicyNetworkConfigParser.
         """
-        super().__init__(envs=envs, config=config)
+        super().__init__(input_size=input_size, config=config)
 
     def _get_input_size(self) -> int:
         """
@@ -32,7 +31,7 @@ class PolicyNetwork(AgentNetworkBase):
         Returns:
             int: The input size of the network.
         """
-        return np.array(self.envs.single_observation_space.shape).prod() >> 1
+        return self.input_size
 
     def forward(
         self, observation: Float[torch.Tensor, "current_sample proposed_sample"]
