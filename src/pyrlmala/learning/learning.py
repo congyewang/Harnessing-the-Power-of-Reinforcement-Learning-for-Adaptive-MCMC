@@ -7,11 +7,12 @@ import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
 import torch
-import torch.nn.functional as F
 from gymnasium.vector import SyncVectorEnv
 from gymnasium.wrappers import RecordEpisodeStatistics
 from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
+from torch.nn import functional as F
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
@@ -76,9 +77,11 @@ class LearningInterface(ABC):
         actor_gradient_clipping: bool = False,
         actor_gradient_threshold: Optional[float] = 1.0,
         actor_gradient_norm: Optional[int] = 2,
+        actor_scheduler: Optional[LRScheduler] = None,
         critic_gradient_clipping: bool = False,
         critic_gradient_threshold: Optional[float] = 1.0,
         critic_gradient_norm: Optional[int] = 2,
+        critic_scheduler: Optional[LRScheduler] = None,
         learning_starts: int = 32,
         batch_size: int = 32,
         exploration_noise: float = 0.1,
@@ -158,6 +161,9 @@ class LearningInterface(ABC):
 
         self.actor_optimizer = actor_optimizer
         self.critic_optimizer = critic_optimizer
+
+        self.actor_scheduler = actor_scheduler
+        self.critic_scheduler = critic_scheduler
 
         self.replay_buffer = replay_buffer
 
@@ -406,9 +412,11 @@ class LearningDDPG(LearningInterface):
         actor_optimizer: torch.optim.Optimizer,
         critic_optimizer: torch.optim.Optimizer,
         replay_buffer: ReplayBuffer,
+        actor_scheduler: Optional[LRScheduler] = None,
         actor_gradient_clipping: bool = False,
         actor_gradient_threshold: Optional[float] = 1.0,
         actor_gradient_norm: Optional[int] = 2,
+        critic_scheduler: Optional[LRScheduler] = None,
         critic_gradient_clipping: bool = False,
         critic_gradient_threshold: Optional[float] = 1.0,
         critic_gradient_norm: Optional[int] = 2,
@@ -466,9 +474,11 @@ class LearningDDPG(LearningInterface):
             actor_optimizer=actor_optimizer,
             critic_optimizer=critic_optimizer,
             replay_buffer=replay_buffer,
+            actor_scheduler=actor_scheduler,
             actor_gradient_clipping=actor_gradient_clipping,
             actor_gradient_threshold=actor_gradient_threshold,
             actor_gradient_norm=actor_gradient_norm,
+            critic_scheduler=critic_scheduler,
             critic_gradient_clipping=critic_gradient_clipping,
             critic_gradient_threshold=critic_gradient_threshold,
             critic_gradient_norm=critic_gradient_norm,
@@ -584,6 +594,11 @@ class LearningDDPG(LearningInterface):
                 self.critic_loss.append(critic_loss.item())
                 self.actor_loss.append(actor_loss.item())
 
+        if self.actor_scheduler:
+            self.actor_scheduler.step()
+        if self.critic_scheduler:
+            self.critic_scheduler.step()
+
     def save(self, folder_path: str) -> None:
         """
         Save the model.
@@ -655,9 +670,11 @@ class LearningTD3(LearningInterface):
         actor_optimizer: torch.optim.Optimizer,
         critic_optimizer: torch.optim.Optimizer,
         replay_buffer: ReplayBuffer,
+        actor_scheduler: Optional[LRScheduler] = None,
         actor_gradient_clipping: bool = False,
         actor_gradient_threshold: Optional[float] = 1.0,
         actor_gradient_norm: Optional[int] = 2,
+        critic_scheduler: Optional[LRScheduler] = None,
         critic_gradient_clipping: bool = False,
         critic_gradient_threshold: Optional[float] = 1.0,
         critic_gradient_norm: Optional[int] = 2,
@@ -721,9 +738,11 @@ class LearningTD3(LearningInterface):
             actor_optimizer=actor_optimizer,
             critic_optimizer=critic_optimizer,
             replay_buffer=replay_buffer,
+            actor_scheduler=actor_scheduler,
             actor_gradient_clipping=actor_gradient_clipping,
             actor_gradient_threshold=actor_gradient_threshold,
             actor_gradient_norm=actor_gradient_norm,
+            critic_scheduler=critic_scheduler,
             critic_gradient_clipping=critic_gradient_clipping,
             critic_gradient_threshold=critic_gradient_threshold,
             critic_gradient_norm=critic_gradient_norm,
@@ -914,6 +933,11 @@ class LearningTD3(LearningInterface):
                 self.critic2_loss.append(critic2_loss.item())
                 self.critic_loss.append(critic_loss.item() / 2.0)
                 self.actor_loss.append(actor_loss.item())
+
+        if self.actor_scheduler:
+            self.actor_scheduler.step()
+        if self.critic_scheduler:
+            self.critic_scheduler.step()
 
     def save(self, folder_path: str) -> None:
         """

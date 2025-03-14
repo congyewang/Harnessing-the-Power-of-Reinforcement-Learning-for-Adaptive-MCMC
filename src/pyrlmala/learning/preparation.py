@@ -9,10 +9,10 @@ import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
 import torch
-import torch.optim as optim
 from gymnasium.envs.registration import EnvSpec
 from posteriordb import PosteriorDatabase
 from stable_baselines3.common.buffers import ReplayBuffer
+from torch import optim
 
 from ..agent import PolicyNetwork, QNetwork
 from ..config import (
@@ -492,6 +492,37 @@ class PreparationInterface(ABC):
 
         return actor_optimizer, critic_optimizer
 
+    def make_scheduler(
+        self,
+        actor_optimizer: optim.Optimizer,
+        critic_optimizer: optim.Optimizer,
+    ) -> Tuple[
+        optim.lr_scheduler.LRScheduler | None, optim.lr_scheduler.LRScheduler | None
+    ]:
+        """
+        Make scheduler. If the scheduler is not provided, it will return None.
+
+        Args:
+            actor_optimizer (optim.Optimizer): The actor optimizer.
+            critic_optimizer (optim.Optimizer): The critic optimizer.
+
+        Returns:
+            Tuple[ optim.lr_scheduler.LRScheduler | None, optim.lr_scheduler.LRScheduler | None ]: The scheduler. If the scheduler is not provided, it will return None.
+        """
+        actor_scheduler, critic_scheduler = None, None
+
+        if actor_scheduler_type := getattr(self.actor_config.scheduler, "type"):
+            actor_scheduler = getattr(optim.lr_scheduler, actor_scheduler_type)(
+                actor_optimizer, **getattr(self.actor_config.scheduler, "params")
+            )
+
+        if critic_scheduler_type := getattr(self.critic_config.scheduler, "type"):
+            critic_scheduler = getattr(optim.lr_scheduler, critic_scheduler_type)(
+                critic_optimizer, **getattr(self.critic_config.scheduler, "params")
+            )
+
+        return actor_scheduler, critic_scheduler
+
     def make_replay_buffer(self) -> ReplayBuffer:
         """
         Make replay buffer.
@@ -613,6 +644,9 @@ class PreparationDDPG(PreparationInterface):
         self.actor_optimizer, self.q_optimizer = self.make_optimizer(
             self.actor, self.qf1
         )
+        self.actor_scheduler, self.q_scheduler = self.make_scheduler(
+            self.actor_optimizer, self.q_optimizer
+        )
 
     def make_critic(self, compile: bool) -> Tuple[QNetwork, QNetwork]:
         """
@@ -653,9 +687,11 @@ class PreparationDDPG(PreparationInterface):
             actor_optimizer=self.actor_optimizer,
             critic_optimizer=self.q_optimizer,
             replay_buffer=self.replay_buffer,
+            actor_scheduler=self.actor_scheduler,
             actor_gradient_clipping=self.args.algorithm.general.actor_gradient_clipping,
             actor_gradient_threshold=self.args.algorithm.general.actor_gradient_threshold,
             actor_gradient_norm=self.args.algorithm.general.actor_gradient_norm,
+            critic_scheduler=self.q_scheduler,
             critic_gradient_clipping=self.args.algorithm.general.critic_gradient_clipping,
             critic_gradient_threshold=self.args.algorithm.general.critic_gradient_threshold,
             critic_gradient_norm=self.args.algorithm.general.critic_gradient_norm,
@@ -767,6 +803,9 @@ class PreparationTD3(PreparationInterface):
         self.actor_optimizer, self.q_optimizer = self.make_optimizer(
             self.actor, self.qf1
         )
+        self.actor_scheduler, self.q_scheduler = self.make_scheduler(
+            self.actor_optimizer, self.q_optimizer
+        )
 
     def make_critic(
         self, compile: bool
@@ -816,9 +855,11 @@ class PreparationTD3(PreparationInterface):
             critic2=self.qf2,
             target_critic2=self.target_qf2,
             replay_buffer=self.replay_buffer,
+            actor_scheduler=self.actor_scheduler,
             actor_gradient_clipping=self.args.algorithm.general.actor_gradient_clipping,
             actor_gradient_threshold=self.args.algorithm.general.actor_gradient_threshold,
             actor_gradient_norm=self.args.algorithm.general.actor_gradient_norm,
+            critic_scheduler=self.q_scheduler,
             critic_gradient_clipping=self.args.algorithm.general.critic_gradient_clipping,
             critic_gradient_threshold=self.args.algorithm.general.critic_gradient_threshold,
             critic_gradient_norm=self.args.algorithm.general.critic_gradient_norm,
