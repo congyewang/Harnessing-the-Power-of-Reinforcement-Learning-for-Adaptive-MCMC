@@ -522,6 +522,20 @@ class Toolbox:
             return lambda wait=False: os.system("cls" if os.name == "nt" else "clear")
 
     @staticmethod
+    def softplus(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """
+        Softplus Function for Numerical Stability. y = log(1 + exp(x)).
+        This function is used to prevent overflow in the exponentiation.
+
+        Args:
+            x (npt.NDArray[np.float64]): Input array.
+
+        Returns:
+            npt.NDArray[np.float64]: Softplus of the input with numerical stabilization.
+        """
+        return np.logaddexp(x, 0)
+
+    @staticmethod
     def inverse_softplus(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """
         Inverse softplus Function for Numerical Stability. y = log(exp(x) - 1).
@@ -731,7 +745,7 @@ class Toolbox:
 class AveragePolicy:
     @staticmethod
     def generate_state_mesh(
-        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]]
+        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
     ) -> Callable[
         [Tuple[Tuple[float, float, float], Tuple[float, float, float]]],
         Float[torch.Tensor, "mesh_2d"],
