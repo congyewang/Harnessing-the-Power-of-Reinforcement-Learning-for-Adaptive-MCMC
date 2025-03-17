@@ -199,7 +199,11 @@ class LearningInterface(ABC):
         self.predicted_action: List[npt.NDArray[np.float64]] = []
         self.predicted_reward: List[npt.NDArray[np.float64]] = []
 
+        self.best_episodic_return = -np.inf
+        self.best_policy_step: Optional[int] = None
         self.best_policy: Optional[Dict[str, Any]] = None
+
+        self.last_policy: Optional[Dict[str, Any]] = None
 
         self.writer = SummaryWriter(f"runs/{run_name}")
 
@@ -306,11 +310,14 @@ class LearningInterface(ABC):
             # Trigger within train event
             self.event_manager.trigger(TrainEvents.WITHIN_TRAIN)
 
+        self.last_policy = self.actor.state_dict()
+
         # Trigger after step event
         self.event_manager.trigger(TrainEvents.AFTER_TRAIN)
 
     def predict(
         self,
+        load_best_policy: bool = True,
     ) -> None:
         """
         Predict the observation, action, and reward.
@@ -333,6 +340,9 @@ class LearningInterface(ABC):
         predicted_observation: List[npt.NDArray[np.float64]] = []
         predicted_action: List[npt.NDArray[np.float64]] = []
         predicted_reward: List[npt.NDArray[np.float64]] = []
+
+        if load_best_policy and self.best_policy:
+            self.actor.load_state_dict(self.best_policy)
 
         self.actor.eval()
         for _ in trange(self.predicted_timesteps, disable=not self.verbose):
@@ -493,7 +503,6 @@ class LearningDDPG(LearningInterface):
         """
         Training Session for DDPG.
         """
-        best_episodic_return = -np.inf
 
         if global_step < self.learning_starts:
             initial_step_size_unconstrained = Toolbox.inverse_softplus(
@@ -520,11 +529,13 @@ class LearningDDPG(LearningInterface):
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
         if "episode" in infos:
-            episodic_return = infos["episode"]["r"]
+            episodic_return = infos["episode"]["r"][0]
 
-            if episodic_return > best_episodic_return:
-                best_episodic_return = episodic_return
-                self.best_policy = self.actor.state_dict()
+            if global_step > self.total_timesteps >> 1:
+                if episodic_return > self.best_episodic_return:
+                    self.best_episodic_return = episodic_return
+                    self.best_policy = self.actor.state_dict()
+                    self.best_policy_step = global_step
 
             self.writer.add_scalar(
                 "charts/episodic_return", episodic_return, global_step
