@@ -1,7 +1,7 @@
 import time
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Callable, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 import gymnasium as gym
 import numpy as np
@@ -61,6 +61,9 @@ class LearningInterface(ABC):
         predicted_observation (List[npt.NDArray[np.float64]]): Predicted observation.
         predicted_action (List[npt.NDArray[np.float64]]): Predicted action.
         predicted_reward (List[npt.NDArray[np.float64]]): Predicted reward.
+        best_policy (Optional[Dict[str, Any]]): Best policy.
+        writer (SummaryWriter): Summary writer.
+        event_manager (EventManager): Event manager.
     """
 
     def __init__(
@@ -195,6 +198,8 @@ class LearningInterface(ABC):
         self.predicted_observation: List[npt.NDArray[np.float64]] = []
         self.predicted_action: List[npt.NDArray[np.float64]] = []
         self.predicted_reward: List[npt.NDArray[np.float64]] = []
+
+        self.best_policy: Optional[Dict[str, Any]] = None
 
         self.writer = SummaryWriter(f"runs/{run_name}")
 
@@ -350,19 +355,6 @@ class LearningInterface(ABC):
         self.predicted_action = np.array(predicted_action)
         self.predicted_reward = np.array(predicted_reward).flatten()
 
-    @abstractmethod
-    def save(self, folder_path: str) -> None:
-        """
-        Save the model.
-
-        Args:
-            folder_path (str): Folder path.
-
-        Raises:
-            NotImplementedError: If the method is not implemented.
-        """
-        raise NotImplementedError("save method is not implemented")
-
 
 class LearningDDPG(LearningInterface):
     """
@@ -399,6 +391,9 @@ class LearningDDPG(LearningInterface):
         critic_values (List[float]): Critic values.
         critic_loss (List[float]): Critic loss.
         actor_loss (List[float]): Actor loss.
+        best_policy (Optional[Dict[str, Any]]): Best policy.
+        writer (SummaryWriter): Summary writer.
+        event_manager (EventManager): Event manager.
     """
 
     def __init__(
@@ -498,6 +493,8 @@ class LearningDDPG(LearningInterface):
         """
         Training Session for DDPG.
         """
+        best_episodic_return = -np.inf
+
         if global_step < self.learning_starts:
             initial_step_size_unconstrained = Toolbox.inverse_softplus(
                 self.initial_step_size
@@ -523,8 +520,14 @@ class LearningDDPG(LearningInterface):
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
         if "episode" in infos:
+            episodic_return = infos["episode"]["r"]
+
+            if episodic_return > best_episodic_return:
+                best_episodic_return = episodic_return
+                self.best_policy = self.actor.state_dict()
+
             self.writer.add_scalar(
-                "charts/episodic_return", infos["episode"]["r"], global_step
+                "charts/episodic_return", episodic_return, global_step
             )
             self.writer.add_scalar(
                 "charts/episodic_length", infos["episode"]["l"], global_step
@@ -655,6 +658,9 @@ class LearningTD3(LearningInterface):
         target_critic2 (torch.nn.Module): Target critic 2.
         critic2_values (List[float]): Critic 2 values.
         critic2_loss (List[float]): Critic 2 loss.
+        best_policy (Optional[Dict[str, Any]]): Best policy.
+        writer (SummaryWriter): Summary writer.
+        event_manager (EventManager): Event manager.
     """
 
     def __init__(
