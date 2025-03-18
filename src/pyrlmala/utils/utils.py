@@ -741,6 +741,62 @@ class Toolbox:
 
         return model
 
+    @staticmethod
+    def convert_txt_res_to_markdown(model_name: str, mcmc_env: str) -> None:
+        """
+        Convert the text result to markdown format.
+
+        Args:
+            model_name (str): Model name.
+            mcmc_env (str): MCMC environment.
+                - mala
+                - mala_esjd
+                - barker
+                - barker_esjd
+        """
+        mcmc_env_markdown_title = {
+            "mala": "MALA",
+            "mala_esjd": "MALA ESJD",
+            "barker": "Barker",
+            "barker_esjd": "Barker ESJD",
+        }
+
+        if mcmc_env not in mcmc_env_markdown_title.keys():
+            raise ValueError(
+                f"mcmc_env should be one of {list(mcmc_env_markdown_title.keys())}"
+            )
+
+        with open(f"{model_name}-{model_name}_{mcmc_env}_mmd.txt") as f:
+            lines = f.readlines()
+
+        markdown_exp = ["| env | random seed| mmd |", "| :---: | :---: | :---: |"]
+        markdown_total = ["| env | mean | se |", "| :---: | :---: | :---: |"]
+
+        for i in lines:
+            if re.match(r"^\d", i):
+                markdown_exp.append(
+                    f"| ddpg_{mcmc_env} | " + lines[0].replace(", ", " | ").strip("\n")
+                )
+
+        markdown_total.append(
+            f"| ddpg_{mcmc_env} | "
+            + f"{float(lines[-2].strip("\n").split(": ")[-1]):.5f}"
+            + " | "
+            + f"{float(lines[-1].strip("\n").split(": ")[-1]):.5f}"
+            + " |"
+        )
+
+        with open(f"{model_name}-{model_name}_{mcmc_env}_mmd.md", "w") as f:
+            f.write(f"#### {mcmc_env_markdown_title[mcmc_env]}\n\n")
+
+            for i in markdown_exp:
+                f.write(i + "\n")
+
+            f.write("\n")
+
+            for i in markdown_total:
+                f.write(i + "\n")
+
 
 class AveragePolicy:
     @staticmethod

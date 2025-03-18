@@ -1,7 +1,6 @@
 from .utils import (
     AveragePolicy,
     CalculateMMD,
-    FlexibleConfigGenerator,
     NUTSFromPosteriorDB,
     Toolbox,
 )
@@ -9,7 +8,6 @@ from .utils import (
 __all__ = [
     "AveragePolicy",
     "CalculateMMD",
-    "FlexibleConfigGenerator",
     "NUTSFromPosteriorDB",
     "Toolbox",
 ]
