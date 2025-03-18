@@ -164,9 +164,26 @@ class FlexibleConfigGenerator:
 
 
 class FlexibleBatchRunner:
-    def __init__(self, model_name: str, posteriordb_path: str) -> None:
+    def __init__(
+        self, model_name: str, posteriordb_path: str, load_policy: str = "swa"
+    ) -> None:
+        """
+        A class to run a batch of experiments with different configurations.
+        It uses the FlexibleConfigGenerator to generate configuration files
+        and the LearningFactory to create learning instances.
+        The class provides methods to calculate MMD (Maximum Mean Discrepancy)
+        and write results to a file.
+        The class also provides a method to run the batch of experiments
+        with the specified configurations.
+
+        Args:
+            model_name (str): The name of the model to be used in the experiments.
+            posteriordb_path (str): The path to the posterior database.
+            load_policy (str, optional): The policy to be loaded. Defaults to "swa".
+        """
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
+        self.load_policy = load_policy
 
     def calculate_mmd(
         self,
@@ -175,6 +192,19 @@ class FlexibleBatchRunner:
         step_size: float,
         mcmc_env: str,
     ) -> float:
+        """
+        Calculates the Maximum Mean Discrepancy (MMD) between the predicted
+        samples and the gold standard samples.
+
+        Args:
+            random_seed (int): The random seed for the experiment.
+            gold_standard (npt.NDArray[np.float64]): The gold standard samples.
+            step_size (float): The step size for the MCMC algorithm.
+            mcmc_env (str): The MCMC environment to be used in the experiment.
+
+        Returns:
+            float: The calculated MMD value.
+        """
         sample_dim = 2
         initial_sample = 0.1 * np.ones(sample_dim)
         initial_step_size = np.array([step_size])
@@ -193,7 +223,7 @@ class FlexibleBatchRunner:
         )
 
         learning_instance.train()
-        learning_instance.predict()
+        learning_instance.predict(self.load_policy)
 
         # Calculate MMD
         predicted_sample = learning_instance.predicted_observation[:, 0:sample_dim]
@@ -203,6 +233,14 @@ class FlexibleBatchRunner:
 
     @staticmethod
     def write_results(random_seed: int, mmd: float, save_file_path: str) -> None:
+        """
+        Writes the results of the experiment to a file.
+
+        Args:
+            random_seed (int): The random seed for the experiment.
+            mmd (float): The calculated MMD value.
+            save_file_path (str): The path to the file where the results will be saved.
+        """
         with open(save_file_path, "a+") as f:
             f.write(f"{random_seed}, {mmd}\n")
 
@@ -215,6 +253,17 @@ class FlexibleBatchRunner:
         template_path: str = "./config/template.toml",
         output_root_path: str = "./config",
     ) -> None:
+        """
+        Runs the batch of experiments with the specified configurations.
+
+        Args:
+            mcmc_env (str): The MCMC environment to be used in the experiment.
+            step_size (float): The step size for the MCMC algorithm.
+            repeat_count (int, optional): The number of times to repeat the experiment. Defaults to 5.
+            save_root_path (str, optional): The root path for saving the results. Defaults to ".".
+            template_path (str, optional): The path to the template file. Defaults to "./config/template.toml".
+            output_root_path (str, optional): The root path for the output files. Defaults to "./config".
+        """
         FlexibleConfigGenerator.generate(template_path, output_root_path, repeat_count)
 
         save_file_path = os.path.join(
