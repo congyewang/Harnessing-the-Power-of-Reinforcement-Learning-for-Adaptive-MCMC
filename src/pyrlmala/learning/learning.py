@@ -198,9 +198,9 @@ class LearningInterface(ABC):
 
         # Predicted
         self.predicted_timesteps: int | None = None
-        self.predicted_observation: List[npt.NDArray[np.float64]] = []
-        self.predicted_action: List[npt.NDArray[np.float64]] = []
-        self.predicted_reward: List[npt.NDArray[np.float64]] = []
+        self.predicted_observation: npt.NDArray[np.float64]
+        self.predicted_action: npt.NDArray[np.float64]
+        self.predicted_reward: npt.NDArray[np.float64]
 
         # Best Policy
         self.best_episodic_return = -np.inf
