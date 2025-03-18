@@ -1,3 +1,4 @@
+import copy
 import time
 from abc import ABC, abstractmethod
 from functools import partial
@@ -13,6 +14,7 @@ from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import LRScheduler
+from torch.optim.swa_utils import SWALR, AveragedModel
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
@@ -189,24 +191,36 @@ class LearningInterface(ABC):
         self.device = device
         self.verbose = verbose
 
-        self.predicted_timesteps: int | None = None
-
+        # Losses
         self.critic_values: List[float] = []
         self.critic_loss: List[float] = []
         self.actor_loss: List[float] = []
 
+        # Predicted
+        self.predicted_timesteps: int | None = None
         self.predicted_observation: List[npt.NDArray[np.float64]] = []
         self.predicted_action: List[npt.NDArray[np.float64]] = []
         self.predicted_reward: List[npt.NDArray[np.float64]] = []
 
+        # Best Policy
         self.best_episodic_return = -np.inf
         self.best_policy_step: Optional[int] = None
         self.best_policy: Optional[Dict[str, Any]] = None
 
+        # Last Policy
         self.last_policy: Optional[Dict[str, Any]] = None
 
+        # Stochastic Weight Averaging
+        self.swa_start = int(self.total_timesteps * 0.75)
+        self.swa_actor = AveragedModel(self.actor)
+        self.swa_scheduler = SWALR(
+            self.actor_optimizer, swa_lr=self.actor_optimizer.param_groups[0]["lr"]
+        )
+
+        # Tensorboard
         self.writer = SummaryWriter(f"runs/{run_name}")
 
+        # Event Manager Callback
         self.event_manager = EventManager()
 
     def soft_clipping(
@@ -317,10 +331,16 @@ class LearningInterface(ABC):
 
     def predict(
         self,
-        load_best_policy: bool = True,
+        load_policy: str = "swa",
     ) -> None:
         """
         Predict the observation, action, and reward.
+
+        Args:
+            load_policy (str, optional): Load policy. Defaults to "swa".
+            - "swa": Stochastic Weight Averaging.
+            - "best": Best policy.
+            - "last": Last policy.
 
         Raises:
             NotImplementedError: If the method is not implemented.
@@ -341,13 +361,25 @@ class LearningInterface(ABC):
         predicted_action: List[npt.NDArray[np.float64]] = []
         predicted_reward: List[npt.NDArray[np.float64]] = []
 
-        if load_best_policy and self.best_policy:
-            self.actor.load_state_dict(self.best_policy)
+        predicted_actor = copy.deepcopy(self.actor)
 
-        self.actor.eval()
+        match load_policy:
+            case "swa":
+                predicted_actor.load_state_dict(self.swa_actor.module.state_dict())
+            case "best":
+                predicted_actor.load_state_dict(self.best_policy)
+            case "last":
+                predicted_actor.load_state_dict(self.last_policy)
+            case _:
+                raise ValueError(
+                    "Invalid load_policy. Must be 'swa', 'best', or 'last'."
+                )
+
+        predicted_actor.eval()
+
         for _ in trange(self.predicted_timesteps, disable=not self.verbose):
             with torch.no_grad():
-                predicted_actions = self.actor(
+                predicted_actions = predicted_actor(
                     torch.from_numpy(predicted_obs).to(self.device)
                 )
 
@@ -364,6 +396,25 @@ class LearningInterface(ABC):
         )
         self.predicted_action = np.array(predicted_action)
         self.predicted_reward = np.array(predicted_reward).flatten()
+
+    def switch_actor_weights(
+        self,
+        load_policy: str = "swa",
+    ) -> None:
+        """
+        Switch the actor weights.
+        """
+        match load_policy:
+            case "swa":
+                self.actor.load_state_dict(self.swa_actor.module.state_dict())
+            case "best":
+                self.actor.load_state_dict(self.best_policy)
+            case "last":
+                self.actor.load_state_dict(self.last_policy)
+            case _:
+                raise ValueError(
+                    "Invalid load_policy. Must be 'swa', 'best', or 'last'."
+                )
 
 
 class LearningDDPG(LearningInterface):
@@ -576,6 +627,14 @@ class LearningDDPG(LearningInterface):
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
+
+                # Stochastic Weight Averaging
+                if global_step > self.swa_start:
+                    self.swa_actor.update_parameters(self.actor)
+                    self.swa_scheduler.step()
+                else:
+                    if self.actor_scheduler:
+                        self.actor_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
@@ -840,8 +899,9 @@ class LearningTD3(LearningInterface):
 
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
-        if "final_info" in infos:
+        if "final_info" in infos:  # FIXME: Delete "final_info"
             for info in infos["final_info"]:
+                # TODO: Add policy saving
                 self.writer.add_scalar(
                     "charts/episodic_return", info["episode"]["r"], global_step
                 )
