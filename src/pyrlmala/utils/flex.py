@@ -119,7 +119,7 @@ class FlexibleConfigGenerator:
 
     @staticmethod
     def generate(
-        template_path: str, output_root_path: str, repeat_count: int = 5
+        template_path: str, output_root_path: str, repeat_count: int = 10
     ) -> None:
         """
         Executes the configuration generation process.
@@ -165,7 +165,7 @@ class FlexibleConfigGenerator:
 
 class FlexibleBatchRunner:
     def __init__(
-        self, model_name: str, posteriordb_path: str, load_policy: str = "swa"
+        self, model_name: str, posteriordb_path: str, load_policy: str = "ensemble"
     ) -> None:
         """
         A class to run a batch of experiments with different configurations.
@@ -179,7 +179,7 @@ class FlexibleBatchRunner:
         Args:
             model_name (str): The name of the model to be used in the experiments.
             posteriordb_path (str): The path to the posterior database.
-            load_policy (str, optional): The policy to be loaded. Defaults to "swa".
+            load_policy (str, optional): The policy to be loaded. Defaults to "ensemble".
         """
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
@@ -248,7 +248,7 @@ class FlexibleBatchRunner:
         self,
         mcmc_env: str,
         step_size: float,
-        repeat_count: int = 5,
+        repeat_count: int = 10,
         save_root_path: str = ".",
         template_path: str = "./config/template.toml",
         output_root_path: str = "./config",
