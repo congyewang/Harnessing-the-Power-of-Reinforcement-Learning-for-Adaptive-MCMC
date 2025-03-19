@@ -2,7 +2,7 @@ import copy
 import time
 from abc import ABC, abstractmethod
 from functools import partial
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import gymnasium as gym
 import numpy as np
@@ -18,6 +18,8 @@ from torch.optim.swa_utils import SWALR, AveragedModel
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import trange
 
+from ..agent import EnsemblePolicyNetwork
+from ..datastructures import DynamicTopK
 from ..utils import Toolbox
 from .events import EventManager, TrainEvents
 
@@ -217,6 +219,12 @@ class LearningInterface(ABC):
             self.actor_optimizer, swa_lr=self.actor_optimizer.param_groups[0]["lr"]
         )
 
+        # Top-K Policy
+        NUM_OF_POLICIES = 5
+        self.topk_policy: DynamicTopK[Tuple[np.float64, Dict[str, Any]]] = DynamicTopK(
+            NUM_OF_POLICIES
+        )
+
         # Tensorboard
         self.writer = SummaryWriter(f"runs/{run_name}")
 
@@ -331,13 +339,14 @@ class LearningInterface(ABC):
 
     def predict(
         self,
-        load_policy: str = "swa",
+        load_policy: str = "ensemble",
     ) -> None:
         """
         Predict the observation, action, and reward.
 
         Args:
-            load_policy (str, optional): Load policy. Defaults to "swa".
+            load_policy (str, optional): Load policy. Defaults to "ensemble".
+            - "ensemble": Ensemble policy.
             - "swa": Stochastic Weight Averaging.
             - "best": Best policy.
             - "last": Last policy.
@@ -364,6 +373,10 @@ class LearningInterface(ABC):
         predicted_actor = copy.deepcopy(self.actor)
 
         match load_policy:
+            case "ensemble":
+                predicted_actor = EnsemblePolicyNetwork(
+                    predicted_actor, self.topk_policy
+                )
             case "swa":
                 predicted_actor.load_state_dict(self.swa_actor.module.state_dict())
             case "best":
@@ -372,7 +385,7 @@ class LearningInterface(ABC):
                 predicted_actor.load_state_dict(self.last_policy)
             case _:
                 raise ValueError(
-                    "Invalid load_policy. Must be 'swa', 'best', or 'last'."
+                    "Invalid load_policy. Must be 'ensemble', 'swa', 'best', or 'last'."
                 )
 
         predicted_actor.eval()
@@ -581,6 +594,8 @@ class LearningDDPG(LearningInterface):
 
         if "episode" in infos:
             episodic_return = infos["episode"]["r"][0]
+
+            self.topk_policy.add((episodic_return, self.actor.state_dict()))
 
             if global_step > self.total_timesteps >> 1:
                 if episodic_return > self.best_episodic_return:
