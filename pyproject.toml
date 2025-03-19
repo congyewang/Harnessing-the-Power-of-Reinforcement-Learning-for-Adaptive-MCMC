@@ -36,6 +36,7 @@ dependencies = [
     "cmdstanpy>=1.2.5",
     "xarray>=2025.1.1",
     "cytoolz>=1.0.1",
+    "scikit-learn>=1.6.1",
 ]
 
 [dependency-groups]
