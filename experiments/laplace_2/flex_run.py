@@ -5,7 +5,7 @@ if __name__ == "__main__":
     flex_batch_run = FlexibleBatchRunner(
         model_name="test-laplace_2-test-laplace_2",
         posteriordb_path="../posteriordb/posterior_database",
-        load_policy="swa",
+        load_policy="ensemble",
     )
     mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
 
@@ -18,7 +18,3 @@ if __name__ == "__main__":
             template_path="./config/config_template.toml",
             output_root_path="./config",
         )
-
-    import requests
-
-    requests.post("https://ntfy.greenlimes.top/asus", data="Finished")
