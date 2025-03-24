@@ -9,7 +9,6 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 import torch
-from cytoolz import pipe
 from numpy import typing as npt
 from tqdm.auto import trange
 
@@ -398,11 +397,9 @@ class BootstrapBenchmark:
             f.write(f"{self.model_name},{mmd_mean},{mmd_se}\n")
 
     def execute(self) -> None:
-        pipe(
-            self.get_gold_standard(),
-            lambda gs: self.bootstrap_sampling(
-                gs, num=self.num, random_seed=self.random_seed, verbose=self.verbose
-            ),
-            self.output_mean_and_se,
-            lambda results: self.write_results("bootstrap_mmd.csv", *results),
+        gs = self.get_gold_standard()
+        mmd_values = self.bootstrap_sampling(
+            gs, num=self.num, random_seed=self.random_seed, verbose=self.verbose
         )
+        mmd_mean, mmd_se = self.output_mean_and_se(mmd_values)
+        self.write_results("bootstrap_mmd.csv", mmd_mean, mmd_se)
