@@ -4,23 +4,18 @@ import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Type, TypeAliasType
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 from numpy import typing as npt
+from tqdm.auto import trange
 
 from ..envs import BarkerEnv, BarkerESJDEnv, MALAEnv, MALAESJDEnv
 from ..learning.preparation import PosteriorDBFunctionsGenerator
-from .utils import CalculateMMD, Toolbox
-
-EnvType = TypeAliasType(
-    "EnvType", Type[BarkerEnv] | Type[BarkerESJDEnv] | Type[MALAEnv] | Type[MALAESJDEnv]
-)
-EnvInstanceType = TypeAliasType(
-    "EnvInstanceType", BarkerEnv | BarkerESJDEnv | MALAEnv | MALAESJDEnv
-)
+from .types import EnvInstanceType, EnvType
+from .utils import Toolbox
 
 
 class BenchmarkBase(ABC):
@@ -167,7 +162,7 @@ class MMDBenchMark(BenchmarkBase):
         self.run_mcmc()
 
         gs = self.get_gold_standard()
-        mmd = CalculateMMD.calculate(gs, self.env.store_accepted_sample[-len(gs) :])
+        mmd = Toolbox.calculate_mmd(gs, self.env.store_accepted_sample[-len(gs) :])
         self.write_results("mmd.csv", mmd)
 
 
@@ -319,3 +314,92 @@ class BenchmarkExporter:
             .groupby("mcmc_env")
             .head(1)
         )
+
+
+class BootstrapBenchmark:
+    def __init__(
+        self,
+        model_name: str,
+        posteriordb_path: str,
+        num: int = 10,
+        random_seed: int = 42,
+        verbose: bool = True,
+    ) -> None:
+        self.model_name = model_name
+        self.posteriordb_path = posteriordb_path
+        self.num = num
+        self.random_seed = random_seed
+        self.verbose = verbose
+
+    def get_gold_standard(self) -> npt.NDArray[np.float64]:
+        return Toolbox.gold_standard(self.model_name, self.posteriordb_path)
+
+    @staticmethod
+    def bootstrap_sampling(
+        gold_standard: npt.NDArray[np.floating],
+        num: int = 10,
+        random_seed: int = 42,
+        verbose: bool = True,
+    ) -> npt.NDArray[np.floating]:
+        mmd_values = np.empty(num)
+        rng = np.random.default_rng(seed=random_seed)
+
+        length_of_gold_standard = len(gold_standard)
+
+        for i in trange(num, disable=not verbose):
+            bootstrap_idx = rng.choice(
+                length_of_gold_standard, length_of_gold_standard, replace=True
+            )
+            mmd_values[i] = Toolbox.calculate_mmd(
+                gold_standard, gold_standard[bootstrap_idx]
+            )
+
+        return mmd_values
+
+    @staticmethod
+    def output_mean_and_se(mmd_values: npt.NDArray[np.floating]) -> Tuple[float, float]:
+        """
+        Calculate the mean and standard error of the MMD values.
+        This function calculates the mean and standard error of the MMD values.
+
+        Args:
+            mmd_values (npt.NDArray[np.floating]): MMD values to calculate statistics for.
+
+        Returns:
+            Tuple[float, float]: Mean and standard error of the MMD values.
+        """
+        mmd_mean = mmd_values.mean()
+        mmd_se = np.std(mmd_values, ddof=1) / np.sqrt(len(mmd_values))
+
+        return mmd_mean.item(), mmd_se.item()
+
+    def write_results(
+        self,
+        output_path: str,
+        mmd_mean: float,
+        mmd_se: float,
+    ) -> None:
+        """
+        Write the results to a CSV file.
+
+        Args:
+            output_path (str): The output path for the CSV file
+            mmd_mean (float): The mean MMD value
+            mmd_se (float): The standard error of the MMD value
+        """
+        file_path = Path(output_path)
+        output_path_with_extension = file_path.with_name(
+            f"{file_path.stem}_{self.model_name}_{self.random_seed}{file_path.suffix}"
+        )
+
+        with open(output_path_with_extension, "w") as f:
+            f.write("model_name,mmd_mean,mmd_se\n")
+            f.write(f"{self.model_name},{mmd_mean},{mmd_se}\n")
+
+    def execute(self) -> None:
+        gs = self.get_gold_standard()
+        mmd_values = self.bootstrap_sampling(
+            gs, num=self.num, random_seed=self.random_seed, verbose=self.verbose
+        )
+        mmd_mean, mmd_se = self.output_mean_and_se(mmd_values)
+        self.write_results("bootstrap_mmd.csv", mmd_mean, mmd_se)

@@ -8,7 +8,7 @@ from numpy import typing as npt
 from tqdm.auto import tqdm
 
 from ..learning import LearningFactory
-from .utils import CalculateMMD, Toolbox
+from .utils import Toolbox
 
 
 class FlexibleConfigGenerator:
@@ -227,7 +227,7 @@ class FlexibleBatchRunner:
 
         # Calculate MMD
         predicted_sample = learning_instance.predicted_observation[:, 0:sample_dim]
-        mmd = CalculateMMD.calculate(gold_standard, predicted_sample)
+        mmd = Toolbox.calculate_mmd(gold_standard, predicted_sample)
 
         return mmd
 

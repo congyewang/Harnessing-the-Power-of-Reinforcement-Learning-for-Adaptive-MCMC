@@ -19,14 +19,109 @@ from cmdstanpy import CmdStanModel
 from cytoolz import compose_left, pipe, thread_last
 from cytoolz.curried import map, topk
 from gymnasium.envs.registration import EnvSpec
-from ignite.engine import Engine
-from ignite.metrics import MaximumMeanDiscrepancy
 from jaxtyping import Float
 from matplotlib.axes import Axes
 from posteriordb import PosteriorDatabase
-from scipy.spatial.distance import pdist
 from scipy.stats._multivariate import _PSD
 from torch.nn import functional as F
+
+from .mmd import (
+    BatchedCalculateMMDTorch,
+    CalculateMMDNumpy,
+    CalculateMMDTorch,
+    MedianTrick,
+)
+from .types import T_x, T_y
+
+
+class NearestPD:
+    @staticmethod
+    def is_positive_definite(B: npt.NDArray[np.float64]) -> bool:
+        """
+        Returns true when input is positive-definite, via Cholesky, det, and _PSD from scipy.
+
+        Args:
+            B (npt.NDArray[np.float64]): Input array.
+
+        Returns:
+            bool: True if input is positive-definite, False otherwise.
+        """
+        try:
+            _ = np.linalg.cholesky(B)
+            res_cholesky = True
+        except np.linalg.LinAlgError:
+            res_cholesky = False
+
+        try:
+            assert np.linalg.det(B) > 0, "Determinant is negative"
+            res_det = True
+        except AssertionError:
+            res_det = False
+
+        try:
+            _PSD(B, allow_singular=False)
+            res_PSD = True
+        except Exception as e:
+            if re.search("[Pp]ositive", str(e)):
+                return False
+            else:
+                raise
+
+        res = res_cholesky and res_det and res_PSD
+
+        return res
+
+    @classmethod
+    def nearest_positive_definite(
+        cls, A: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """
+        Find the nearest positive-definite matrix to input
+        A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
+        credits [2].
+
+        [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
+
+        [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
+            matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
+
+        Args:
+            A (npt.NDArray[np.float64]): Input array.
+
+        Returns:
+            npt.NDArray[np.float64]: Nearest positive-definite matrix.
+        """
+
+        B = (A + A.T) / 2
+        _, s, V = np.linalg.svd(B)
+
+        H = np.dot(V.T, np.dot(np.diag(s), V))
+
+        A2 = (B + H) / 2
+
+        A3 = (A2 + A2.T) / 2
+
+        if cls.is_positive_definite(A3):
+            return A3
+
+        spacing = np.spacing(np.linalg.norm(A))
+        # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
+        # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
+        # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
+        # for `np.spacing`), we use the above definition. CAVEAT: our `spacing`
+        # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
+        # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
+        # `spacing` will, for Gaussian random matrixes of small dimension, be on
+        # othe order of 1e-16. In practice, both ways converge, as the unit test
+        # below suggests.
+        I = np.eye(A.shape[0])
+        k = 1
+        while not cls.is_positive_definite(A3):
+            mineig = np.min(np.real(np.linalg.eigvals(A3)))
+            A3 += I * (-mineig * k**2 + spacing)
+            k += 1
+
+        return A3
 
 
 class Toolbox:
@@ -96,8 +191,8 @@ class Toolbox:
 
         return thunk
 
-    @classmethod
-    def nearestPD(cls, A: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    @staticmethod
+    def nearestPD(A: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """
         Find the nearest positive-definite matrix to input
         A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
@@ -115,72 +210,7 @@ class Toolbox:
             npt.NDArray[np.float64]: Nearest positive-definite matrix.
         """
 
-        B = (A + A.T) / 2
-        _, s, V = np.linalg.svd(B)
-
-        H = np.dot(V.T, np.dot(np.diag(s), V))
-
-        A2 = (B + H) / 2
-
-        A3 = (A2 + A2.T) / 2
-
-        if cls.isPD(A3):
-            return A3
-
-        spacing = np.spacing(np.linalg.norm(A))
-        # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
-        # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
-        # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
-        # for `np.spacing`), we use the above definition. CAVEAT: our `spacing`
-        # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
-        # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
-        # `spacing` will, for Gaussian random matrixes of small dimension, be on
-        # othe order of 1e-16. In practice, both ways converge, as the unit test
-        # below suggests.
-        I = np.eye(A.shape[0])
-        k = 1
-        while not cls.isPD(A3):
-            mineig = np.min(np.real(np.linalg.eigvals(A3)))
-            A3 += I * (-mineig * k**2 + spacing)
-            k += 1
-
-        return A3
-
-    @classmethod
-    def isPD(cls, B: npt.NDArray[np.float64]) -> bool:
-        """
-        Returns true when input is positive-definite, via Cholesky, det, and _PSD from scipy.
-
-        Args:
-            B (npt.NDArray[np.float64]): Input array.
-
-        Returns:
-            bool: True if input is positive-definite, False otherwise.
-        """
-        try:
-            _ = np.linalg.cholesky(B)
-            res_cholesky = True
-        except np.linalg.LinAlgError:
-            res_cholesky = False
-
-        try:
-            assert np.linalg.det(B) > 0, "Determinant is negative"
-            res_det = True
-        except AssertionError:
-            res_det = False
-
-        try:
-            _PSD(B, allow_singular=False)
-            res_PSD = True
-        except Exception as e:
-            if re.search("[Pp]ositive", str(e)):
-                return False
-            else:
-                raise
-
-        res = res_cholesky and res_det and res_PSD
-
-        return res
+        return NearestPD.nearest_positive_definite(A)
 
     @staticmethod
     def make_log_target_pdf(
@@ -549,85 +579,72 @@ class Toolbox:
         return x + np.log1p(-np.exp(-x))
 
     @staticmethod
-    def median_trick(gs: npt.NDArray[np.float64]) -> float:
+    def median_trick(
+        x: T_x,
+        mode: str = "auto",
+    ) -> float:
         """
         Compute the median trick.
 
         Args:
-            gs (npt.NDArray[np.float64]): Gold standard array.
+            x (npt.NDArray[np.float64]): Input array.
+            mode (str, optional): Mode for computation. Defaults to "auto".
+                - "auto": Automatically detect the type of x and compute accordingly.
+                - "numpy": Use numpy for computation.
+                - "torch": Use torch for computation.
 
         Returns:
             float: Median trick.
         """
-        return (0.5 * np.median(pdist(gs))).item()
+        match mode:
+            case "auto":
+                if isinstance(x, torch.Tensor):
+                    return MedianTrick.median_trick_numpy(x)
+                elif isinstance(x, np.ndarray):
+                    return MedianTrick.median_trick_torch(x)
+                elif isinstance(x, list):
+                    return MedianTrick.median_trick_numpy(np.array(x))
+                else:
+                    raise TypeError(
+                        "Input must be a numpy array, torch tensor, or list."
+                    )
+            case "numpy":
+                return MedianTrick.median_trick_numpy(x)
+            case "torch":
+                return MedianTrick.median_trick_torch(x)
+            case _:
+                raise ValueError("mode should be 'numpy', 'torch', or 'auto'.")
 
     @staticmethod
-    def gaussian_kernel(
-        x: Float[torch.Tensor, "x"], y: Float[torch.Tensor, "y"], sigma: float = 1.0
-    ) -> torch.Tensor:
-        """
-        Compute the RBF (Gaussian) kernel between x and y.
-
-        Args:
-            x (Float[torch.Tensor, "x"]): Input tensor x.
-            y (Float[torch.Tensor, "y"]): Input tensor y.
-            sigma (float, optional): Sigma. Defaults to 1.0.
-
-        Returns:
-            torch.Tensor: RBF kernel.
-        """
-
-        beta = 1.0 / (2.0 * sigma**2)
-        dist_sq = torch.cdist(x, y, p=2) ** 2
-        return torch.exp(-beta * dist_sq)
-
-    @staticmethod
-    def batched_mmd(
-        x: Float[torch.Tensor, "x"],
-        y: Float[torch.Tensor, "y"],
-        batch_size: int = 100,
+    def calculate_mmd(
+        x: T_x,
+        y: T_y,
         sigma: float = 1.0,
-    ) -> Float[torch.Tensor, "mmd"]:
-        """
-        Compute the Maximum Mean Discrepancy (MMD) between x and y.
-
-        Args:
-            x (Float[torch.Tensor, "x"]): Input tensor x.
-            y (Float[torch.Tensor, "y"]): Input tensor y.
-            batch_size (int, optional): Batch size. Defaults to 100.
-            sigma (float, optional): Sigma. Defaults to 1.0.
-
-        Returns:
-            Float[torch.Tensor, "mmd"]: MMD estimate.
-        """
-
-        m = x.size(0)
-        n = y.size(0)
-        mmd_estimate_xx, mmd_estimate_yy, mmd_estimate_xy = 0.0, 0.0, 0.0
-
-        # Compute the MMD estimate in mini-batches
-        for i in range(0, m, batch_size):
-            x_batch = x[i : i + batch_size]
-            for j in range(0, n, batch_size):
-                y_batch = y[j : j + batch_size]
-
-                xx_kernel = Toolbox.gaussian_kernel(x_batch, x_batch, sigma)
-                yy_kernel = Toolbox.gaussian_kernel(y_batch, y_batch, sigma)
-                xy_kernel = Toolbox.gaussian_kernel(x_batch, y_batch, sigma)
-
-                # Compute the MMD estimate for this mini-batch
-                mmd_estimate_xx += xx_kernel.sum()
-                mmd_estimate_yy += yy_kernel.sum()
-                mmd_estimate_xy += xy_kernel.sum()
-
-        # Normalize the MMD estimate
-        mmd_estimate = (
-            mmd_estimate_xx / m**2
-            + mmd_estimate_yy / n**2
-            - 2 * mmd_estimate_xy / (m * n)
-        )
-
-        return mmd_estimate
+        /,
+        mode: str = "auto",
+        *,
+        batch_size: int = 100,
+    ) -> float:
+        match mode:
+            case "auto":
+                if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
+                    return CalculateMMDTorch.calculate(x, y, sigma)
+                elif isinstance(x, np.ndarray) and isinstance(y, np.ndarray):
+                    return CalculateMMDNumpy.calculate(x, y, sigma)
+                elif isinstance(x, list) and isinstance(y, list):
+                    return CalculateMMDNumpy.calculate(np.array(x), np.array(y), sigma)
+                else:
+                    raise TypeError(
+                        "Input must be a numpy array, torch tensor, or list."
+                    )
+            case "numpy":
+                return CalculateMMDNumpy.calculate(x, y, sigma)
+            case "torch":
+                return CalculateMMDTorch.calculate(x, y, sigma)
+            case "batch_torch":
+                return BatchedCalculateMMDTorch.calculate(x, y, sigma, batch_size)
+            case _:
+                raise ValueError("mode should be 'numpy', 'torch', or 'auto'.")
 
     @staticmethod
     def expected_square_jump_distance(data: npt.NDArray[np.float64]) -> np.float64:
@@ -696,13 +713,21 @@ class Toolbox:
     def flat(nested_list: List[List[Any]]) -> List[Any]:
         """
         Expand nested list
+
+        Args:
+            nested_list (List[List[Any]]): Nested list.
+
+        Returns:
+            List[Any]: Flattened list.
         """
         res = []
+
         for i in nested_list:
             if isinstance(i, list):
                 res.extend(Toolbox.flat(i))
             else:
                 res.append(i)
+
         return res
 
     @staticmethod
@@ -823,8 +848,9 @@ class AveragePolicy:
             lambda x: x.double(),
         )
 
-    @staticmethod
+    @classmethod
     def calculate_policy(
+        cls,
         weights_path: str,
         actor: Callable[
             [Float[torch.Tensor, "mesh_2d"]], Float[torch.Tensor, "action"]
@@ -851,12 +877,13 @@ class AveragePolicy:
 
         return pipe(
             ranges,
-            AveragePolicy.generate_state_mesh,
+            cls.generate_state_mesh,
             actor,
         )
 
-    @staticmethod
+    @classmethod
     def calculate_mean_policy(
+        cls,
         actor: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
         weights_path: str,
         ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
@@ -877,7 +904,7 @@ class AveragePolicy:
             Float[torch.Tensor, "average_action"]: The mean policy
         """
         partial_calculate_policy = partial(
-            AveragePolicy.calculate_policy,
+            cls.calculate_policy,
             actor=actor,
             ranges=ranges,
         )
@@ -898,8 +925,9 @@ class AveragePolicy:
             lambda x: torch.mean(x, dim=0),
         )
 
-    @staticmethod
+    @classmethod
     def plot_policy(
+        cls,
         actor: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
         weights_path: str,
         ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
@@ -940,7 +968,7 @@ class AveragePolicy:
         if softplus_mode:
             pipe(
                 ranges,
-                lambda x: AveragePolicy.calculate_mean_policy(
+                lambda x: cls.calculate_mean_policy(
                     actor,
                     weights_path,
                     x,
@@ -955,7 +983,7 @@ class AveragePolicy:
         else:
             pipe(
                 ranges,
-                lambda x: AveragePolicy.calculate_mean_policy(
+                lambda x: cls.calculate_mean_policy(
                     actor,
                     weights_path,
                     x,
@@ -1067,47 +1095,3 @@ class NUTSFromPosteriorDB:
             traceback (Any): Traceback.
         """
         self.close()
-
-
-class CalculateMMD:
-    """
-    Calculate the Maximum Mean Discrepancy (MMD) between two distributions.
-    """
-
-    @staticmethod
-    def eval_step(engine, batch):
-        return batch
-
-    @staticmethod
-    def calculate(
-        gs: Float[torch.Tensor, "gold standard"] | npt.NDArray[np.float64],
-        accepted_sample: (
-            Float[torch.Tensor, "accepted sample"] | npt.NDArray[np.float64]
-        ),
-        **kwargs: Any,
-    ) -> float:
-        """
-        Calculate the Maximum Mean Discrepancy (MMD) between two distributions.
-
-        Args:
-            gs (Float[torch.Tensor, &quot;gold standard&quot;] | npt.NDArray[np.float64]): Gold standard.
-            accepted_sample (Float[torch.Tensor, &quot;accepted sample&quot;]  |  npt.NDArray[np.float64]): Accepted sample.
-
-        Returns:
-            float: Maximum Mean Discrepancy (MMD) between the two distributions.
-        """
-        default_evaluator = Engine(CalculateMMD.eval_step)
-
-        if len(accepted_sample) > len(gs):
-            accepted_sample = accepted_sample[-len(gs) :]
-
-        if not isinstance(gs, torch.Tensor):
-            gs = torch.from_numpy(gs)
-        if not isinstance(accepted_sample, torch.Tensor):
-            accepted_sample = torch.from_numpy(accepted_sample)
-
-        metric = MaximumMeanDiscrepancy(**kwargs)
-        metric.attach(default_evaluator, "mmd")
-        state = default_evaluator.run([[gs, accepted_sample]])
-
-        return state.metrics["mmd"]
