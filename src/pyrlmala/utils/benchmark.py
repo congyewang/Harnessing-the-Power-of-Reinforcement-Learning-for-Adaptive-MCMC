@@ -19,6 +19,9 @@ from .utils import Toolbox
 
 
 class BenchmarkBase(ABC):
+    """
+    Base class for benchmark experiments.
+    """
     _mcmc_envs: Dict[str, EnvType] = {
         "mala": MALAEnv,
         "barker": BarkerEnv,
@@ -27,6 +30,9 @@ class BenchmarkBase(ABC):
     }
 
     def __init__(self) -> None:
+        """
+        Initialize the benchmark experiment.
+        """
         self.args = self.make_parser().parse_args()
 
         self.env_name = self.args.mcmc_env
@@ -38,6 +44,9 @@ class BenchmarkBase(ABC):
         self.env = self.make_env()
 
     def fixed_seed(self) -> None:
+        """
+        Set the random seed for reproducibility.
+        """
         random.seed(self.random_seed)
         np.random.seed(self.random_seed)
         torch.manual_seed(self.random_seed)
@@ -46,6 +55,12 @@ class BenchmarkBase(ABC):
         Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
         Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]],
     ]:
+        """
+        Create the target PDF and its gradient.
+
+        Returns:
+            Tuple[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], ]: The target PDF and its gradient
+        """
         posteriordb_generator = PosteriorDBFunctionsGenerator(
             model_name=self.model_name,
             posteriordb_path=self.posteriordb_path,
@@ -57,6 +72,12 @@ class BenchmarkBase(ABC):
         return log_target_pdf, grad_log_target_pdf
 
     def make_env(self) -> EnvInstanceType:
+        """
+        Create the MCMC environment.
+
+        Returns:
+            EnvInstanceType: The MCMC environment instance
+        """
         self.fixed_seed()
 
         log_target_pdf, grad_log_target_pdf = self.make_target_pdf()
@@ -79,6 +100,9 @@ class BenchmarkBase(ABC):
         return mcmc
 
     def run_mcmc(self) -> None:
+        """
+        Run the MCMC simulation for the specified number of timesteps.
+        """
         for _ in range(self.env.total_timesteps):
             self.env.step(np.repeat(self.step_size, 2))
 
@@ -120,6 +144,12 @@ class BenchmarkBase(ABC):
         return parser
 
     def get_gold_standard(self) -> npt.NDArray[np.float64]:
+        """
+        Get the gold standard samples from the posterior database.
+
+        Returns:
+            npt.NDArray[np.float64]: The gold standard samples
+        """
         return Toolbox.gold_standard(self.model_name, self.posteriordb_path)
 
     def write_results(
@@ -131,6 +161,11 @@ class BenchmarkBase(ABC):
         Args:
             output_path (str): The output path for the CSV file
             res (float): The result value
+            *args: Additional arguments
+            **kwargs: Additional keyword arguments
+
+        Raises:
+            ValueError: If the output path is not a valid file path
         """
         file_path = Path(output_path)
         output_path_with_extension = file_path.with_name(
@@ -179,6 +214,7 @@ class RewardBenchmark(BenchmarkBase):
         Args:
             output_path (str): The output path for the CSV file
             res (float): The result value
+            esjd (float): The expected square jump distance
         """
         file_path = Path(output_path)
         output_path_with_extension = file_path.with_name(
@@ -240,6 +276,10 @@ class BenchmarkGenerator:
         """
         Write the MMD script to calculate the MMD for the benchmark.
         The MMD script is written to calculate the MMD for the benchmark.
+
+        Args:
+            script_path (str): The path to the script file
+            benchmark_type (str): The type of benchmark to run
         """
         _class_name = {
             "mmd": "MMDBenchMark",
@@ -304,7 +344,16 @@ class BenchmarkExporter:
         )
 
     @staticmethod
-    def optimal_step_size(data_csv_file_path: str = "merged_data.csv"):
+    def optimal_step_size(data_csv_file_path: str = "merged_data.csv") -> pd.DataFrame:
+        """
+        Get the optimal step size for each MCMC environment.
+
+        Args:
+            data_csv_file_path (str, optional): The path to the merged CSV file. Defaults to "merged_data.csv".
+
+        Returns:
+            pd.DataFrame: The optimal step size for each MCMC environment
+        """
         return (
             pd.read_csv(data_csv_file_path)
             .groupby(["mcmc_env", "step_size"])["res"]
@@ -325,6 +374,16 @@ class BootstrapBenchmark:
         random_seed: int = 42,
         verbose: bool = True,
     ) -> None:
+        """
+        Initialize the BootstrapBenchmark class.
+
+        Args:
+            model_name (str): The name of the model
+            posteriordb_path (str): The path to the posterior database
+            num (int, optional): Number of bootstrap samples. Defaults to 10.
+            random_seed (int, optional): Random seed for reproducibility. Defaults to 42.
+            verbose (bool, optional): Verbose output. Defaults to True.
+        """
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
         self.num = num
@@ -332,6 +391,12 @@ class BootstrapBenchmark:
         self.verbose = verbose
 
     def get_gold_standard(self) -> npt.NDArray[np.float64]:
+        """
+        Get the gold standard samples from the posterior database.
+
+        Returns:
+            npt.NDArray[np.float64]: The gold standard samples
+        """
         return Toolbox.gold_standard(self.model_name, self.posteriordb_path)
 
     @staticmethod
@@ -341,6 +406,18 @@ class BootstrapBenchmark:
         random_seed: int = 42,
         verbose: bool = True,
     ) -> npt.NDArray[np.floating]:
+        """
+        Bootstrap sampling for the MMD values.
+
+        Args:
+            gold_standard (npt.NDArray[np.floating]): Gold standard samples.
+            num (int, optional): Number of bootstrap samples. Defaults to 10.
+            random_seed (int, optional): Random seed for reproducibility. Defaults to 42.
+            verbose (bool, optional): Verbose output. Defaults to True.
+
+        Returns:
+            npt.NDArray[np.floating]:
+        """
         mmd_values = np.empty(num)
         rng = np.random.default_rng(seed=random_seed)
 
@@ -397,6 +474,9 @@ class BootstrapBenchmark:
             f.write(f"{self.model_name},{mmd_mean},{mmd_se}\n")
 
     def execute(self) -> None:
+        """
+        Execute the benchmark experiment.
+        """
         gs = self.get_gold_standard()
         mmd_values = self.bootstrap_sampling(
             gs, num=self.num, random_seed=self.random_seed, verbose=self.verbose
