@@ -224,6 +224,7 @@ class LearningInterface(ABC):
         # Top-K Policy
         if num_of_top_policies < 1:
             raise ValueError("Number of policies must be greater than 0")
+        self.num_of_top_policies = num_of_top_policies
         self.topk_policy: DynamicTopK[
             Tuple[np.float64, Dict[str, Dict[str, Any] | int]]
         ] = DynamicTopK(num_of_top_policies)

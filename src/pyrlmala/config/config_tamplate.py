@@ -32,7 +32,7 @@ class ExperimentConfig:
     save_model: bool = False
     upload_model: bool = False
     hf_entity: Optional[str] = None
-
+    num_of_top_policies: int = 5
 
 @dataclass
 class AlgorithmGeneralConfig:
