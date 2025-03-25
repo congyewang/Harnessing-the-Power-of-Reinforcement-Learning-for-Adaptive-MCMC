@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=laplace_1
+#SBATCH --job-name=bootstrap
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=2-00:00:00
@@ -11,11 +11,11 @@ module load GCC
 
 source /mnt/nfs/home/c2029946/Code/PythonProjects/pyrlmala/.venv/bin/activate
 
-echo 'SLURM_JOB_ID: $SLURM_JOB_ID'
-echo 'Running on node: $SLURMD_NODENAME'
-echo 'Allocated CPUs: $SLURM_CPUS_PER_TASK'
-echo 'Allocated MEM: 32G'
-echo 'Starting python script...'
+echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
+echo "Running on node: ${SLURMD_NODENAME}"
+echo "Allocated CPUs: ${SLURM_CPUS_PER_TASK}"
+echo "Allocated MEM: 32G"
+echo "Starting python script..."
 
 python -c "
 import psutil, os
@@ -25,7 +25,7 @@ print(f'Node Total Mem: {mem.total / 1024 / 1024:.2f} MB')
 
 python bootstrap.py
 
-curl -d '✅ SLURM Job $SLURM_JOB_ID Finished Successfully' https://ntfy.greenlimes.top/asus
+curl -d "✅ SLURM Job ${SLURM_JOB_ID} Finished Successfully" https://ntfy.greenlimes.top/asus
 
-echo 'Finished Job'
+echo "Finished Job"
 exit 0
