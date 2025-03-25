@@ -96,6 +96,7 @@ class LearningInterface(ABC):
         policy_frequency: int = 2,
         tau: float = 0.005,
         random_seed: int = 42,
+        num_of_policies: int = 5,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
@@ -126,6 +127,7 @@ class LearningInterface(ABC):
             policy_frequency (int, optional): Policy frequency. Defaults to 2.
             tau (float, optional): Tau. Defaults to 0.005.
             random_seed (int, optional): Random seed. Defaults to 42.
+            num_of_policies (int, optional): Number of policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
@@ -220,10 +222,11 @@ class LearningInterface(ABC):
         )
 
         # Top-K Policy
-        NUM_OF_POLICIES = 5
+        if num_of_policies < 1:
+            raise ValueError("Number of policies must be greater than 0")
         self.topk_policy: DynamicTopK[
             Tuple[np.float64, Dict[str, Dict[str, Any] | int]]
-        ] = DynamicTopK(NUM_OF_POLICIES)
+        ] = DynamicTopK(num_of_policies)
 
         # Tensorboard
         self.writer = SummaryWriter(f"runs/{run_name}")
