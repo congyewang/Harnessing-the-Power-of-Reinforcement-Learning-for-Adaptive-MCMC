@@ -7,8 +7,7 @@ if __name__ == "__main__":
         posteriordb_path="../posteriordb/posterior_database",
         load_policy="best",
     )
-    # mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
-    mcmc_env_list = ["barker_esjd"]
+    mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
 
     for i in mcmc_env_list:
         flex_batch_run.run(
