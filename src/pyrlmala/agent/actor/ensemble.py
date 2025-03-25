@@ -16,14 +16,16 @@ class EnsemblePolicyNetwork(nn.Module):
     def __init__(
         self,
         actor: PolicyNetwork,
-        dynamic_top_k_weight: DynamicTopK[Tuple[np.float64, ActorWeights]],
+        dynamic_top_k_weight: DynamicTopK[
+            Tuple[np.float64, Dict[str, ActorWeights | int]]
+        ],
     ) -> None:
         """
         Initialize the EnsemblePolicyNetwork.
 
         Attributes:
             actor (PolicyNetwork): The actor network.
-            dynamic_top_k_weight (DynamicTopK[Tuple[np.float64, ActorWeights]]): The top-k weights.
+            dynamic_top_k_weight (DynamicTopK[Tuple[np.float64, Dict[str, ActorWeights | int]]]): The top-k weights.
         """
         super(EnsemblePolicyNetwork, self).__init__()
 
@@ -33,18 +35,20 @@ class EnsemblePolicyNetwork(nn.Module):
     def _load_from_topk(
         self,
         actor: PolicyNetwork,
-        dynamic_top_k_weight: DynamicTopK[Tuple[np.float64, ActorWeights]],
+        dynamic_top_k_weight: DynamicTopK[
+            Tuple[np.float64, Dict[str, ActorWeights | int]]
+        ],
     ) -> None:
         """
         Load models from the top-k policy.
 
         Args:
             actor (PolicyNetwork): The actor network.
-            dynamic_top_k_weight (DynamicTopK[Tuple[np.float64, ActorWeights]]): The top-k weights.
+            dynamic_top_k_weight (DynamicTopK[Tuple[np.float64, Dict[str, ActorWeights | int]]]): The top-k weights.
         """
-        for _, model_weights in dynamic_top_k_weight.topk():
+        for _, store_dict in dynamic_top_k_weight.topk():
             model = copy.deepcopy(actor)
-            model.load_state_dict(model_weights)
+            model.load_state_dict(store_dict["actor"])
             model.eval()
             self.models.append(model)
 
