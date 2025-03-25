@@ -96,7 +96,7 @@ class LearningInterface(ABC):
         policy_frequency: int = 2,
         tau: float = 0.005,
         random_seed: int = 42,
-        num_of_policies: int = 5,
+        num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
@@ -127,7 +127,7 @@ class LearningInterface(ABC):
             policy_frequency (int, optional): Policy frequency. Defaults to 2.
             tau (float, optional): Tau. Defaults to 0.005.
             random_seed (int, optional): Random seed. Defaults to 42.
-            num_of_policies (int, optional): Number of policies to keep. Defaults to 5.
+            num_of_top_policies (int, optional): Number of top policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
@@ -222,11 +222,11 @@ class LearningInterface(ABC):
         )
 
         # Top-K Policy
-        if num_of_policies < 1:
+        if num_of_top_policies < 1:
             raise ValueError("Number of policies must be greater than 0")
         self.topk_policy: DynamicTopK[
             Tuple[np.float64, Dict[str, Dict[str, Any] | int]]
-        ] = DynamicTopK(num_of_policies)
+        ] = DynamicTopK(num_of_top_policies)
 
         # Tensorboard
         self.writer = SummaryWriter(f"runs/{run_name}")
@@ -463,6 +463,7 @@ class LearningDDPG(LearningInterface):
         gamma (float): Gamma.
         policy_frequency (int): Policy frequency.
         tau (float): Tau.
+        num_of_top_policies (int): Number of top policies to keep.
         device (torch.device): Device.
         verbose (bool): Verbose.
         critic_values (List[float]): Critic values.
@@ -499,6 +500,7 @@ class LearningDDPG(LearningInterface):
         policy_frequency: int = 2,
         tau: float = 0.005,
         random_seed: int = 42,
+        num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
@@ -561,6 +563,7 @@ class LearningDDPG(LearningInterface):
             policy_frequency=policy_frequency,
             tau=tau,
             random_seed=random_seed,
+            num_of_top_policies=num_of_top_policies,
             device=device,
             verbose=verbose,
             run_name=run_name,
@@ -789,6 +792,7 @@ class LearningTD3(LearningInterface):
         random_seed: int = 42,
         policy_noise: float = 0.2,
         noise_clip: float = 0.5,
+        num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
         verbose: bool = True,
         run_name: str = "rlmcmc",
@@ -823,6 +827,7 @@ class LearningTD3(LearningInterface):
             random_seed (int, optional): Random seed. Defaults to 42.
             policy_noise (float, optional): Policy noise. Defaults to 0.2.
             noise_clip (float, optional): Noise clip. Defaults to 0.5.
+            num_of_top_policies (int, optional): Number of top policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
@@ -855,6 +860,7 @@ class LearningTD3(LearningInterface):
             policy_frequency=policy_frequency,
             tau=tau,
             random_seed=random_seed,
+            num_of_top_policies=num_of_top_policies,
             device=device,
             verbose=verbose,
             run_name=run_name,
@@ -925,16 +931,31 @@ class LearningTD3(LearningInterface):
 
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
-        if "final_info" in infos:  # FIXME: Delete "final_info"
-            for info in infos["final_info"]:
-                # TODO: Add policy saving
-                self.writer.add_scalar(
-                    "charts/episodic_return", info["episode"]["r"], global_step
+        if "episode" in infos:
+            episodic_return = infos["episode"]["r"][0]
+
+            self.topk_policy.add(
+                (
+                    episodic_return,
+                    {
+                        "actor": self.actor.state_dict(),
+                        "step": global_step,
+                    },
                 )
-                self.writer.add_scalar(
-                    "charts/episodic_length", info["episode"]["l"], global_step
-                )
-                break
+            )
+
+            if global_step > self.total_timesteps >> 1:
+                if episodic_return > self.best_episodic_return:
+                    self.best_episodic_return = episodic_return
+                    self.best_policy = self.actor.state_dict()
+                    self.best_policy_step = global_step
+
+            self.writer.add_scalar(
+                "charts/episodic_return", episodic_return, global_step
+            )
+            self.writer.add_scalar(
+                "charts/episodic_length", infos["episode"]["l"], global_step
+            )
 
         real_next_obs = next_obs.copy()
         self.replay_buffer.add(
@@ -985,6 +1006,14 @@ class LearningTD3(LearningInterface):
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
+
+                # Stochastic Weight Averaging
+                if global_step > self.swa_start:
+                    self.swa_actor.update_parameters(self.actor)
+                    self.swa_scheduler.step()
+                else:
+                    if self.actor_scheduler:
+                        self.actor_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
