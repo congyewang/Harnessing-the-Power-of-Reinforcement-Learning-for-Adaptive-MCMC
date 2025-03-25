@@ -18,6 +18,8 @@ class DynamicTopK(Generic[T]):
             k (int): The number of top elements to maintain.
             key (Optional[Callable[[T], float]], optional): A function to extract a comparison key from each element. Defaults to None.
         """
+        if k <= 0:
+            raise ValueError("k must be greater than 0")
         self.k: int = k
         self.heap: List[T] = []
         self.key = key
