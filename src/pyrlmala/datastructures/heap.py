@@ -15,7 +15,7 @@ class DynamicTopK(Generic[T]):
         Initialize the DynamicTopK class.
 
         Args:
-            k (int): The number of top elements to maintain.
+            k (int): The number of top elements to maintain. Must be greater than 0.
             key (Optional[Callable[[T], float]], optional): A function to extract a comparison key from each element. Defaults to None.
         """
         if k <= 0:
