@@ -124,6 +124,32 @@ class NearestPD:
         return A3
 
 
+class PosteriorDBTargetPDF:
+    def __init__(
+        self, stan_code_path: str, posterior_data: Dict[str, float | int]
+    ) -> None:
+        self.stan_code_path = stan_code_path
+        self.posterior_data = posterior_data
+        self.model = self.make_model()
+
+    def make_model(self) -> bs.StanModel:
+        stan_data = json.dumps(self.posterior_data)
+        return bs.StanModel.from_stan_file(self.stan_code_path, stan_data)
+
+    def log_target_pdf(self, x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        return self.model.log_density(x)
+
+    def grad_log_target_pdf(
+        self, x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        return self.model.log_density_gradient(x)[1]
+
+    def hess_log_target_pdf(
+        self, x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        return self.model.log_density_hessian(x)[2]
+
+
 class Toolbox:
     """
     Toolbox class. Contains utility functions. All methods are static.
@@ -227,10 +253,9 @@ class Toolbox:
         Returns:
             Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Log target pdf function.
         """
-        stan_data = json.dumps(posterior_data)
-        model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
+        pdb_target = PosteriorDBTargetPDF(stan_code_path, posterior_data)
 
-        return model.log_density
+        return pdb_target.log_target_pdf
 
     @staticmethod
     def make_grad_log_target_pdf(
@@ -247,10 +272,49 @@ class Toolbox:
         Returns:
             Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Gradient log target pdf function.
         """
-        stan_data = json.dumps(posterior_data)
-        model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
+        pdb_target = PosteriorDBTargetPDF(stan_code_path, posterior_data)
 
-        return lambda x: model.log_density_gradient(x)[1]
+        return pdb_target.grad_log_target_pdf
+
+    @staticmethod
+    def make_hess_log_target_pdf(
+        stan_code_path: str,
+        posterior_data: Dict[str, float | int],
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Create a hessian log target pdf function.
+
+        Args:
+            stan_code_path (str): Stan code path.
+            posterior_data (Dict[str, float  |  int]): Posterior data.
+
+        Returns:
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Hessian log target pdf function.
+        """
+        pdb_target = PosteriorDBTargetPDF(stan_code_path, posterior_data)
+
+        return pdb_target.hess_log_target_pdf
+
+    @staticmethod
+    def combine_make_log_target_pdf(
+        stan_code_path: str,
+        posterior_data: Dict[str, float | int],
+        mode: List[str] = ["pdf", "grad", "hess"],
+    ) -> Tuple[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], ...]:
+        pdb_target = PosteriorDBTargetPDF(stan_code_path, posterior_data)
+        funcs = []
+
+        for j in mode:
+            match j:
+                case "pdf":
+                    funcs.append(pdb_target.log_target_pdf)
+                case "grad":
+                    funcs.append(pdb_target.grad_log_target_pdf)
+                case "hess":
+                    funcs.append(pdb_target.hess_log_target_pdf)
+                case _:
+                    raise ValueError('mode should be one of "pdf", "grad", "hess"')
+        return tuple(funcs)
 
     @staticmethod
     def create_folder(file_path: str) -> None:
