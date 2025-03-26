@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 import warnings
-from functools import lru_cache, partial
+from functools import cache, partial
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import bridgestan as bs
@@ -31,7 +31,9 @@ from .mmd import (
     CalculateMMDTorch,
     MedianTrick,
 )
+from .target import AutoStanTargetPDF
 from .types import T_x, T_y
+from .posteriordb import PosteriorDBToolbox
 
 
 class NearestPD:
@@ -214,43 +216,81 @@ class Toolbox:
 
     @staticmethod
     def make_log_target_pdf(
-        stan_code_path: str,
-        posterior_data: Dict[str, float | int],
+        stan_model: str,
+        data: Dict[str, float | int] | str,
     ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
         """
-        Create a log target pdf function.
+        Create a log target probability density function from a Stan model.
 
         Args:
-            stan_code_path (str): Stan code path.
-            posterior_data (Dict[str, float  |  int]): Posterior data.
+            stan_model (str): Path to the Stan model file or model name.
+            data (Dict[str, float  |  int] | str): Posterior data or path to the posterior database.
 
         Returns:
             Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Log target pdf function.
         """
-        stan_data = json.dumps(posterior_data)
-        model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
+        stan_target = AutoStanTargetPDF(stan_model, data)
 
-        return model.log_density
+        return stan_target.log_target_pdf
 
     @staticmethod
     def make_grad_log_target_pdf(
-        stan_code_path: str,
-        posterior_data: Dict[str, float | int],
+        stan_model: str,
+        data: Dict[str, float | int] | str,
     ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
         """
-        Create a gradient log target pdf function.
+        Create a gradient log target probability density function from a Stan model.
 
         Args:
-            stan_code_path (str): Stan code path.
-            posterior_data (Dict[str, float  |  int]): Posterior data.
+            stan_model (str): Path to the Stan model file or model name.
+            data (Dict[str, float  |  int] | str): Posterior data or path to the posterior database.
 
         Returns:
             Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Gradient log target pdf function.
         """
-        stan_data = json.dumps(posterior_data)
-        model = bs.StanModel.from_stan_file(stan_code_path, stan_data)
+        stan_target = AutoStanTargetPDF(stan_model, data)
 
-        return lambda x: model.log_density_gradient(x)[1]
+        return stan_target.grad_log_target_pdf
+
+    @staticmethod
+    def make_hess_log_target_pdf(
+        stan_model: str,
+        data: Dict[str, float | int] | str,
+    ) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:
+        """
+        Create a Hessian log target probability density function from a Stan model.
+
+        Args:
+            stan_model (str): Path to the Stan model file or model name.
+            data (Dict[str, float  |  int] | str): Posterior data or path to the posterior database.
+
+        Returns:
+            Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]: Hessian log target pdf function.
+        """
+        stan_target = AutoStanTargetPDF(stan_model, data)
+
+        return stan_target.hess_log_target_pdf
+
+    @staticmethod
+    def combine_make_log_target_pdf(
+        stan_model: str,
+        data: Dict[str, float | int] | str,
+        mode: List[str] = ["pdf", "grad", "hess"],
+    ) -> Tuple[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], ...]:
+        """
+        Combine the log target pdf, gradient, and hessian functions into a tuple.
+
+        Args:
+            stan_model (str): Path to the Stan model file or model name.
+            data (Dict[str, float | int] | str): Posterior data or path to the posterior database.
+            mode (List[str], optional): List of modes to include. Defaults to ["pdf", "grad", "hess"].
+
+        Returns:
+            Tuple[Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], ...]:
+        """
+        stan_target = AutoStanTargetPDF(stan_model, data)
+
+        return stan_target.combine_make_log_target_pdf(mode)
 
     @staticmethod
     def create_folder(file_path: str) -> None:
@@ -660,75 +700,13 @@ class Toolbox:
         distances = np.linalg.norm(data[1:] - data[:-1], axis=1)
         return np.mean(distances)
 
+    @cache
     @staticmethod
-    @lru_cache(maxsize=46)
     def gold_standard(
         model_name: str,
-        posteriordb_path: str = os.path.join("posteriordb", "posterior_database"),
+        posteriordb_path: str,
     ) -> npt.NDArray[np.float64]:
-        """
-        Generate the gold standard for the given model.
-
-        Args:
-            model_name (str): Model name.
-            posteriordb_path (str, optional): Path to the database. Defaults to os.path.join("posteriordb", "posterior_database").
-
-        Returns:
-            npt.NDArray[np.float64]: Gold standard.
-        """
-        # Model Preparation
-        ## Load DataBase Locally
-        pdb_path = os.path.join(posteriordb_path)
-        my_pdb = PosteriorDatabase(pdb_path)
-
-        ## Load Dataset
-        posterior = my_pdb.posterior(model_name)
-
-        ## Gold Standard
-        gs_list = posterior.reference_draws()
-        df = pd.DataFrame(gs_list)
-        gs_constrain = np.zeros(
-            (
-                sum(Toolbox.flat(posterior.information["dimensions"].values())),
-                posterior.reference_draws_info()["diagnostics"]["ndraws"],
-            )
-        )
-        for i in range(len(df.keys())):
-            gs_s: List[str] = []
-            for j in range(len(df[df.keys()[i]])):
-                gs_s += df[df.keys()[i]][j]
-            gs_constrain[i] = gs_s
-        gs_constrain = gs_constrain.T
-
-        # Model Generation
-        model = Toolbox.generate_model(model_name, posteriordb_path)
-
-        gs_unconstrain = np.array(
-            [model.param_unconstrain(np.array(i)) for i in gs_constrain]
-        )
-
-        return gs_unconstrain
-
-    @staticmethod
-    def flat(nested_list: List[List[Any]]) -> List[Any]:
-        """
-        Expand nested list
-
-        Args:
-            nested_list (List[List[Any]]): Nested list.
-
-        Returns:
-            List[Any]: Flattened list.
-        """
-        res = []
-
-        for i in nested_list:
-            if isinstance(i, list):
-                res.extend(Toolbox.flat(i))
-            else:
-                res.append(i)
-
-        return res
+        return PosteriorDBToolbox(posteriordb_path).get_gold_standard(model_name)
 
     @staticmethod
     def generate_model(
@@ -745,7 +723,7 @@ class Toolbox:
             verbose (bool, optional): If True, will print additional information. Defaults to False.
 
         Returns:
-            Callable[[Any], Any]: _description_
+            Callable[[Any], Any]:
         """
         # Load DataBase Locally
         pdb_path = os.path.join(posteriordb_path)
@@ -1007,91 +985,3 @@ class AveragePolicy:
             plt.savefig(save_path)
         else:
             plt.show()
-
-
-class NUTSFromPosteriorDB:
-    """
-    NUTS sampler from the posterior database.
-
-    Attributes:
-        model_name (str): Model name.
-        posteriordb_path (str): Path to the posterior database.
-        stan_data (Optional[str]): Stan data.
-        model (Optional[CmdStanModel]): CmdStan model.
-        temp_file_path (Optional[str]): Temporary file path.
-    """
-
-    def __init__(self, model_name: str, posteriordb_path: str) -> None:
-        """
-        Initialize the NUTS sampler from the posterior database
-
-        Args:
-            model_name (str): Model name.
-            posteriordb_path (str): Path to the posterior database.
-        """
-        self.model_name = model_name
-        self.posteriordb_path = posteriordb_path
-        self.stan_data: Optional[str] = None
-        self.model: Optional[CmdStanModel] = None
-        self.temp_file_path = None
-
-    def load_posterior(self, **kwargs: Any) -> None:
-        """
-        Load the posterior from the database.
-
-        Args:
-            **kwargs (Any): Additional arguments for the CmdStanModel.
-        """
-        pdb = PosteriorDatabase(self.posteriordb_path)
-        posterior = pdb.posterior(self.model_name)
-        stan_code = posterior.model.stan_code_file_path()
-        self.stan_data = json.dumps(posterior.data.values())
-
-        self.model = CmdStanModel(stan_file=stan_code, **kwargs)
-
-    def output_samples(self, **kwargs: Any) -> npt.NDArray[np.float64]:
-        """
-        Output the samples from the model.
-
-        Args:
-            **kwargs (Any): Additional arguments for the model sampling.
-
-        Returns:
-            npt.NDArray[np.float64]: Samples from the model.
-        """
-        temp_file = tempfile.NamedTemporaryFile(mode="w+", delete=False, suffix=".json")
-        self.temp_file_path = temp_file.name
-
-        temp_file.write(self.stan_data)
-        temp_file.close()
-
-        fit = self.model.sample(data=self.temp_file_path, **kwargs)
-
-        return fit.stan_variables()
-
-    def close(self) -> None:
-        """
-        Close the NUTS sampler.
-        """
-        if os.path.exists(self.temp_file_path):
-            os.remove(self.temp_file_path)
-
-    def __enter__(self) -> "NUTSFromPosteriorDB":
-        """
-        Enter the NUTS sampler.
-
-        Returns:
-            NUTSFromPosteriorDB: NUTS sampler.
-        """
-        return self
-
-    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
-        """
-        Exit the NUTS sampler.
-
-        Args:
-            exc_type (Any): Exception type.
-            exc_value (Any): Exception value.
-            traceback (Any): Traceback.
-        """
-        self.close()

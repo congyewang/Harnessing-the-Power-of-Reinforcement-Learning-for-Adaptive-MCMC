@@ -37,6 +37,7 @@ dependencies = [
     "xarray>=2025.1.1",
     "cytoolz>=1.0.1",
     "scikit-learn>=1.6.1",
+    "mcmclib",
 ]
 
 [dependency-groups]
@@ -53,4 +54,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pyrlmala"]
+
+[tool.uv.sources]
+mcmclib = { git = "https://github.com/wilson-ye-chen/mcmclib" }
 
