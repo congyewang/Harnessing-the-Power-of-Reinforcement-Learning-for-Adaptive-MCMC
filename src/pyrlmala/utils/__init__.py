@@ -1,6 +1,6 @@
+from .posteriordb import NUTSFromPosteriorDB
 from .utils import (
     AveragePolicy,
-    NUTSFromPosteriorDB,
     Toolbox,
 )
 
