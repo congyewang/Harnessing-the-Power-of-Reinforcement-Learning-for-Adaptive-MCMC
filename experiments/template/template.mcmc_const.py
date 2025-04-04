@@ -4,8 +4,9 @@ import numpy as np
 import torch
 
 from pyrlmala.envs import {{ env_name }}
-from pyrlmala.learning.preparation import PosteriorDBFunctionsGenerator
 from pyrlmala.utils import CalculateMMD, Toolbox
+from pyrlmala.utils.target import PosteriorDatabaseTargetPDF
+
 
 RANDOM_SEED = {{ random_seed }}
 STEP_SIZE = {{ step_size }}
@@ -20,11 +21,9 @@ model_name = "{{ model_name }}"
 posteriordb_path = "../../../posteriordb/posterior_database"
 
 # Generate Target PDF and Gradient of Target PDF
-posteriordb_generator = PosteriorDBFunctionsGenerator(
-    model_name=model_name, posteriordb_path=posteriordb_path, posterior_data=None
+posteriordb_generator = PosteriorDatabaseTargetPDF(
+    model_name=model_name, posteriordb_path=posteriordb_path
 )
-log_target_pdf = posteriordb_generator.make_log_pdf()
-grad_log_target_pdf = posteriordb_generator.make_grad_log_pdf()
 
 # Set MCMC Environment
 sample_dim = 2
@@ -32,8 +31,8 @@ initial_sample = 0.1 * np.ones(sample_dim)
 initial_step_size = np.array([STEP_SIZE])
 
 mcmc = {{ env_name }}(
-    log_target_pdf_unsafe=log_target_pdf,
-    grad_log_target_pdf_unsafe=grad_log_target_pdf,
+    log_target_pdf_unsafe=posteriordb_generator.log_target_pdf,
+    grad_log_target_pdf_unsafe=posteriordb_generator.grad_log_target_pdf,
     initial_sample=initial_sample,
     initial_covariance=None,
     initial_step_size=Toolbox.inverse_softplus(initial_step_size),
