@@ -1,10 +1,9 @@
-import argparse
 import random
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -37,15 +36,28 @@ class BenchmarkBase(ABC):
         posteriordb_path: str,
         random_seed: int,
         step_size: float,
+        verbose: bool = True,
     ) -> None:
         """
         Initialize the benchmark experiment.
+
+        Args:
+            mcmc_env (str): The name of the MCMC environment
+                - "mala": MALA
+                - "barker": Barker
+                - "mala_esjd": MALA with ESJD
+                - "barker_esjd": Barker with ESJD
+            model_name (str): The name of the model
+            posteriordb_path (str): The path to the posterior database
+            random_seed (int): The random seed for reproducibility
+            step_size (float): The step size for the MCMC algorithm
         """
         self.env_name = self.check_env(mcmc_env)
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
         self.random_seed = random_seed
         self.step_size = Toolbox.inverse_softplus(np.array([step_size]))
+        self.verbose = verbose
 
         self.env = self.make_env()
 
@@ -137,7 +149,7 @@ class BenchmarkBase(ABC):
         """
         Run the MCMC simulation for the specified number of timesteps.
         """
-        for _ in range(self.env.total_timesteps):
+        for _ in trange(self.env.total_timesteps, disable=not self.verbose):
             self.env.step(np.repeat(self.step_size, 2))
 
     def get_gold_standard(self) -> npt.NDArray[np.float64]:
