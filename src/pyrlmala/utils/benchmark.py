@@ -56,7 +56,8 @@ class BenchmarkBase(ABC):
         self.model_name = model_name
         self.posteriordb_path = posteriordb_path
         self.random_seed = random_seed
-        self.step_size = Toolbox.inverse_softplus(np.array([step_size]))
+        self.step_size = step_size
+        self.action = Toolbox.inverse_softplus(np.array([step_size]))
         self.verbose = verbose
 
         self.env = self.make_env()
@@ -134,7 +135,7 @@ class BenchmarkBase(ABC):
             "grad_log_target_pdf_unsafe": grad_log_target_pdf,
             "initial_sample": initial_sample,
             "initial_covariance": None,
-            "initial_step_size": self.step_size,
+            "initial_step_size": self.action,
             "total_timesteps": 500_000,
             "max_steps_per_episode": 500,
             "log_mode": True,
@@ -150,7 +151,7 @@ class BenchmarkBase(ABC):
         Run the MCMC simulation for the specified number of timesteps.
         """
         for _ in trange(self.env.total_timesteps, disable=not self.verbose):
-            self.env.step(np.repeat(self.step_size, 2))
+            self.env.step(np.repeat(self.action, 2))
 
     def get_gold_standard(self) -> npt.NDArray[np.float64]:
         """
