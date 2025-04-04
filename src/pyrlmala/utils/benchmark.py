@@ -12,7 +12,7 @@ from numpy import typing as npt
 from tqdm.auto import trange
 
 from ..envs import BarkerEnv, BarkerESJDEnv, MALAEnv, MALAESJDEnv
-from ..learning.preparation import PosteriorDBFunctionsGenerator
+from .target import PosteriorDatabaseTargetPDF
 from .types import EnvInstanceType, EnvType
 from .utils import Toolbox
 
@@ -100,15 +100,15 @@ class BenchmarkBase(ABC):
         Returns:
             Tuple[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], ]: The target PDF and its gradient
         """
-        posteriordb_generator = PosteriorDBFunctionsGenerator(
+        posteriordb_generator = PosteriorDatabaseTargetPDF(
             model_name=self.model_name,
             posteriordb_path=self.posteriordb_path,
-            posterior_data=None,
         )
-        log_target_pdf = posteriordb_generator.make_log_pdf()
-        grad_log_target_pdf = posteriordb_generator.make_grad_log_pdf()
 
-        return log_target_pdf, grad_log_target_pdf
+        return (
+            posteriordb_generator.log_target_pdf,
+            posteriordb_generator.grad_log_target_pdf,
+        )
 
     def make_env(self) -> EnvInstanceType:
         """
