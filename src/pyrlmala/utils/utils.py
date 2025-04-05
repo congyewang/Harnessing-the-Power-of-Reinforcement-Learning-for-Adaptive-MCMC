@@ -3,7 +3,6 @@ import itertools
 import json
 import os
 import re
-import tempfile
 import warnings
 from functools import cache, partial
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -13,9 +12,7 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import pandas as pd
 import torch
-from cmdstanpy import CmdStanModel
 from cytoolz import compose_left, pipe, thread_last
 from cytoolz.curried import map, topk
 from gymnasium.envs.registration import EnvSpec
@@ -31,9 +28,9 @@ from .mmd import (
     CalculateMMDTorch,
     MedianTrick,
 )
+from .posteriordb import PosteriorDBToolbox
 from .target import AutoStanTargetPDF
 from .types import T_x, T_y
-from .posteriordb import PosteriorDBToolbox
 
 
 class NearestPD:

@@ -1,10 +1,10 @@
-import argparse
+import os
 import random
 import subprocess
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from numpy import typing as npt
 from tqdm.auto import trange
 
 from ..envs import BarkerEnv, BarkerESJDEnv, MALAEnv, MALAESJDEnv
-from ..learning.preparation import PosteriorDBFunctionsGenerator
+from .target import PosteriorDatabaseTargetPDF
 from .types import EnvInstanceType, EnvType
 from .utils import Toolbox
 
@@ -22,6 +22,7 @@ class BenchmarkBase(ABC):
     """
     Base class for benchmark experiments.
     """
+
     _mcmc_envs: Dict[str, EnvType] = {
         "mala": MALAEnv,
         "barker": BarkerEnv,
@@ -29,19 +30,58 @@ class BenchmarkBase(ABC):
         "barker_esjd": BarkerESJDEnv,
     }
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        mcmc_env: str,
+        model_name: str,
+        posteriordb_path: str,
+        random_seed: int,
+        step_size: float,
+        verbose: bool = True,
+    ) -> None:
         """
         Initialize the benchmark experiment.
-        """
-        self.args = self.make_parser().parse_args()
 
-        self.env_name = self.args.mcmc_env
-        self.model_name = self.args.model_name
-        self.posteriordb_path = self.args.posteriordb_path
-        self.random_seed = self.args.random_seed
-        self.step_size = Toolbox.inverse_softplus(np.array([self.args.step_size]))
+        Args:
+            mcmc_env (str): The name of the MCMC environment
+                - "mala": MALA
+                - "barker": Barker
+                - "mala_esjd": MALA with ESJD
+                - "barker_esjd": Barker with ESJD
+            model_name (str): The name of the model
+            posteriordb_path (str): The path to the posterior database
+            random_seed (int): The random seed for reproducibility
+            step_size (float): The step size for the MCMC algorithm
+        """
+        self.env_name = self.check_env(mcmc_env)
+        self.model_name = model_name
+        self.posteriordb_path = posteriordb_path
+        self.random_seed = random_seed
+        self.step_size = step_size
+        self.action = Toolbox.inverse_softplus(np.array([step_size]))
+        self.verbose = verbose
 
         self.env = self.make_env()
+
+    def check_env(self, env_name: str) -> str:
+        """
+        Check if the MCMC environment is valid.
+
+        Args:
+            env_name (str): The name of the MCMC environment
+
+        Returns:
+            str: The name of the MCMC environment
+
+        Raises:
+            ValueError: If the MCMC environment is not valid
+        """
+        if env_name not in self._mcmc_envs.keys():
+            raise ValueError(
+                f"Invalid MCMC environment '{env_name}'. Available options are: {list(self._mcmc_envs.keys())}"
+            )
+        else:
+            return env_name
 
     def fixed_seed(self) -> None:
         """
@@ -61,15 +101,15 @@ class BenchmarkBase(ABC):
         Returns:
             Tuple[ Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]], ]: The target PDF and its gradient
         """
-        posteriordb_generator = PosteriorDBFunctionsGenerator(
+        posteriordb_generator = PosteriorDatabaseTargetPDF(
             model_name=self.model_name,
             posteriordb_path=self.posteriordb_path,
-            posterior_data=None,
         )
-        log_target_pdf = posteriordb_generator.make_log_pdf()
-        grad_log_target_pdf = posteriordb_generator.make_grad_log_pdf()
 
-        return log_target_pdf, grad_log_target_pdf
+        return (
+            posteriordb_generator.log_target_pdf,
+            posteriordb_generator.grad_log_target_pdf,
+        )
 
     def make_env(self) -> EnvInstanceType:
         """
@@ -83,12 +123,20 @@ class BenchmarkBase(ABC):
         log_target_pdf, grad_log_target_pdf = self.make_target_pdf()
 
         initial_sample = 0.1 * np.ones(2)
-        config = {
+        config: Dict[
+            str,
+            int
+            | float
+            | bool
+            | npt.NDArray[np.float64]
+            | Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]
+            | None,
+        ] = {
             "log_target_pdf_unsafe": log_target_pdf,
             "grad_log_target_pdf_unsafe": grad_log_target_pdf,
             "initial_sample": initial_sample,
             "initial_covariance": None,
-            "initial_step_size": self.step_size,
+            "initial_step_size": self.action,
             "total_timesteps": 500_000,
             "max_steps_per_episode": 500,
             "log_mode": True,
@@ -103,45 +151,8 @@ class BenchmarkBase(ABC):
         """
         Run the MCMC simulation for the specified number of timesteps.
         """
-        for _ in range(self.env.total_timesteps):
-            self.env.step(np.repeat(self.step_size, 2))
-
-    def make_parser(self) -> argparse.ArgumentParser:
-        """
-        Create an argument parser for the benchmark experiment.
-
-        Returns:
-            argparse.ArgumentParser: The argument parser for the benchmark experiment
-        """
-        parser = argparse.ArgumentParser(
-            description="Run MCMC experiment with different parameters"
-        )
-        parser.add_argument(
-            "--random_seed",
-            type=int,
-            required=True,
-            help="Random seed for the experiment",
-        )
-        parser.add_argument(
-            "--step_size", type=float, default=10.0, help="Step size for MCMC"
-        )
-        parser.add_argument(
-            "--model_name",
-            type=str,
-            default="test-laplace_1-test-laplace_1",
-            help="Model name",
-        )
-        parser.add_argument(
-            "--posteriordb_path",
-            type=str,
-            default="../../posteriordb/posterior_database",
-            help="Path to posterior database",
-        )
-        parser.add_argument(
-            "--mcmc_env", type=str, default="mala", help="MCMC environment to use"
-        )
-
-        return parser
+        for _ in trange(self.env.total_timesteps, disable=not self.verbose):
+            self.env.step(np.repeat(self.action, 2))
 
     def get_gold_standard(self) -> npt.NDArray[np.float64]:
         """
@@ -152,36 +163,13 @@ class BenchmarkBase(ABC):
         """
         return Toolbox.gold_standard(self.model_name, self.posteriordb_path)
 
-    def write_results(
-        self, output_path: str, res: float, *args: Any, **kwargs: Any
-    ) -> None:
-        """
-        Write the results to a CSV file.
-
-        Args:
-            output_path (str): The output path for the CSV file
-            res (float): The result value
-            *args: Additional arguments
-            **kwargs: Additional keyword arguments
-
-        Raises:
-            ValueError: If the output path is not a valid file path
-        """
-        file_path = Path(output_path)
-        output_path_with_extension = file_path.with_name(
-            f"{file_path.stem}_{self.model_name}_{self.env_name}_{self.args.step_size}_{self.random_seed}{file_path.suffix}"
-        )
-
-        with open(output_path_with_extension, "w") as f:
-            f.write("random_seed,step_size,model_name,mcmc_env,res\n")
-            f.write(
-                f"{self.random_seed},{self.args.step_size},{self.model_name},{self.env_name},{res}\n"
-            )
-
     @abstractmethod
-    def execute(self, *args: Any, **kwargs: Any) -> None:
+    def output(self, *args: Any, **kwargs: Any) -> float:
         """
-        Execute the benchmark experiment.
+        Calculate the output of the benchmark experiment.
+
+        Returns:
+            float: The result of the benchmark experiment
 
         Raises:
             NotImplementedError: If the method is not implemented
@@ -190,15 +178,117 @@ class BenchmarkBase(ABC):
 
 
 class MMDBenchMark(BenchmarkBase):
-    def execute(self) -> None:
+    def output(self) -> float:
         """
-        Execute the benchmark experiment.
+        Calculate the Maximum Mean Discrepancy (MMD) between the predicted samples and the gold standard samples.
+
+        Returns:
+            float: The calculated MMD value
         """
         self.run_mcmc()
 
         gs = self.get_gold_standard()
         mmd = Toolbox.calculate_mmd(gs, self.env.store_accepted_sample[-len(gs) :])
-        self.write_results("mmd.csv", mmd)
+
+        return mmd
+
+
+class MMDBatchRunner:
+    def __init__(
+        self,
+        model_name: str,
+        posteriordb_path: str,
+    ) -> None:
+        self.model_name = model_name
+        self.posteriordb_path = posteriordb_path
+
+    @staticmethod
+    def write_results(
+        model_name: str,
+        env_name: str,
+        random_seed: int,
+        step_size: float,
+        mmd: float,
+        save_file_path: str,
+    ) -> None:
+        """
+        Write the results of the experiment to a file.
+
+        Args:
+            model_name (str): The name of the model
+            env_name (str): The name of the MCMC environment
+            random_seed (int): The random seed for the experiment
+            step_size (float): The step size for the MCMC algorithm
+            mmd (float): The calculated MMD value
+            save_file_path (str): The path to the file where the results will be saved
+        """
+        with open(save_file_path, "a+") as f:
+            f.write(f"{random_seed},{step_size},{model_name},{env_name},{mmd}\n")
+
+    @staticmethod
+    def write_header(save_file_path: str) -> None:
+        """
+        Write the header of the CSV file.
+
+        Args:
+            save_file_path (str): The path to the file where the results will be saved
+        """
+        with open(save_file_path, "w") as f:
+            f.write("random_seed,step_size,model_name,mcmc_env,mmd\n")
+
+    def run(
+        self,
+        mcmc_env: str,
+        step_size: float,
+        repeat_count: int = 10,
+        save_root_path: str = ".",
+        verbose: bool = True,
+    ) -> None:
+        """
+        Runs the batch of experiments with the specified configurations.
+
+        Args:
+            mcmc_env (str): The MCMC environment to be used in the experiment.
+            step_size (float): The step size for the MCMC algorithm.
+            repeat_count (int, optional): The number of times to repeat the experiment. Defaults to 5.
+            save_root_path (str, optional): The root path for saving the results. Defaults to ".".
+            template_path (str, optional): The path to the template file. Defaults to "./config/template.toml".
+            output_root_path (str, optional): The root path for the output files. Defaults to "./config".
+        """
+        save_file_path = os.path.join(
+            save_root_path, f"const_{self.model_name}_{mcmc_env}_{step_size}_mmd.csv"
+        )
+        Toolbox.create_folder(save_file_path)
+        mmd_res = np.empty(repeat_count)
+
+        self.write_header(save_file_path)
+
+        for i in trange(repeat_count, disable=not verbose):
+            try:
+                mmd_benchmark = MMDBenchMark(
+                    mcmc_env=mcmc_env,
+                    model_name=self.model_name,
+                    posteriordb_path=self.posteriordb_path,
+                    random_seed=i,
+                    step_size=step_size,
+                    verbose=False,
+                )
+                mmd = mmd_benchmark.output()
+                mmd_res[i] = mmd
+                self.write_results(
+                    self.model_name,
+                    mcmc_env,
+                    i,
+                    step_size,
+                    mmd,
+                    save_file_path,
+                )
+            except Exception as e:
+                print(f"Error in seed {i}: {e}")
+
+        with open(save_file_path, "a+") as f:
+            f.write(f"Mean: {mmd_res.mean()}\n")
+            f.write(f"SE: {mmd_res.std(ddof=1) / np.sqrt(len(mmd_res))}\n")
 
 
 class RewardBenchmark(BenchmarkBase):
@@ -218,13 +308,13 @@ class RewardBenchmark(BenchmarkBase):
         """
         file_path = Path(output_path)
         output_path_with_extension = file_path.with_name(
-            f"{file_path.stem}_{self.model_name}_{self.env_name}_{self.args.step_size}_{self.random_seed}{file_path.suffix}"
+            f"{file_path.stem}_{self.model_name}_{self.env_name}_{self.step_size}_{self.random_seed}{file_path.suffix}"
         )
 
         with open(output_path_with_extension, "w") as f:
             f.write("random_seed,step_size,model_name,mcmc_env,res,esjd\n")
             f.write(
-                f"{self.random_seed},{self.args.step_size},{self.model_name},{self.env_name},{res},{esjd}\n"
+                f"{self.random_seed},{self.step_size},{self.model_name},{self.env_name},{res},{esjd}\n"
             )
 
     def execute(self) -> None:
@@ -240,36 +330,9 @@ class RewardBenchmark(BenchmarkBase):
 
 
 class BenchmarkGenerator:
-    @staticmethod
-    def generate_parallel_jobs(
-        model_dict: Dict[str, str],
-        mcmc_envs: List[str],
-        step_sizes: List[float],
-        random_seeds: List[int],
-        posteriordb_path: str,
-        jobs_path: str,
-        script_path: str,
-    ) -> None:
-        """
-        Generate parallel jobs for the benchmark. The parallel jobs are generated for the benchmark.
-
-        Args:
-            model_dict (Dict[str, str]): The model dictionary
-            mcmc_envs (List[str]): The MCMC environments
-            step_sizes (List[float]): The step sizes
-            random_seeds (List[int]): The random seeds
-            posteriordb_path (str): The path to the posterior database
-            jobs_path (str): The path to the jobs file
-            script_path (str): The path to the script file
-        """
-        with open(jobs_path, "w") as f:
-            for model_name in model_dict:
-                for mcmc_env in mcmc_envs:
-                    for step_size in step_sizes:
-                        for random_seed in random_seeds:
-                            f.write(
-                                f"python {Path(script_path).name} --random_seed {random_seed} --step_size {step_size} --model_name {model_dict[model_name]} --posteriordb_path {posteriordb_path} --mcmc_env {mcmc_env}\n"
-                            )
+    """
+    Class to generate the benchmark script.
+    """
 
     @staticmethod
     def write_script(script_path: str, benchmark_type: str) -> None:
