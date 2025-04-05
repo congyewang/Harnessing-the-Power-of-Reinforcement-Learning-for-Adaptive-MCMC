@@ -241,6 +241,7 @@ class MMDBatchRunner:
         mcmc_env: str,
         step_size: float,
         repeat_count: int = 10,
+        mode: str = "median",
         save_root_path: str = ".",
         verbose: bool = True,
     ) -> None:
@@ -286,8 +287,18 @@ class MMDBatchRunner:
             except Exception as e:
                 print(f"Error in seed {i}: {e}")
 
+        match mode:
+            case "mean":
+                metrics = np.mean(mmd_res)
+                metrics_str = f"Mean: {metrics}\n"
+            case "median":
+                metrics = np.median(mmd_res)
+                metrics_str = f"Median: {metrics}\n"
+            case _:
+                raise ValueError("Mode must be 'mean' or 'median'")
+
         with open(save_file_path, "a+") as f:
-            f.write(f"Mean: {mmd_res.mean()}\n")
+            f.write(metrics_str)
             f.write(f"SE: {mmd_res.std(ddof=1) / np.sqrt(len(mmd_res))}\n")
 
 
