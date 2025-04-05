@@ -1,3 +1,4 @@
+import os
 import random
 import subprocess
 from abc import ABC, abstractmethod
@@ -162,36 +163,13 @@ class BenchmarkBase(ABC):
         """
         return Toolbox.gold_standard(self.model_name, self.posteriordb_path)
 
-    def write_results(
-        self, output_path: str, res: float, *args: Any, **kwargs: Any
-    ) -> None:
-        """
-        Write the results to a CSV file.
-
-        Args:
-            output_path (str): The output path for the CSV file
-            res (float): The result value
-            *args: Additional arguments
-            **kwargs: Additional keyword arguments
-
-        Raises:
-            ValueError: If the output path is not a valid file path
-        """
-        file_path = Path(output_path)
-        output_path_with_extension = file_path.with_name(
-            f"{file_path.stem}_{self.model_name}_{self.env_name}_{self.step_size}_{self.random_seed}{file_path.suffix}"
-        )
-
-        with open(output_path_with_extension, "w") as f:
-            f.write("random_seed,step_size,model_name,mcmc_env,res\n")
-            f.write(
-                f"{self.random_seed},{self.step_size},{self.model_name},{self.env_name},{res}\n"
-            )
-
     @abstractmethod
-    def execute(self, *args: Any, **kwargs: Any) -> None:
+    def output(self, *args: Any, **kwargs: Any) -> float:
         """
-        Execute the benchmark experiment.
+        Calculate the output of the benchmark experiment.
+
+        Returns:
+            float: The result of the benchmark experiment
 
         Raises:
             NotImplementedError: If the method is not implemented
@@ -200,15 +178,117 @@ class BenchmarkBase(ABC):
 
 
 class MMDBenchMark(BenchmarkBase):
-    def execute(self) -> None:
+    def output(self) -> float:
         """
-        Execute the benchmark experiment.
+        Calculate the Maximum Mean Discrepancy (MMD) between the predicted samples and the gold standard samples.
+
+        Returns:
+            float: The calculated MMD value
         """
         self.run_mcmc()
 
         gs = self.get_gold_standard()
         mmd = Toolbox.calculate_mmd(gs, self.env.store_accepted_sample[-len(gs) :])
-        self.write_results("mmd.csv", mmd)
+
+        return mmd
+
+
+class MMDBatchRunner:
+    def __init__(
+        self,
+        model_name: str,
+        posteriordb_path: str,
+    ) -> None:
+        self.model_name = model_name
+        self.posteriordb_path = posteriordb_path
+
+    @staticmethod
+    def write_results(
+        model_name: str,
+        env_name: str,
+        random_seed: int,
+        step_size: float,
+        mmd: float,
+        save_file_path: str,
+    ) -> None:
+        """
+        Write the results of the experiment to a file.
+
+        Args:
+            model_name (str): The name of the model
+            env_name (str): The name of the MCMC environment
+            random_seed (int): The random seed for the experiment
+            step_size (float): The step size for the MCMC algorithm
+            mmd (float): The calculated MMD value
+            save_file_path (str): The path to the file where the results will be saved
+        """
+        with open(save_file_path, "a+") as f:
+            f.write(f"{random_seed},{step_size},{model_name},{env_name},{mmd}\n")
+
+    @staticmethod
+    def write_header(save_file_path: str) -> None:
+        """
+        Write the header of the CSV file.
+
+        Args:
+            save_file_path (str): The path to the file where the results will be saved
+        """
+        with open(save_file_path, "w") as f:
+            f.write("random_seed,step_size,model_name,mcmc_env,mmd\n")
+
+    def run(
+        self,
+        mcmc_env: str,
+        step_size: float,
+        repeat_count: int = 10,
+        save_root_path: str = ".",
+        verbose: bool = True,
+    ) -> None:
+        """
+        Runs the batch of experiments with the specified configurations.
+
+        Args:
+            mcmc_env (str): The MCMC environment to be used in the experiment.
+            step_size (float): The step size for the MCMC algorithm.
+            repeat_count (int, optional): The number of times to repeat the experiment. Defaults to 5.
+            save_root_path (str, optional): The root path for saving the results. Defaults to ".".
+            template_path (str, optional): The path to the template file. Defaults to "./config/template.toml".
+            output_root_path (str, optional): The root path for the output files. Defaults to "./config".
+        """
+        save_file_path = os.path.join(
+            save_root_path, f"const_{self.model_name}_{mcmc_env}_{step_size}_mmd.csv"
+        )
+        Toolbox.create_folder(save_file_path)
+        mmd_res = np.empty(repeat_count)
+
+        self.write_header(save_file_path)
+
+        for i in trange(repeat_count, disable=not verbose):
+            try:
+                mmd_benchmark = MMDBenchMark(
+                    mcmc_env=mcmc_env,
+                    model_name=self.model_name,
+                    posteriordb_path=self.posteriordb_path,
+                    random_seed=i,
+                    step_size=step_size,
+                    verbose=False,
+                )
+                mmd = mmd_benchmark.output()
+                mmd_res[i] = mmd
+                self.write_results(
+                    self.model_name,
+                    mcmc_env,
+                    i,
+                    step_size,
+                    mmd,
+                    save_file_path,
+                )
+            except Exception as e:
+                print(f"Error in seed {i}: {e}")
+
+        with open(save_file_path, "a+") as f:
+            f.write(f"Mean: {mmd_res.mean()}\n")
+            f.write(f"SE: {mmd_res.std(ddof=1) / np.sqrt(len(mmd_res))}\n")
 
 
 class RewardBenchmark(BenchmarkBase):
