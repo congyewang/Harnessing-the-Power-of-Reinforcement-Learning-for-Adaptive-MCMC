@@ -25,7 +25,7 @@ print(f'Node Total Mem: {mem.total / 1024 / 1024:.2f} MB')
 
 python const_run_{{ step_size }}.py
 
-curl -d "✅ SLURM Job ${SLURM_JOB_ID} Finished Successfully" https://ntfy.greenlimes.top/asus
+curl -d "✅ SLURM Job ${SLURM_JOB_NAME} Finished Successfully" https://ntfy.greenlimes.top/asus
 
 echo "Finished Job"
 exit 0
