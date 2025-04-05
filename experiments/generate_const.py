@@ -40,5 +40,7 @@ for idx, model_name in enumerate(model_name_list):
 
 
 with open("./run-total.sh", "w") as f:
+    f.write("#!/bin/bash\n")
+
     for i in sbatch_path_list:
         f.write(f"sbatch {i}\n")
