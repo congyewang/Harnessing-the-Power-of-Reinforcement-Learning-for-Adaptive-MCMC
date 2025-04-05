@@ -3,7 +3,6 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=2-00:00:00
-#SBATCH --cpus-per-task=24
 #SBATCH --mem=32G
 #SBATCH --mail-type=FAIL
 
