@@ -23,7 +23,7 @@ mem = psutil.virtual_memory()
 print(f'Node Total Mem: {mem.total / 1024 / 1024:.2f} MB')
 "
 
-python flex_run.py
+python const_run.py
 
 curl -d "✅ SLURM Job ${SLURM_JOB_ID} Finished Successfully" https://ntfy.greenlimes.top/asus
 
