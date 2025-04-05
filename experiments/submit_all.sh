@@ -12,7 +12,7 @@ for file in *.sh; do
 done
 cd -
 
-cd laplace_1/const
+cd laplace_4/const
 for file in *.sh; do
     sbatch "$file"
 done
