@@ -34,7 +34,7 @@ for idx, model_name in enumerate(model_name_list):
 
         bash_output_path = f"./{dir_name[idx]}/const/run-const_{step_size}.sh"
         with open(bash_output_path, "w") as file:
-            file.write(bash_template.render({"step_size": step_size}))
+            file.write(bash_template.render(context))
 
         sbatch_path_list.append(bash_output_path)
 

@@ -1,3 +1,6 @@
+#!/bin/bash
+#SBATCH --job-name=const-{{ model_name }}-{{ step_size }}
+#SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=2-00:00:00
 #SBATCH --cpus-per-task=24
@@ -22,7 +25,7 @@ print(f'Node Total Mem: {mem.total / 1024 / 1024:.2f} MB')
 
 python const_run_{{ step_size }}.py
 
-curl -d "✅ SLURM Job ${SLURM_JOB_ID} Finished Successfully" tps://ntfy.greenlimes.top/asus
+curl -d "✅ SLURM Job ${SLURM_JOB_ID} Finished Successfully" https://ntfy.greenlimes.top/asus
 
 echo "Finished Job"
 exit 0
