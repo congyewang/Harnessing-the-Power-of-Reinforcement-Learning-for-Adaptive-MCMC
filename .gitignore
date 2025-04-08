@@ -179,3 +179,11 @@ cython_debug/
 
 # Results
 **/*.csv
+**/*.out
+**/*.log
+**/*.err
+**/*.tar.*
+**/*.zip
+experiments/laplace_*/const/const_run_*
+experiments/laplace_*/const/run-const_*
+experiments/laplace_*/flex/*.txt
