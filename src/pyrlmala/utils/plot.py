@@ -9,6 +9,19 @@ import pandas as pd
 from numpy import typing as npt
 from tqdm.auto import tqdm
 
+from .utils import Toolbox
+
+LATEX_STYLE = True
+
+if LATEX_STYLE:
+    plt.rcParams.update(
+        {
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        }
+    )
+
 
 class CleanPipeLine:
     @staticmethod
@@ -101,11 +114,7 @@ class PlotPipeLine:
         self.res[mcmc_env][step_size] = {"median": median, "se": se}
 
     def make_axes(self) -> tuple[plt.Figure, plt.Axes]:
-        fig, ax = plt.subplots(figsize=(8, 5))
-        ax.set_xlabel("Step Size")
-        ax.set_ylabel("MMD")
-        ax.set_title("Step Size vs MMD")
-
+        fig, ax = plt.subplots(figsize=(5, 5))
         return fig, ax
 
     def plot_const(self, mcmc_env: str = "mala") -> None:
@@ -113,7 +122,7 @@ class PlotPipeLine:
         y_median = np.array([self.res[mcmc_env][float(x)]["median"] for x in x_ranges])
         y_se = np.array([self.res[mcmc_env][float(x)]["se"] for x in x_ranges])
 
-        self.ax.plot(x_ranges, y_median, label=f"{mcmc_env} median")
+        self.ax.plot(x_ranges, y_median, label="Constant Policy")
         self.ax.fill_between(x_ranges, y_median - y_se, y_median + y_se, alpha=0.3)
 
         self.ax.relim()
@@ -126,7 +135,7 @@ class PlotPipeLine:
         matrics: float | npt.NDArray[np.floating],
         se: float | npt.NDArray[np.floating],
     ) -> None:
-        self.ax.axhline(matrics, color="red", linestyle="--", label="baseline")
+        self.ax.axhline(matrics, color="red", linestyle="--", label="Flexible Policy")
         self.ax.fill_between(
             self.x_ranges, matrics - se, matrics + se, alpha=0.2, color="red"
         )
@@ -136,6 +145,7 @@ class PlotPipeLine:
         mcmc_env: str,
         matrics: float | npt.NDArray[np.floating],
         se: float | npt.NDArray[np.floating],
+        title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
         self.plot_const(mcmc_env=mcmc_env)
@@ -143,11 +153,13 @@ class PlotPipeLine:
 
         self.ax.set_xlabel("Step Size")
         self.ax.set_ylabel("MMD")
-        self.ax.set_title(f"Step Size vs MMD for {mcmc_env}")
+        if title:
+            self.ax.set_title(title)
 
         self.ax.legend()
 
         if save_path:
+            Toolbox.create_folder(save_path)
             plt.savefig(save_path)
         else:
             plt.show()
@@ -157,6 +169,7 @@ class PlotPipeLine:
         mcmc_env: str,
         const_dir: str,
         flex_file_path: str,
+        title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
         file_path_list = sorted(glob.glob(f"{const_dir}/*.csv"))
@@ -173,5 +186,6 @@ class PlotPipeLine:
             mcmc_env=mcmc_env,
             matrics=flex_pipeline.median,
             se=flex_pipeline.se,
+            title=title,
             save_path=save_path,
         )

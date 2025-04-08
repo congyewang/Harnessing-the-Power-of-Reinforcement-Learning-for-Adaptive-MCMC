@@ -184,6 +184,12 @@ cython_debug/
 **/*.err
 **/*.tar.*
 **/*.zip
+**/*.pdf
+**/*.png
+**/*.jpg
+**/*.jpeg
+**/*.gif
+**/*.svg
 experiments/laplace_*/const/const_run_*
 experiments/laplace_*/const/run-const_*
 experiments/laplace_*/flex/*.txt
