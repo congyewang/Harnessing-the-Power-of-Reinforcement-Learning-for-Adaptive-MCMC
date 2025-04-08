@@ -1,7 +1,8 @@
 import glob
 import re
+from ast import Tuple
 from collections import defaultdict
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -146,16 +147,29 @@ class PlotPipeLine:
             self.x_ranges, matrics - se, matrics + se, alpha=0.2, color="red"
         )
 
+    def plot_bootstrap(
+        self,
+        matrics: float | npt.NDArray[np.floating],
+        se: float | npt.NDArray[np.floating],
+    ) -> None:
+        self.ax.axhline(matrics, color="#8680A6", linestyle=":", label="Bootstrap")
+        self.ax.fill_between(
+            self.x_ranges, matrics - se, matrics + se, alpha=0.3, color="#8680A6"
+        )
+
     def plot_total(
         self,
         mcmc_env: str,
-        matrics: float | npt.NDArray[np.floating],
-        se: float | npt.NDArray[np.floating],
+        flex_matrics: float | npt.NDArray[np.floating],
+        flex_se: float | npt.NDArray[np.floating],
+        bootstrap_matrics: float | npt.NDArray[np.floating],
+        bootstrap_se: float | npt.NDArray[np.floating],
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
         self.plot_const(mcmc_env=mcmc_env)
-        self.plot_flex(matrics=matrics, se=se)
+        self.plot_flex(matrics=flex_matrics, se=flex_se)
+        self.plot_bootstrap(matrics=bootstrap_matrics, se=bootstrap_se)
 
         self.ax.set_xlabel("Step Size")
         self.ax.set_ylabel("MMD")
@@ -175,6 +189,7 @@ class PlotPipeLine:
         mcmc_env: str,
         const_dir: str,
         flex_file_path: str,
+        bootstrap_tuple: Tuple[float, float],
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
@@ -190,8 +205,10 @@ class PlotPipeLine:
         flex_pipeline = FlexPipeLine(input_file=flex_file_path)
         self.plot_total(
             mcmc_env=mcmc_env,
-            matrics=flex_pipeline.median,
-            se=flex_pipeline.se,
+            flex_matrics=flex_pipeline.median,
+            flex_se=flex_pipeline.se,
+            bootstrap_matrics=bootstrap_tuple[0],
+            bootstrap_se=bootstrap_tuple[1],
             title=title,
             save_path=save_path,
         )
@@ -261,7 +278,7 @@ class PolicyPlot:
             axes.set_title(title)
 
         cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
-        cbar.set_label("Action")
+        cbar.set_label("Step Size")
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
