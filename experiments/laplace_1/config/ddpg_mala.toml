@@ -2,7 +2,7 @@
 # the name of this experiment
 exp_name = "RLMALA"
 # seed of the experiment
-seed = 42
+seed = 4
 # if toggled, `torch.backends.cudnn.deterministic=false`
 torch_deterministic = true
 # if toggled, cuda will be enabled by default
@@ -21,6 +21,8 @@ save_model = false
 upload_model = false
 # the user or org name of the model repository from the Hugging Face Hub
 hf_entity = ""
+# The number of top policies to save
+num_of_top_policies = 1
 
 [algorithm.general]
 # the environment id of the Atari game

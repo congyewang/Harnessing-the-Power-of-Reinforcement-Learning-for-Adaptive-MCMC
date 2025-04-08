@@ -1,11 +1,17 @@
 import glob
 import re
 from collections import defaultdict
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import torch
+import torch.nn.functional as F
+from cytoolz import pipe
+from jaxtyping import Float
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 from numpy import typing as npt
 from tqdm.auto import tqdm
 
@@ -113,7 +119,7 @@ class PlotPipeLine:
 
         self.res[mcmc_env][step_size] = {"median": median, "se": se}
 
-    def make_axes(self) -> tuple[plt.Figure, plt.Axes]:
+    def make_axes(self) -> tuple[Figure, Axes]:
         fig, ax = plt.subplots(figsize=(5, 5))
         return fig, ax
 
@@ -189,3 +195,76 @@ class PlotPipeLine:
             title=title,
             save_path=save_path,
         )
+
+
+class PolicyPlot:
+    @staticmethod
+    def policy_plot_2D_heatmap(
+        policy: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
+        x_range: Float[torch.Tensor, "x"],
+        y_range: Float[torch.Tensor, "y"],
+        softplus_mode: bool = True,
+        title: Optional[str] = None,
+        save_path: Optional[str] = None,
+        axes: Optional[Axes] = None,
+    ) -> None:
+        """
+        Plot the policy heatmap.
+
+        Args:
+            policy (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Policy function.
+            x_range (Float[torch.Tensor, "x"], optional): x range. e.g. torch.arange(-5, 5, 0.1).
+            y_range (Float[torch.Tensor, "y"], optional): y range. e.g. torch.arange(-5, 5, 0.1).
+            softplus_mode (bool, optional): Softplus mode. Defaults to True.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+            axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
+        """
+        if axes is None:
+            _, axes = plt.subplots(figsize=(5, 5))
+
+        # Plot heatmap
+        heatmap_plot = lambda x: axes.imshow(
+            x.T,
+            extent=[x_range.min(), x_range.max(), y_range.min(), y_range.max()],
+            origin="lower",
+            cmap="viridis",
+            aspect="auto",
+        )
+
+        if softplus_mode:
+            pipe(
+                (x_range, y_range),
+                lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
+                lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+                lambda x: x.double(),
+                policy,
+                F.softplus,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(len(x_range), len(y_range)),
+                heatmap_plot,
+            )
+        else:
+            pipe(
+                (x_range, y_range),
+                lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
+                lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+                lambda x: x.double(),
+                policy,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(len(x_range), len(y_range)),
+                heatmap_plot,
+            )
+
+        axes.set_xlabel("x")
+        axes.set_ylabel("y")
+        if title is not None:
+            axes.set_title(title)
+
+        cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
+        cbar.set_label("Action")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
