@@ -135,7 +135,7 @@ class CalculateMMDTorch:
             **kwargs (Dict[str, Any]): Additional arguments for the MMD calculation.
 
         Returns:
-            float: Maximum Mean Discrepancy (MMD) between the two distributions.
+            float: Squared Maximum Mean Discrepancy (MMD^2) between the two distributions.
         """
         default_evaluator = Engine(CalculateMMDTorch.eval_step)
 
@@ -176,7 +176,7 @@ class BatchedCalculateMMDTorch:
             batch_size (int, optional): Batch size. Defaults to 100.
 
         Returns:
-            Float[torch.Tensor, "mmd"]: MMD estimate.
+            Float[torch.Tensor, "mmd"]: Squared Maximum Mean Discrepancy (MMD^2) between the two distributions.
         """
 
         m = x.size(0)
@@ -234,7 +234,7 @@ class CalculateMMDNumpy:
             sigma (float, optional): Standard deviation. Defaults to 1.0.
 
         Returns:
-            float: Maximum Mean Discrepancy (MMD) between the two distributions.
+            float: Squared Maximum Mean Discrepancy (MMD^2) between the two distributions.
         """
 
         Kxx = KernelFunctions.gaussian_kernel_numpy(x, x, sigma)
@@ -247,3 +247,63 @@ class CalculateMMDNumpy:
         mmd = Kxx.sum() / (m * m) + Kyy.sum() / (n * n) - 2 * Kxy.sum() / (m * n)
 
         return mmd.item()
+
+
+class BatchedCalculateMMDNumpy:
+    """
+    Calculate the Maximum Mean Discrepancy (MMD) between two distributions in batches.
+    """
+
+    @staticmethod
+    def calculate(
+        x: npt.NDArray[np.floating],
+        y: npt.NDArray[np.floating],
+        sigma: float = 1.0,
+        batch_size: int = 100,
+    ) -> float:
+        """
+        Compute the Maximum Mean Discrepancy (MMD) between x and y.
+
+        Args:
+            x (Float[torch.Tensor, "x"]): Input tensor x.
+            y (Float[torch.Tensor, "y"]): Input tensor y.
+            sigma (float, optional): Sigma. Defaults to 1.0.
+            batch_size (int, optional): Batch size. Defaults to 100.
+
+        Returns:
+            Float[torch.Tensor, "mmd"]: Squared Maximum Mean Discrepancy (MMD^2) between the two distributions.
+        """
+
+        m = x.shape[0]
+        n = y.shape[0]
+        mmd_estimate_xx, mmd_estimate_yy, mmd_estimate_xy = 0.0, 0.0, 0.0
+
+        # Compute the MMD estimate in mini-batches
+        for i in range(0, m, batch_size):
+            x_batch = x[i : i + batch_size]
+            for j in range(0, n, batch_size):
+                y_batch = y[j : j + batch_size]
+
+                xx_kernel = KernelFunctions.gaussian_kernel_numpy(
+                    x_batch, x_batch, sigma
+                )
+                yy_kernel = KernelFunctions.gaussian_kernel_numpy(
+                    y_batch, y_batch, sigma
+                )
+                xy_kernel = KernelFunctions.gaussian_kernel_numpy(
+                    x_batch, y_batch, sigma
+                )
+
+                # Compute the MMD estimate for this mini-batch
+                mmd_estimate_xx += xx_kernel.sum()
+                mmd_estimate_yy += yy_kernel.sum()
+                mmd_estimate_xy += xy_kernel.sum()
+
+        # Normalize the MMD estimate
+        mmd_estimate = (
+            mmd_estimate_xx / m**2
+            + mmd_estimate_yy / n**2
+            - 2 * mmd_estimate_xy / (m * n)
+        )
+
+        return mmd_estimate.item()
