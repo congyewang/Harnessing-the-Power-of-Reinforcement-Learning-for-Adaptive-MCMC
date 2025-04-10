@@ -178,6 +178,8 @@ class PreparationInterface(ABC):
         self.initial_sample = initial_sample
         if initial_covariance is None:
             self.initial_covariance = np.eye(len(initial_sample.flatten()))
+        else:
+            self.initial_covariance = initial_covariance
         self.initial_step_size = initial_step_size
         self.log_mode = log_mode
         self.verbose = verbose

@@ -4,7 +4,7 @@ from pyrlmala.utils import Toolbox
 
 dir_name = [f"laplace_{i}" for i in [1, 2, 4]]
 model_name_list = [f"test-laplace_{i}-test-laplace_{i}" for i in [1, 2, 4]]
-step_size_list = list(range(1, 20, 1)) + [0.1, 0.5]
+step_size_list = [0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0]
 
 
 py_template_path = "./template/template.const_run.py"

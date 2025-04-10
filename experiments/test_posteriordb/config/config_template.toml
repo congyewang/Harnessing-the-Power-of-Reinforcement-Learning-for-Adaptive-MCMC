@@ -1,8 +1,8 @@
 [experiments]
 # the name of this experiment
-exp_name = "RLBarkerESJD"
+exp_name = "{{ exp_name }}"
 # seed of the experiment
-seed = 8
+seed = {{ random_seed }}
 # if toggled, `torch.backends.cudnn.deterministic=false`
 torch_deterministic = true
 # if toggled, cuda will be enabled by default
@@ -10,7 +10,7 @@ cuda = false
 # if toggled, this experiment will be tracked with Weights and Biases
 track = false
 # the wandb's project name
-wandb_project_name = "RLBarkerESJD"
+wandb_project_name = "{{ exp_name }}"
 # the entity (team) of wandb's project
 wandb_entity = ""
 # whether to capture videos of the agent performances (check out `videos` folder)
@@ -22,11 +22,11 @@ upload_model = false
 # the user or org name of the model repository from the Hugging Face Hub
 hf_entity = ""
 # The number of top policies to save
-num_of_top_policies = 1
+num_of_top_policies = 5
 
 [algorithm.general]
 # the environment id of the Atari game
-env_id = "BarkerESJDEnv-v1.0"
+env_id = "{{ env_id }}"
 # total timesteps of the experiments
 total_timesteps = 50_000
 # total timesteps of the prediction
