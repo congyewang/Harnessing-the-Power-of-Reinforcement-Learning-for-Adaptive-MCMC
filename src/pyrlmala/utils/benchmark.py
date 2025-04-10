@@ -508,17 +508,18 @@ class BootstrapBenchmark:
         return mmd_values
 
     @staticmethod
-    def output_mean_and_se(mmd_values: npt.NDArray[np.floating]) -> Tuple[float, float]:
+    def output_mean_and_se(mmd_square_values: npt.NDArray[np.floating]) -> Tuple[float, float]:
         """
         Calculate the mean and standard error of the MMD values.
         This function calculates the mean and standard error of the MMD values.
 
         Args:
-            mmd_values (npt.NDArray[np.floating]): MMD values to calculate statistics for.
+            mmd_values (npt.NDArray[np.floating]): The MMD square values.
 
         Returns:
             Tuple[float, float]: Mean and standard error of the MMD values.
         """
+        mmd_values = np.sqrt(mmd_square_values)
         mmd_mean = mmd_values.mean()
         mmd_se = np.std(mmd_values, ddof=1) / np.sqrt(len(mmd_values))
 
