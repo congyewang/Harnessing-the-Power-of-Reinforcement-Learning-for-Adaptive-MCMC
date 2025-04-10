@@ -508,36 +508,42 @@ class BootstrapBenchmark:
         return mmd_values
 
     @staticmethod
-    def output_mean_and_se(mmd_square_values: npt.NDArray[np.floating]) -> Tuple[float, float]:
+    def output_median_and_quantile(
+        mmd_square_values: npt.NDArray[np.floating],
+    ) -> Tuple[float, float, float]:
         """
-        Calculate the mean and standard error of the MMD values.
-        This function calculates the mean and standard error of the MMD values.
+        Calculate the median and quantiles of the MMD values.
+        This function calculates the median and quantiles of the MMD values.
 
         Args:
             mmd_values (npt.NDArray[np.floating]): The MMD square values.
 
         Returns:
-            Tuple[float, float]: Mean and standard error of the MMD values.
+            Tuple[float, float, float]: Median and quantiles of the MMD values.
         """
         mmd_values = np.sqrt(mmd_square_values)
-        mmd_mean = mmd_values.mean()
-        mmd_se = np.std(mmd_values, ddof=1) / np.sqrt(len(mmd_values))
 
-        return mmd_mean.item(), mmd_se.item()
+        mmd_median = np.median(mmd_values)
+        mmd_quantile_25 = np.percentile(mmd_values, 25)
+        mmd_quantile_75 = np.percentile(mmd_values, 75)
+
+        return mmd_median.item(), mmd_quantile_25.item(), mmd_quantile_75.item()
 
     def write_results(
         self,
         output_path: str,
-        mmd_mean: float,
-        mmd_se: float,
+        mmd_median: float,
+        mmd_left_quantile: float,
+        mmd_right_quantile: float,
     ) -> None:
         """
         Write the results to a CSV file.
 
         Args:
             output_path (str): The output path for the CSV file
-            mmd_mean (float): The mean MMD value
-            mmd_se (float): The standard error of the MMD value
+            mmd_median (float): The median of MMD values
+            mmd_left_quantile (float): The left quantile of MMD values
+            mmd_right_quantile (float): The right quantile of MMD values
         """
         file_path = Path(output_path)
         output_path_with_extension = file_path.with_name(
@@ -545,8 +551,8 @@ class BootstrapBenchmark:
         )
 
         with open(output_path_with_extension, "w") as f:
-            f.write("model_name,mmd_mean,mmd_se\n")
-            f.write(f"{self.model_name},{mmd_mean},{mmd_se}\n")
+            f.write("model_name,mmd_median,mmd_25,mmd_75\n")
+            f.write(f"{self.model_name},{mmd_median},{mmd_left_quantile},{mmd_right_quantile}\n")
 
     def execute(self) -> None:
         """
@@ -556,5 +562,5 @@ class BootstrapBenchmark:
         mmd_values = self.bootstrap_sampling(
             gs, num=self.num, random_seed=self.random_seed, verbose=self.verbose
         )
-        mmd_mean, mmd_se = self.output_mean_and_se(mmd_values)
-        self.write_results("bootstrap_mmd.csv", mmd_mean, mmd_se)
+        mmd_median, mmd_left_quantile, mmd_right_quantile = self.output_median_and_quantile(mmd_values)
+        self.write_results("bootstrap_mmd.csv", mmd_median, mmd_left_quantile, mmd_right_quantile)
