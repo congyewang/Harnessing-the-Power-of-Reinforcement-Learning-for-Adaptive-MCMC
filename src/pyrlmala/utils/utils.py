@@ -664,21 +664,18 @@ class Toolbox:
     ) -> float:
         match mode:
             case "auto":
-                if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor):
-                    return CalculateMMDTorch.calculate(x, y, sigma)
-                elif isinstance(x, np.ndarray) and isinstance(y, np.ndarray):
-                    return CalculateMMDNumpy.calculate(x, y, sigma)
-                elif isinstance(x, list) and isinstance(y, list):
-                    return CalculateMMDNumpy.calculate(np.array(x), np.array(y), sigma)
-                else:
-                    raise TypeError(
-                        "Input must be a numpy array, torch tensor, or list."
-                    )
+                if not isinstance(x, torch.Tensor):
+                    x = torch.tensor(x, dtype=torch.float64)
+                if not isinstance(y, torch.Tensor):
+                    y = torch.tensor(y, dtype=torch.float64)
+                return BatchedCalculateMMDTorch.calculate(x, y, sigma, batch_size)
             case "numpy":
                 return CalculateMMDNumpy.calculate(x, y, sigma)
             case "torch":
                 return CalculateMMDTorch.calculate(x, y, sigma)
             case "batch_torch":
+                return BatchedCalculateMMDTorch.calculate(x, y, sigma, batch_size)
+            case "batch_numpy":
                 return BatchedCalculateMMDTorch.calculate(x, y, sigma, batch_size)
             case _:
                 raise ValueError("mode should be 'numpy', 'torch', or 'auto'.")
