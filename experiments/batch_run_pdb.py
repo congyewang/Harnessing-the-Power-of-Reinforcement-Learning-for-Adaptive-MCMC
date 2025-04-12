@@ -87,8 +87,8 @@ def generate_files(
         "barker_esjd": "BarkerESJDEnv-v1.0",
     }
 
-    for random_seed in range(repeat_num):
-        for rl_algorithm, mcmc_env in product(rl_algorithm_list, mcmc_env_list):
+    for rl_algorithm, mcmc_env in product(rl_algorithm_list, mcmc_env_list):
+        for random_seed in range(repeat_num):
             hyperparameter_context: Dict[str, str] = {
                 "exp_name": exp_name_dict[mcmc_env],
                 "random_seed": str(random_seed),
@@ -112,39 +112,38 @@ def generate_files(
             ) as file:
                 file.write(config_content)
 
-            shutil.copy(f"{template_root_dir}/actor.toml", f"{model_result_dir}/config")
-            shutil.copy(
-                f"{template_root_dir}/critic.toml", f"{model_result_dir}/config"
-            )
+        shutil.copy(f"{template_root_dir}/actor.toml", f"{model_result_dir}/config")
+        shutil.copy(f"{template_root_dir}/critic.toml", f"{model_result_dir}/config")
 
-            pdb_run_path = f"{template_root_dir}/template_pdb_run.py"
-            with open(pdb_run_path, "r") as file:
-                pdb_run_template = jinja2.Template(file.read())
-            pdb_run_context = {
-                "model_name": model_name,
-                "posteriordb_path": posteriordb_path,
-                "rl_algorithm": rl_algorithm,
-                "mcmc_env": mcmc_env,
-                "random_seed": random_seed,
-            }
-            pdb_run_content = pdb_run_template.render(pdb_run_context)
-            pdb_run_path = f"{model_result_dir}/run_pdb_{rl_algorithm}_{mcmc_env}_seed_{random_seed}.py"
-            with open(pdb_run_path, "w") as file:
-                file.write(pdb_run_content)
+        pdb_run_path = f"{template_root_dir}/template_pdb_run.py"
+        with open(pdb_run_path, "r") as file:
+            pdb_run_template = jinja2.Template(file.read())
+        pdb_run_context = {
+            "model_name": model_name,
+            "posteriordb_path": posteriordb_path,
+            "rl_algorithm": rl_algorithm,
+            "mcmc_env": mcmc_env,
+            "repeat_num": repeat_num,
+        }
+        pdb_run_content = pdb_run_template.render(pdb_run_context)
+        pdb_run_path = f"{model_result_dir}/run_pdb_{rl_algorithm}_{mcmc_env}.py"
+        with open(pdb_run_path, "w") as file:
+            file.write(pdb_run_content)
 
-            bash_template_path = f"{template_root_dir}/template.run-pdb.sh"
-            bash_context = {
-                "model_name": model_name,
-                "rl_algorithm": rl_algorithm,
-                "mcmc_env": mcmc_env,
-                "random_seed": random_seed,
-            }
-            with open(bash_template_path, "r") as file:
-                bash_template = jinja2.Template(file.read())
-            bash_content = bash_template.render(bash_context)
-            bash_script_path = f"{model_result_dir}/run_bash_{rl_algorithm}_{mcmc_env}_seed_{random_seed}.sh"
-            with open(bash_script_path, "w") as file:
-                file.write(bash_content)
+        bash_template_path = f"{template_root_dir}/template.run-pdb.sh"
+        bash_context = {
+            "model_name": model_name,
+            "rl_algorithm": rl_algorithm,
+            "mcmc_env": mcmc_env,
+        }
+        with open(bash_template_path, "r") as file:
+            bash_template = jinja2.Template(file.read())
+        bash_content = bash_template.render(bash_context)
+        bash_script_path = (
+            f"{model_result_dir}/run_bash_{rl_algorithm}_{mcmc_env}.sh"
+        )
+        with open(bash_script_path, "w") as file:
+            file.write(bash_content)
 
 
 if __name__ == "__main__":

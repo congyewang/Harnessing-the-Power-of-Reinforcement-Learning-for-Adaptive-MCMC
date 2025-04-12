@@ -72,10 +72,9 @@ def write_header(file_path: str) -> None:
         file.write("model_name,rl_algorithm,mcmc_env,random_seed,mmd\n")
 
 
-def write_results(mmd: float, file_path: str) -> None:
+def write_results(random_seed: int, mmd: float, file_path: str) -> None:
     rl_algorithm = "{{ rl_algorithm }}"
     mcmc_env = "{{ mcmc_env }}"
-    random_seed = {{random_seed}}
 
     with open(file_path, "a+") as file:
         file.write(f"{model_name},{rl_algorithm},{mcmc_env},{random_seed},{mmd}\n")
@@ -89,7 +88,7 @@ def main():
         gs, predicted_sample = get_samples(random_number)
 
         mmd = Toolbox.calculate_mmd(gs, predicted_sample)
-        write_results(mmd, file_path)
+        write_results(random_number, mmd, file_path)
 
 
 if __name__ == "__main__":

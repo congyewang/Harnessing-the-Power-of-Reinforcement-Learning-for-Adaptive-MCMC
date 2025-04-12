@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=const-{{ model_name }}-{{ rl_algorithm }}_{{ mcmc_env }}_seed_{{ random_seed }}
+#SBATCH --job-name=const-{{ model_name }}-{{ rl_algorithm }}_{{ mcmc_env }}
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=2-00:00:00
@@ -22,7 +22,7 @@ mem = psutil.virtual_memory()
 print(f'Node Total Mem: {mem.total / 1024 / 1024:.2f} MB')
 "
 
-python run_pdb_{{ rl_algorithm }}_{{ mcmc_env }}_seed_{{ random_seed }}.py
+python run_pdb_{{ rl_algorithm }}_{{ mcmc_env }}.py
 
 curl -d "✅ SLURM Job ${SLURM_JOB_NAME} Finished Successfully" https://ntfy.greenlimes.top/asus
 
