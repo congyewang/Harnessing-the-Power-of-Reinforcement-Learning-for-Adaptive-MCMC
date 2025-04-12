@@ -1,13 +1,17 @@
 #!/bin/bash
 
-find whole_results -mindepth 1 -maxdepth 1 -type d > subfolders.txt
+cd whole_results
 
-while read subfolder; do
-  echo "Enter: $subfolder"
+for dir in */; do
+    echo "Enter: $dir"
+    cd "$dir" || continue
 
-  find "$subfolder" -type f -name "*.sh" | while read shfile; do
-    sbatch "$shfile"
-    echo "Submitted: $shfile"
-  done
+    for script in *.sh; do
+        if [ -f "$script" ]; then
+            sbatch "$script"
+            echo "Submitted: $script"
+        fi
+    done
 
-done < subfolders.txt
+    cd ..
+done
