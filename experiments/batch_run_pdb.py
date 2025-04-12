@@ -126,9 +126,6 @@ def generate_files(
                 "rl_algorithm": rl_algorithm,
                 "mcmc_env": mcmc_env,
                 "random_seed": random_seed,
-                "hyperparameter_config_path": f"./config/{rl_algorithm}_{mcmc_env}/{rl_algorithm}_{mcmc_env}_seed_{random_seed}.toml",
-                "actor_config_path": "./config/actor.toml",
-                "critic_config_path": "./config/critic.toml",
             }
             pdb_run_content = pdb_run_template.render(pdb_run_context)
             pdb_run_path = f"{model_result_dir}/run_pdb_{rl_algorithm}_{mcmc_env}_seed_{random_seed}.py"
