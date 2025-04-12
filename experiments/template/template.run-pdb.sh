@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=const-{{ model_name }}-{{ rl_algorithm }}_{{ mcmc_env }}
+#SBATCH --job-name=flex-{{ model_name }}-{{ rl_algorithm }}_{{ mcmc_env }}
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=2-00:00:00
