@@ -464,7 +464,7 @@ class AveragePolicy:
             axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
         """
         if axes is None:
-            _, axes = plt.subplots()
+            _, axes = plt.subplots(figsize=(5, 5))
 
         # Plot heatmap
         heatmap_plot = lambda x: axes.imshow(
