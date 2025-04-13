@@ -445,6 +445,7 @@ class AveragePolicy:
         last_step_num: int,
         frequency_per_step: int,
         softplus_mode: bool = True,
+        colorbar_range: Optional[Tuple[float, float]] = None,
         save_path: Optional[str] = None,
         title: str = "",
         axes: Optional[Axes] = None,
@@ -459,6 +460,7 @@ class AveragePolicy:
             frequency_per_step (int): Frequency of steps.
             ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
             softplus_mode (bool, optional): Softplus mode. Defaults to True.
+            colorbar_range (Optional[Tuple[float, float]], optional): Colorbar range. Defaults to None.
             save_path (Optional[str], optional): Save path. Defaults to None.
             title (str, optional): Title of the plot. Defaults to "".
             axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
@@ -473,6 +475,8 @@ class AveragePolicy:
             origin="lower",
             cmap="viridis",
             aspect="auto",
+            vmin=colorbar_range[0] if colorbar_range else None,
+            vmax=colorbar_range[1] if colorbar_range else None,
         )
 
         # Calculate the policy
