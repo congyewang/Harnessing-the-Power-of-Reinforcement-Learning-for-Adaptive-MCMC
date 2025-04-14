@@ -15,7 +15,6 @@ from cytoolz import pipe, topk
 from cytoolz.curried import map
 from jaxtyping import Float
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 from numpy import typing as npt
 from torch import nn
 from tqdm.auto import tqdm
@@ -102,18 +101,34 @@ class FlexPipeLine:
         return self.df["mmd"].mean().item()
 
     @property
+    def se(self) -> float:
+        return float(self.df["mmd"].std(ddof=1) / (self.df["mmd"].count() ** 0.5))
+
+    @property
     def median(self) -> float:
         return self.df["mmd"].median().item()
 
     @property
-    def se(self) -> float:
-        return float(self.df["mmd"].std(ddof=1) / (self.df["mmd"].count() ** 0.5))
+    def left_quantile(self) -> float:
+        return self.df["mmd"].quantile(0.25).item()
+
+    @property
+    def right_quantile(self) -> float:
+        return self.df["mmd"].quantile(0.75).item()
 
 
 class PlotPipeLine:
-    def __init__(self) -> None:
-        self.res = defaultdict(dict)
-        _, self.ax = self.make_axes()
+    def __init__(self, log_mode: bool = True, axes: Optional[Axes] = None) -> None:
+        if axes:
+            self.ax = axes
+        else:
+            self.ax = self.make_axes()
+
+        if log_mode:
+            self.ax.set_xscale("log")
+            self.ax.set_yscale("log")
+
+        self.res: Dict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
 
     def store_to_dict(self, file_path: str) -> None:
         df = pd.read_csv(file_path)
@@ -122,21 +137,31 @@ class PlotPipeLine:
         step_size = df["step_size"].unique().item()
 
         median = df["mmd"].median()
-        se = df["mmd"].std(ddof=1) / (df["mmd"].count() ** 0.5)
+        left_quantile = df["mmd"].quantile(0.25)
+        right_quantile = df["mmd"].quantile(0.75)
 
-        self.res[mcmc_env][step_size] = {"median": median, "se": se}
+        self.res[mcmc_env][step_size] = {
+            "median": median,
+            "left_quantile": left_quantile,
+            "right_quantile": right_quantile,
+        }
 
-    def make_axes(self) -> tuple[Figure, Axes]:
-        fig, ax = plt.subplots(figsize=(5, 5))
-        return fig, ax
+    def make_axes(self) -> Axes:
+        _, ax = plt.subplots(figsize=(5, 5))
+        return ax
 
     def plot_const(self, mcmc_env: str = "mala") -> None:
         x_ranges = np.array(sorted([i for i in self.res[mcmc_env].keys()]))
         y_median = np.array([self.res[mcmc_env][float(x)]["median"] for x in x_ranges])
-        y_se = np.array([self.res[mcmc_env][float(x)]["se"] for x in x_ranges])
+        y_left_quantile = np.array(
+            [self.res[mcmc_env][float(x)]["left_quantile"] for x in x_ranges]
+        )
+        y_right_quantile = np.array(
+            [self.res[mcmc_env][float(x)]["right_quantile"] for x in x_ranges]
+        )
 
         self.ax.plot(x_ranges, y_median, label="Constant Policy")
-        self.ax.fill_between(x_ranges, y_median - y_se, y_median + y_se, alpha=0.3)
+        self.ax.fill_between(x_ranges, y_left_quantile, y_right_quantile, alpha=0.3)
 
         self.ax.relim()
         self.ax.autoscale_view()
@@ -145,21 +170,22 @@ class PlotPipeLine:
 
     def plot_flex(
         self,
-        matrics: float | npt.NDArray[np.floating],
-        se: float | npt.NDArray[np.floating],
+        median: float | npt.NDArray[np.floating],
+        left_quantile: float | npt.NDArray[np.floating],
+        right_quantile: float | npt.NDArray[np.floating],
     ) -> None:
-        self.ax.axhline(matrics, color="red", linestyle="--", label="Flexible Policy")
+        self.ax.axhline(median, color="red", linestyle="--", label="Flexible Policy")
         self.ax.fill_between(
-            self.x_ranges, matrics - se, matrics + se, alpha=0.2, color="red"
+            self.x_ranges, left_quantile, right_quantile, alpha=0.2, color="red"
         )
 
     def plot_bootstrap(
         self,
-        matrics: float | npt.NDArray[np.floating],
+        median: float | npt.NDArray[np.floating],
         left_quantile: float | npt.NDArray[np.floating],
         right_quantile: float | npt.NDArray[np.floating],
     ) -> None:
-        self.ax.axhline(matrics, color="#8680A6", linestyle=":", label="Bootstrap")
+        self.ax.axhline(median, color="#8680A6", linestyle=":", label="Bootstrap")
         self.ax.fill_between(
             self.x_ranges, left_quantile, right_quantile, alpha=0.3, color="#8680A6"
         )
@@ -167,16 +193,26 @@ class PlotPipeLine:
     def plot_total(
         self,
         mcmc_env: str,
-        flex_matrics: float | npt.NDArray[np.floating],
-        flex_se: float | npt.NDArray[np.floating],
-        bootstrap_matrics: float | npt.NDArray[np.floating],
-        bootstrap_se: float | npt.NDArray[np.floating],
+        flex_median: float | npt.NDArray[np.floating],
+        flex_left_quantile: float | npt.NDArray[np.floating],
+        flex_right_quantile: float | npt.NDArray[np.floating],
+        bootstrap_median: float | npt.NDArray[np.floating],
+        bootstrap_left_quantile: float | npt.NDArray[np.floating],
+        bootstrap_right_quantile: float | npt.NDArray[np.floating],
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
         self.plot_const(mcmc_env=mcmc_env)
-        self.plot_flex(matrics=flex_matrics, se=flex_se)
-        self.plot_bootstrap(matrics=bootstrap_matrics, se=bootstrap_se)
+        self.plot_flex(
+            median=flex_median,
+            left_quantile=flex_left_quantile,
+            right_quantile=flex_right_quantile,
+        )
+        self.plot_bootstrap(
+            median=bootstrap_median,
+            left_quantile=bootstrap_left_quantile,
+            right_quantile=bootstrap_right_quantile,
+        )
 
         self.ax.set_xlabel("Step Size")
         self.ax.set_ylabel("MMD")
@@ -196,7 +232,7 @@ class PlotPipeLine:
         mcmc_env: str,
         const_dir: str,
         flex_file_path: str,
-        bootstrap_tuple: Tuple[float, float],
+        bootstrap_tuple: Tuple[float, float, float],
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
@@ -212,10 +248,12 @@ class PlotPipeLine:
         flex_pipeline = FlexPipeLine(input_file=flex_file_path)
         self.plot_total(
             mcmc_env=mcmc_env,
-            flex_matrics=flex_pipeline.median,
-            flex_se=flex_pipeline.se,
-            bootstrap_matrics=bootstrap_tuple[0],
-            bootstrap_se=bootstrap_tuple[1],
+            flex_median=flex_pipeline.median,
+            flex_left_quantile=flex_pipeline.left_quantile,
+            flex_right_quantile=flex_pipeline.right_quantile,
+            bootstrap_median=bootstrap_tuple[0],
+            bootstrap_left_quantile=bootstrap_tuple[1],
+            bootstrap_right_quantile=bootstrap_tuple[2],
             title=title,
             save_path=save_path,
         )
