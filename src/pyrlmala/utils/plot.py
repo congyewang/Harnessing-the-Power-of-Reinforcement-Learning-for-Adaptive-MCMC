@@ -156,11 +156,12 @@ class PlotPipeLine:
     def plot_bootstrap(
         self,
         matrics: float | npt.NDArray[np.floating],
-        se: float | npt.NDArray[np.floating],
+        left_quantile: float | npt.NDArray[np.floating],
+        right_quantile: float | npt.NDArray[np.floating],
     ) -> None:
         self.ax.axhline(matrics, color="#8680A6", linestyle=":", label="Bootstrap")
         self.ax.fill_between(
-            self.x_ranges, matrics - se, matrics + se, alpha=0.3, color="#8680A6"
+            self.x_ranges, left_quantile, right_quantile, alpha=0.3, color="#8680A6"
         )
 
     def plot_total(
