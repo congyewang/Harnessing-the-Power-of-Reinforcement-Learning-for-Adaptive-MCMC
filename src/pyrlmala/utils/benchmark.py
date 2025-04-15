@@ -521,7 +521,8 @@ class BootstrapBenchmark:
         Returns:
             Tuple[float, float, float]: Median and quantiles of the MMD values.
         """
-        mmd_values = np.sqrt(mmd_square_values)
+        # mmd_values = np.sqrt(mmd_square_values)
+        mmd_values = mmd_square_values
 
         mmd_median = np.median(mmd_values)
         mmd_quantile_25 = np.percentile(mmd_values, 25)

@@ -1,10 +1,8 @@
-import glob
-import itertools
 import json
 import os
 import re
 import warnings
-from functools import cache, partial
+from functools import cache
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import bridgestan as bs
@@ -13,13 +11,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import torch
-from cytoolz import compose_left, pipe, thread_last
-from cytoolz.curried import map, topk
+from cytoolz import pipe
 from gymnasium.envs.registration import EnvSpec
 from jaxtyping import Float
 from matplotlib.axes import Axes
 from posteriordb import PosteriorDatabase
-from scipy.stats._multivariate import _PSD
 from torch.nn import functional as F
 
 from .mmd import (
@@ -28,99 +24,10 @@ from .mmd import (
     CalculateMMDTorch,
     MedianTrick,
 )
+from .nearestpd import NearestPD
 from .posteriordb import PosteriorDBToolbox
 from .target import AutoStanTargetPDF
 from .types import T_x, T_y
-
-
-class NearestPD:
-    @staticmethod
-    def is_positive_definite(B: npt.NDArray[np.float64]) -> bool:
-        """
-        Returns true when input is positive-definite, via Cholesky, det, and _PSD from scipy.
-
-        Args:
-            B (npt.NDArray[np.float64]): Input array.
-
-        Returns:
-            bool: True if input is positive-definite, False otherwise.
-        """
-        try:
-            _ = np.linalg.cholesky(B)
-            res_cholesky = True
-        except np.linalg.LinAlgError:
-            res_cholesky = False
-
-        try:
-            assert np.linalg.det(B) > 0, "Determinant is negative"
-            res_det = True
-        except AssertionError:
-            res_det = False
-
-        try:
-            _PSD(B, allow_singular=False)
-            res_PSD = True
-        except Exception as e:
-            if re.search("[Pp]ositive", str(e)):
-                return False
-            else:
-                raise
-
-        res = res_cholesky and res_det and res_PSD
-
-        return res
-
-    @classmethod
-    def nearest_positive_definite(
-        cls, A: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
-        """
-        Find the nearest positive-definite matrix to input
-        A Python/Numpy port of John D'Errico's `nearestSPD` MATLAB code [1], which
-        credits [2].
-
-        [1] https://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
-
-        [2] N.J. Higham, "Computing a nearest symmetric positive semidefinite
-            matrix" (1988): https://doi.org/10.1016/0024-3795(88)90223-6
-
-        Args:
-            A (npt.NDArray[np.float64]): Input array.
-
-        Returns:
-            npt.NDArray[np.float64]: Nearest positive-definite matrix.
-        """
-
-        B = (A + A.T) / 2
-        _, s, V = np.linalg.svd(B)
-
-        H = np.dot(V.T, np.dot(np.diag(s), V))
-
-        A2 = (B + H) / 2
-
-        A3 = (A2 + A2.T) / 2
-
-        if cls.is_positive_definite(A3):
-            return A3
-
-        spacing = np.spacing(np.linalg.norm(A))
-        # The above is different from [1]. It appears that MATLAB's `chol` Cholesky
-        # decomposition will accept matrixes with exactly 0-eigenvalue, whereas
-        # Numpy's will not. So where [1] uses `eps(mineig)` (where `eps` is Matlab
-        # for `np.spacing`), we use the above definition. CAVEAT: our `spacing`
-        # will be much larger than [1]'s `eps(mineig)`, since `mineig` is usually on
-        # the order of 1e-16, and `eps(1e-16)` is on the order of 1e-34, whereas
-        # `spacing` will, for Gaussian random matrixes of small dimension, be on
-        # othe order of 1e-16. In practice, both ways converge, as the unit test
-        # below suggests.
-        I = np.eye(A.shape[0])
-        k = 1
-        while not cls.is_positive_definite(A3):
-            mineig = np.min(np.real(np.linalg.eigvals(A3)))
-            A3 += I * (-mineig * k**2 + spacing)
-            k += 1
-
-        return A3
 
 
 class Toolbox:
@@ -793,189 +700,3 @@ class Toolbox:
 
             for i in markdown_total:
                 f.write(i + "\n")
-
-
-class AveragePolicy:
-    @staticmethod
-    def generate_state_mesh(
-        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
-    ) -> Callable[
-        [Tuple[Tuple[float, float, float], Tuple[float, float, float]]],
-        Float[torch.Tensor, "mesh_2d"],
-    ]:
-        """
-        Generate a mesh grid from ranges. The mesh grid is used to evaluate the policy.
-
-        Args:
-            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Ranges for the mesh grid.
-
-        Returns:
-            Callable[[Tuple[Tuple[float, float, float], Tuple[float, float, float]]], Float[torch.Tensor, "mesh_2d"]]: Mesh grid generator.
-        """
-        return pipe(
-            ranges,
-            map(lambda r: torch.linspace(*r)),
-            lambda ranges: Toolbox.imbalanced_mesh_2d(*ranges),
-            lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
-            lambda x: x.double(),
-        )
-
-    @classmethod
-    def calculate_policy(
-        cls,
-        weights_path: str,
-        actor: Callable[
-            [Float[torch.Tensor, "mesh_2d"]], Float[torch.Tensor, "action"]
-        ],
-        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
-    ) -> Float[torch.Tensor, "action"]:
-        """
-        Calculate the policy based on the given ranges and weights.
-
-        Args:
-            weights_path (str): Path to the model weights.
-            actor (Callable[[Float[torch.Tensor, "mesh_2d"]], Float[torch.Tensor, "action"]]): Actor model that produces actions.
-            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
-
-        Returns:
-            Float[torch.Tensor, "action"]: The calculated actions from the policy.
-        """
-        # Load the weights
-        pipe(
-            weights_path,
-            torch.load,
-            actor.load_state_dict,
-        )
-
-        return pipe(
-            ranges,
-            cls.generate_state_mesh,
-            actor,
-        )
-
-    @classmethod
-    def calculate_mean_policy(
-        cls,
-        actor: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
-        weights_path: str,
-        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
-        last_step_num: int,
-        policy_slice_size: int,
-    ) -> Float[torch.Tensor, "average_action"]:
-        """
-        Calculate the mean policy based on the given weights.
-
-        Args:
-            actor (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Actor model that produces actions.
-            weights_path (str): Path to the model weights.
-            last_step_num (int): Last step number.
-            policy_slice_size (int): Policy slice size.
-            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
-
-        Returns:
-            Float[torch.Tensor, "average_action"]: The mean policy
-        """
-        partial_calculate_policy = partial(
-            cls.calculate_policy,
-            actor=actor,
-            ranges=ranges,
-        )
-        extract_step_number = compose_left(
-            lambda x: re.search(r"\d+", x).group(),
-            int,
-        )
-        topk_by_step_num = partial(topk, key=extract_step_number)
-
-        return thread_last(
-            weights_path,
-            glob.glob,
-            topk_by_step_num(last_step_num),
-            map(partial_calculate_policy),
-            lambda x: itertools.islice(x, 0, None, policy_slice_size),
-            list,
-            lambda x: torch.stack(x, dim=0),
-            lambda x: torch.mean(x, dim=0),
-        )
-
-    @classmethod
-    def plot_policy(
-        cls,
-        actor: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
-        weights_path: str,
-        ranges: Tuple[Tuple[float, float, float], Tuple[float, float, float]],
-        last_step_num: int,
-        policy_slice_size: int,
-        softplus_mode: bool = True,
-        save_path: Optional[str] = None,
-        title_addition: str = "",
-        axes: Optional[Axes] = None,
-    ) -> None:
-        """
-        Plot the policy based on the provided actor and weights.
-
-        Args:
-            actor (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Actor function.
-            weights_path (str): Path to the weights.
-            last_step_num (int): Last step number to consider for the plot.
-            policy_slice_size (int): Number of policies to slice.
-            ranges (Tuple[Tuple[float, float, float], Tuple[float, float, float]]): Range for the state mesh.
-            softplus_mode (bool, optional): Softplus mode. Defaults to True.
-            save_path (Optional[str], optional): Save path. Defaults to None.
-            title_addition (str, optional): Title addition for the plot. Defaults to "".
-            axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
-        """
-        if axes is None:
-            _, axes = plt.subplots()
-
-        # Plot heatmap
-        heatmap_plot = lambda x: axes.imshow(
-            x.T,
-            extent=[ranges[0][0], ranges[0][1], ranges[1][0], ranges[1][1]],
-            origin="lower",
-            cmap="viridis",
-            aspect="auto",
-        )
-
-        # Calculate the policy
-        if softplus_mode:
-            pipe(
-                ranges,
-                lambda x: cls.calculate_mean_policy(
-                    actor,
-                    weights_path,
-                    x,
-                    last_step_num,
-                    policy_slice_size,
-                ),
-                F.softplus,
-                torch.detach,
-                lambda x: x.numpy()[:, 0].reshape(ranges[0][2], ranges[1][2]),
-                heatmap_plot,
-            )
-        else:
-            pipe(
-                ranges,
-                lambda x: cls.calculate_mean_policy(
-                    actor,
-                    weights_path,
-                    x,
-                    last_step_num,
-                    policy_slice_size,
-                ),
-                torch.detach,
-                lambda x: x.numpy()[:, 0].reshape(ranges[0][2], ranges[1][2]),
-                heatmap_plot,
-            )
-
-        axes.set_title(f"Policy Heatmap {title_addition}")
-        axes.set_xlabel("x")
-        axes.set_ylabel("y")
-
-        cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
-        cbar.set_label("Action")
-
-        if save_path is not None:
-            Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
-        else:
-            plt.show()
