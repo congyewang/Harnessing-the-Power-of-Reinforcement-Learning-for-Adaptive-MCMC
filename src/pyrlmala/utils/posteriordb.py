@@ -10,6 +10,7 @@ from numpy import typing as npt
 from posteriordb import PosteriorDatabase
 from scipy.optimize import minimize
 
+from .nearestpd import NearestPD
 from .target import PosteriorDatabaseTargetPDF
 
 
@@ -160,9 +161,11 @@ class PosteriorDBToolbox:
             method="trust-constr",
         )
 
-        fisher_infermation_matrix = -np.linalg.inv(hess_log_target_pdf(maximum.x))
+        hessian_matrix = hess_log_target_pdf(maximum.x)
+        hessian_positive_definite = NearestPD.nearest_positive_definite(hessian_matrix)
+        fisher_information_matrix = -np.linalg.inv(hessian_positive_definite)
 
-        return fisher_infermation_matrix
+        return fisher_information_matrix
 
 
 class NUTSFromPosteriorDB:
