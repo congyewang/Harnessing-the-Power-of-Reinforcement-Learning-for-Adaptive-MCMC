@@ -567,7 +567,7 @@ class Toolbox:
         /,
         mode: str = "auto",
         *,
-        batch_size: int = 100,
+        batch_size: int = 1_000,
     ) -> float:
         match mode:
             case "auto":

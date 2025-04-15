@@ -150,8 +150,8 @@ class PosteriorDBToolbox:
             posterior_target.combine_make_log_target_pdf(mode=["pdf", "grad", "hess"])
         )
 
-        model_dim = self.get_gold_standard(model_name).shape[1]
-        init_point = np.random.normal(size=model_dim)
+        gold_standard = self.get_gold_standard(model_name)
+        init_point = np.mean(gold_standard, axis=0)
 
         maximum = minimize(
             lambda x: -log_target_pdf(x),

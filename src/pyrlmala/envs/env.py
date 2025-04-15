@@ -19,6 +19,8 @@ from scipy.stats import multivariate_normal
 
 from ..utils import Toolbox
 
+NEG_INF64 = -np.finfo(np.float64).max
+
 
 class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC):
     """
@@ -277,10 +279,14 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         Returns:
             npt.NDArray[np.float64]: Log Target Probability Density at x.
         """
-        res = self.log_target_pdf_unsafe(x)
+        try:
+            res = self.log_target_pdf_unsafe(x)
+        except RuntimeError:
+            warnings.warn(f"log_target_pdf is failed, where x: {x}.")
+            res = NEG_INF64
 
         if np.isinf(res):
-            res = -np.finfo(np.float64).max
+            res = NEG_INF64
             warnings.warn(f"log_target_pdf is inf or -inf, where x: {x}.")
         return res
 
@@ -296,10 +302,15 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         Returns:
             npt.NDArray[np.float64]: Gradient of Log Target Probability Density at x.
         """
-        res = self.grad_log_target_pdf_unsafe(x)
+        try:
+            res = self.grad_log_target_pdf_unsafe(x)
+        except RuntimeError:
+            warnings.warn(f"grad_log_target_pdf is failed, where x: {x}.")
+            res = np.full_like(x, NEG_INF64)
 
         if np.isinf(res).any():
-            res = np.where(np.isinf(res), 0, res)
+            # res = np.where(np.isinf(res), 0, res)
+            res = np.where(np.isinf(res), NEG_INF64, res)
             warnings.warn(f"grad_log_target_pdf is inf or -inf, where x: {x}.")
         return res
 
