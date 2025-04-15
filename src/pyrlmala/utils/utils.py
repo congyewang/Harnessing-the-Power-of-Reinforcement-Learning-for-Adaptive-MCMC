@@ -543,9 +543,9 @@ class Toolbox:
         match mode:
             case "auto":
                 if isinstance(x, torch.Tensor):
-                    return MedianTrick.median_trick_numpy(x)
-                elif isinstance(x, np.ndarray):
                     return MedianTrick.median_trick_torch(x)
+                elif isinstance(x, np.ndarray):
+                    return MedianTrick.median_trick_numpy(x)
                 elif isinstance(x, list):
                     return MedianTrick.median_trick_numpy(np.array(x))
                 else:
