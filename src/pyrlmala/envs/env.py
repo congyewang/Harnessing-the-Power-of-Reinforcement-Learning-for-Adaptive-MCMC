@@ -466,13 +466,27 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         """
         raise NotImplementedError("step is not implemented.")
 
+    @abstractmethod
+    def _generate_initial_next_proposed_sample(self) -> npt.NDArray[np.float64]:
+        """
+        Generate Initial Next Proposed Sample. This function should be implemented.
+
+        Raises:
+            NotImplementedError: _generate_initial_next_proposed_sample is not implemented.
+        """
+        raise NotImplementedError(
+            "_generate_initial_next_proposed_sample is not implemented."
+        )
+
     def _initialize_state(self) -> None:
         """
         Initialize the state of the environment. This function is used to initialize the state of the environment.
         """
-        initial_next_proposed_sample = self.np_random.multivariate_normal(
-            mean=self.initial_sample, cov=self.initial_covariance, size=1
-        ).flatten()
+        # initial_next_proposed_sample = self.np_random.multivariate_normal(
+        #     mean=self.initial_sample, cov=self.initial_covariance, size=1
+        # ).flatten()
+
+        initial_next_proposed_sample = self._generate_initial_next_proposed_sample()
 
         self.state = np.concatenate((self.initial_sample, initial_next_proposed_sample))
 
@@ -581,6 +595,21 @@ class BarkerEnv(MCMCEnvBase):
         return -self.sample_dim * np.log(step_size) + multivariate_normal.logpdf(
             position, np.zeros(self.sample_dim), np.eye(self.sample_dim)
         )
+
+    def _generate_initial_next_proposed_sample(self) -> npt.NDArray[np.float64]:
+        """
+        Generate Initial Next Proposed Sample. This function is used to generate the initial next proposed sample.
+
+        Returns:
+            npt.NDArray[np.float64]: Initial Next Proposed Sample.
+        """
+        current_grad_log_pdf = self.grad_log_target_pdf(self.initial_sample)
+
+        initial_next_proposed_sample = self.sample_generator(
+            self.initial_sample, current_grad_log_pdf, self.initial_step_size
+        )
+
+        return initial_next_proposed_sample.flatten()
 
     def sample_generator(
         self,
@@ -990,6 +1019,23 @@ class MALAEnv(MCMCEnvBase):
         positive_covariance = Toolbox.nearestPD(covariance)
 
         return mean, positive_covariance
+
+    def _generate_initial_next_proposed_sample(self) -> npt.NDArray[np.float64]:
+        """
+        Generate Initial Next Proposed Sample. This function is used to generate the initial next proposed sample.
+        """
+        current_grad_log_pdf = self.grad_log_target_pdf(self.initial_sample)
+        current_mean, current_covariance = self._compute_mean_and_covariance(
+            self.initial_sample,
+            self.initial_step_size,
+            self.initial_covariance,
+            current_grad_log_pdf,
+        )
+        initial_next_proposed_sample = self.sample_generator(
+            current_mean, current_covariance
+        )
+
+        return initial_next_proposed_sample.flatten()
 
     def sample_generator(
         self,
