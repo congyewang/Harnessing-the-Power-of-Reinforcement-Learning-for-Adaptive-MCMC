@@ -1,4 +1,5 @@
 import heapq
+from itertools import count
 from typing import Callable, Generic, List, Optional, TypeVar
 
 T = TypeVar("T")
@@ -10,7 +11,7 @@ class DynamicTopK(Generic[T]):
     It uses a min-heap to keep track of the top k elements.
     """
 
-    def __init__(self, k: int, key: Optional[Callable[[T], float]] = None):
+    def __init__(self, k: int, key: Optional[Callable[[T], float]] = None) -> None:
         """
         Initialize the DynamicTopK class.
 
@@ -24,6 +25,8 @@ class DynamicTopK(Generic[T]):
         self.heap: List[T] = []
         self.key = key
 
+        self.counter = count()
+
     def add(self, val: T) -> None:
         """
         Add an element to the top k elements.
@@ -31,12 +34,16 @@ class DynamicTopK(Generic[T]):
         Args:
             val (T): The element to be added to the top k.
         """
+        count_id = next(self.counter)
+
         val_key = self.key(val) if self.key else val
+        item = (val_key, count_id, val)
+
         if len(self.heap) < self.k:
-            heapq.heappush(self.heap, (val_key, val))
+            heapq.heappush(self.heap, item)
         else:
             if val_key > self.heap[0][0]:
-                heapq.heappushpop(self.heap, (val_key, val))
+                heapq.heappushpop(self.heap, item)
 
     def topk(self) -> List[T]:
         """
@@ -45,4 +52,4 @@ class DynamicTopK(Generic[T]):
         Returns:
             List[T]: The top k elements in descending order.
         """
-        return [item[1] for item in sorted(self.heap, key=lambda x: x[0], reverse=True)]
+        return [item[2] for item in sorted(self.heap, key=lambda x: x[0], reverse=True)]

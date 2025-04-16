@@ -227,7 +227,7 @@ class LearningInterface(ABC):
         self.num_of_top_policies = num_of_top_policies
         self.topk_policy: DynamicTopK[
             Tuple[np.float64, Dict[str, Dict[str, Any] | int]]
-        ] = DynamicTopK(num_of_top_policies)
+        ] = DynamicTopK(num_of_top_policies, key=lambda x: x[0])
 
         # Tensorboard
         self.writer = SummaryWriter(f"runs/{run_name}")
@@ -600,7 +600,9 @@ class LearningDDPG(LearningInterface):
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
         if "episode" in infos:
-            episodic_return = infos["episode"]["r"][0]
+            episodic_return = float(infos["episode"]["r"][0])
+
+            print("episodic_return:", episodic_return)
 
             self.topk_policy.add(
                 (
