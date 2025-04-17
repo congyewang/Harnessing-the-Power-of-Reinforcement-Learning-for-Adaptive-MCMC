@@ -602,8 +602,6 @@ class LearningDDPG(LearningInterface):
         if "episode" in infos:
             episodic_return = float(infos["episode"]["r"][0])
 
-            print("episodic_return:", episodic_return)
-
             self.topk_policy.add(
                 (
                     episodic_return,
