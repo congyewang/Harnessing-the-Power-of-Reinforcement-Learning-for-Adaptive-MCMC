@@ -160,7 +160,39 @@ class BatchedCalculateMMDTorch:
     """
 
     @staticmethod
+    def batched_kernel_sum(
+        x: Float[torch.Tensor, "x"],
+        y: Float[torch.Tensor, "y"],
+        sigma: float = 1.0,
+        batch_size: int = 1_000,
+    ) -> Float[torch.Tensor, "sum"]:
+        """
+        Compute the kernel sum in batches.
+
+        Args:
+            x (Float[torch.Tensor, "x"]): Input tensor x.
+            y (Float[torch.Tensor, "y"]): Input tensor y.
+            sigma (float, optional): Sigma. Defaults to 1.0.
+            batch_size (int, optional): Batch size. Defaults to 100.
+
+        Returns:
+            Float[torch.Tensor, "sum"]: The sum of the kernel values for the batches.
+        """
+
+        m = x.size(0)
+        mmd_estimate = 0.0
+
+        for i in range(0, m, batch_size):
+
+            x_batch = x[i : i + batch_size]
+            xy_kernel = KernelFunctions.gaussian_kernel_torch(x_batch, y, sigma)
+            mmd_estimate += xy_kernel.sum()
+
+        return mmd_estimate
+
+    @classmethod
     def calculate(
+        cls,
         x: Float[torch.Tensor, "x"],
         y: Float[torch.Tensor, "y"],
         sigma: float = 1.0,
@@ -181,28 +213,10 @@ class BatchedCalculateMMDTorch:
 
         m = x.size(0)
         n = y.size(0)
-        mmd_estimate_xx, mmd_estimate_yy, mmd_estimate_xy = 0.0, 0.0, 0.0
 
-        # Compute the MMD estimate in mini-batches
-        for i in range(0, m, batch_size):
-            x_batch = x[i : i + batch_size]
-            for j in range(0, n, batch_size):
-                y_batch = y[j : j + batch_size]
-
-                xx_kernel = KernelFunctions.gaussian_kernel_torch(
-                    x_batch, x_batch, sigma
-                )
-                yy_kernel = KernelFunctions.gaussian_kernel_torch(
-                    y_batch, y_batch, sigma
-                )
-                xy_kernel = KernelFunctions.gaussian_kernel_torch(
-                    x_batch, y_batch, sigma
-                )
-
-                # Compute the MMD estimate for this mini-batch
-                mmd_estimate_xx += xx_kernel.sum()
-                mmd_estimate_yy += yy_kernel.sum()
-                mmd_estimate_xy += xy_kernel.sum()
+        mmd_estimate_xx = cls().batched_kernel_sum(x, x, sigma, batch_size)
+        mmd_estimate_xy = cls().batched_kernel_sum(x, y, sigma, batch_size)
+        mmd_estimate_yy = cls().batched_kernel_sum(y, y, sigma, batch_size)
 
         # Normalize the MMD estimate
         mmd_estimate = (
@@ -251,59 +265,64 @@ class CalculateMMDNumpy:
 
 class BatchedCalculateMMDNumpy:
     """
-    Calculate the Maximum Mean Discrepancy (MMD) between two distributions in batches.
+    Calculate the Maximum Mean Discrepancy (MMD) between two distributions using NumPy in batches.
     """
 
     @staticmethod
-    def calculate(
+    def batched_kernel_sum(
         x: npt.NDArray[np.floating],
         y: npt.NDArray[np.floating],
         sigma: float = 1.0,
-        batch_size: int = 100,
-    ) -> float:
+        batch_size: int = 1_000,
+    ):
         """
-        Compute the Maximum Mean Discrepancy (MMD) between x and y.
+        Compute the kernel sum in batches.
 
         Args:
-            x (Float[torch.Tensor, "x"]): Input tensor x.
-            y (Float[torch.Tensor, "y"]): Input tensor y.
-            sigma (float, optional): Sigma. Defaults to 1.0.
-            batch_size (int, optional): Batch size. Defaults to 100.
+            x (npt.NDArray[np.floating]): Input array x.
+            y (npt.NDArray[np.floating]): Input array y.
+            sigma (float): Bandwidth.
+            batch_size (int): Batch size.
 
         Returns:
-            Float[torch.Tensor, "mmd"]: Squared Maximum Mean Discrepancy (MMD^2) between the two distributions.
+            float: Sum of kernel values over all batches
         """
-
         m = x.shape[0]
-        n = y.shape[0]
-        mmd_estimate_xx, mmd_estimate_yy, mmd_estimate_xy = 0.0, 0.0, 0.0
+        mmd_estimate = 0.0
 
-        # Compute the MMD estimate in mini-batches
         for i in range(0, m, batch_size):
             x_batch = x[i : i + batch_size]
-            for j in range(0, n, batch_size):
-                y_batch = y[j : j + batch_size]
+            xy_kernel = KernelFunctions.gaussian_kernel_numpy(x_batch, y, sigma)
+            mmd_estimate += np.sum(xy_kernel)
 
-                xx_kernel = KernelFunctions.gaussian_kernel_numpy(
-                    x_batch, x_batch, sigma
-                )
-                yy_kernel = KernelFunctions.gaussian_kernel_numpy(
-                    y_batch, y_batch, sigma
-                )
-                xy_kernel = KernelFunctions.gaussian_kernel_numpy(
-                    x_batch, y_batch, sigma
-                )
+        return mmd_estimate
 
-                # Compute the MMD estimate for this mini-batch
-                mmd_estimate_xx += xx_kernel.sum()
-                mmd_estimate_yy += yy_kernel.sum()
-                mmd_estimate_xy += xy_kernel.sum()
+    @classmethod
+    def calculate(
+        cls,
+        x: npt.NDArray[np.floating],
+        y: npt.NDArray[np.floating],
+        sigma: float = 1.0,
+        batch_size: int = 1_000,
+    ):
+        """
+        Compute the squared Maximum Mean Discrepancy (MMD^2) between x and y.
 
-        # Normalize the MMD estimate
-        mmd_estimate = (
-            mmd_estimate_xx / m**2
-            + mmd_estimate_yy / n**2
-            - 2 * mmd_estimate_xy / (m * n)
-        )
+        Args:
+            x (npt.NDArray[np.floating]): Input array x.
+            y (npt.NDArray[np.floating]): Input array y.
+            sigma (float): Bandwidth.
+            batch_size (int): Batch size.
 
-        return mmd_estimate.item()
+        Returns:
+            float: MMD^2 between the two distributions
+        """
+        m = x.shape[0]
+        n = y.shape[0]
+
+        mmd_xx = cls.batched_kernel_sum(x, x, sigma, batch_size)
+        mmd_xy = cls.batched_kernel_sum(x, y, sigma, batch_size)
+        mmd_yy = cls.batched_kernel_sum(y, y, sigma, batch_size)
+
+        mmd_estimate = (mmd_xx / (m * m)) + (mmd_yy / (n * n)) - (2 * mmd_xy / (m * n))
+        return mmd_estimate
