@@ -40,7 +40,7 @@ def get_samples(
     gs = pdb_toolbox.get_gold_standard(model_name)
 
     sample_dim = gs.shape[1]
-    initial_sample = gs[0]
+    initial_sample = np.mean(gs, axis=0)
     initial_step_size = np.array([output_initial_step_size(sample_dim)])
     initial_covariance = pdb_toolbox.get_fisher_information_matrix(model_name)
     algorithm = "{{ rl_algorithm }}"
