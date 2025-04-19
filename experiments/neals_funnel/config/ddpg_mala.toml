@@ -28,7 +28,7 @@ num_of_top_policies = 1
 # the environment id of the Atari game
 env_id = "MALAEnv-v1.0"
 # total timesteps of the experiments
-total_timesteps = 60_000
+total_timesteps = 100_000
 # total timesteps of the prediction
 predicted_timesteps = 5_000
 # the number of steps per episode
@@ -54,13 +54,14 @@ actor_pretrain_batch_size = 16
 # the flag for shuffling the mock data for the actor pretrain
 actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 5e-6
+actor_learning_rate = 1e-6
 # the learning rate of the optimizer for the critic
 critic_learning_rate = 1e-2
 # the gradient clipping for the actor
 actor_gradient_clipping = true
 # the gradient threshold for the actor
-actor_gradient_threshold = 1.0
+# actor_gradient_threshold = 1e-2 可以
+actor_gradient_threshold = 1e-1
 # the gradient clipping norm for the actor
 actor_gradient_norm = 2
 # the gradient clipping for the critic
