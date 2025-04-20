@@ -1,18 +1,17 @@
 #!/bin/bash
 
-cd laplace_1/const
-for file in *.sh; do
-    sbatch "$file"
-done
-cd -
+# Define the list of directories to be processed
+directories=("banana/const" "neals_funnel/const" "laplace_1/const" "laplace_2/const" "laplace_4/const")
 
-cd laplace_2/const
-for file in *.sh; do
-    sbatch "$file"
-done
-cd -
+# Traverse each directory
+for dir in "${directories[@]}"; do
+    echo "Processing directory: $dir"
+    cd "$dir" || continue # Skip if the directory does not exist
 
-cd laplace_4/const
-for file in *.sh; do
-    sbatch "$file"
+    # Submit all sh files in the directory
+    for file in *.sh; do
+        [ -f "$file" ] && sbatch "$file" # Ensure the file exists before submitting
+    done
+
+    cd - >/dev/null # Return to the original directory, suppressing output
 done
