@@ -6,6 +6,8 @@ def main():
         "test-laplace_1-test-laplace_1",
         "test-laplace_2-test-laplace_2",
         "test-laplace_4-test-laplace_4",
+        "test-banana-test-banana",
+        "test-neals_funnel-test-neals_funnel",
     ]
     posteriordb_path = "../posteriordb/posterior_database"
 
