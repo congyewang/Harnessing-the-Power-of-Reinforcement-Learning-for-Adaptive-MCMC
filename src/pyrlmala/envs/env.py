@@ -1025,9 +1025,9 @@ class MALAEnv(MCMCEnvBase):
             Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]: Mean, Covariance
         """
         mean = sample + step_size / 2 * covariance @ grad_log_pdf
-        covariance = step_size * covariance
+        scaled_covariance = step_size * covariance
 
-        positive_covariance = Toolbox.nearestPD(covariance)
+        positive_covariance = Toolbox.nearestPD(scaled_covariance)
 
         return mean, positive_covariance
 
