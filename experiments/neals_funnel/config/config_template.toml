@@ -22,15 +22,15 @@ upload_model = false
 # the user or org name of the model repository from the Hugging Face Hub
 hf_entity = ""
 # The number of top policies to save
-num_of_top_policies = 5
+num_of_top_policies = 1
 
 [algorithm.general]
 # the environment id of the Atari game
 env_id = "{{ env_id }}"
 # total timesteps of the experiments
-total_timesteps = 50_000
+total_timesteps = 100_000
 # total timesteps of the prediction
-predicted_timesteps = 10_000
+predicted_timesteps = 5_000
 # the number of steps per episode
 max_steps_per_episode = 500
 # timestep to start learning
@@ -54,7 +54,7 @@ actor_pretrain_batch_size = 16
 # the flag for shuffling the mock data for the actor pretrain
 actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 1e-4
+actor_learning_rate = 1e-6
 # the learning rate of the optimizer for the critic
 critic_learning_rate = 1e-2
 # the gradient clipping for the actor

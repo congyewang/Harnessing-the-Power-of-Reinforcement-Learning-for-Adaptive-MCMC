@@ -188,7 +188,10 @@ class MMDBenchMark(BenchmarkBase):
         self.run_mcmc()
 
         gs = self.get_gold_standard()
-        mmd = Toolbox.calculate_mmd(gs, self.env.store_accepted_sample[-len(gs) :])
+        median_lengthscale = Toolbox.median_trick(gs)
+        mmd = Toolbox.calculate_mmd(
+            gs, self.env.store_accepted_sample[-len(gs) :], median_lengthscale
+        )
 
         return mmd
 
@@ -496,13 +499,14 @@ class BootstrapBenchmark:
         rng = np.random.default_rng(seed=random_seed)
 
         length_of_gold_standard = len(gold_standard)
+        median_lengthscale = Toolbox.median_trick(gold_standard)
 
         for i in trange(num, disable=not verbose):
             bootstrap_idx = rng.choice(
                 length_of_gold_standard, length_of_gold_standard, replace=True
             )
             mmd_values[i] = Toolbox.calculate_mmd(
-                gold_standard, gold_standard[bootstrap_idx]
+                gold_standard, gold_standard[bootstrap_idx], median_lengthscale
             )
 
         return mmd_values
@@ -553,7 +557,9 @@ class BootstrapBenchmark:
 
         with open(output_path_with_extension, "w") as f:
             f.write("model_name,mmd_median,mmd_25,mmd_75\n")
-            f.write(f"{self.model_name},{mmd_median},{mmd_left_quantile},{mmd_right_quantile}\n")
+            f.write(
+                f"{self.model_name},{mmd_median},{mmd_left_quantile},{mmd_right_quantile}\n"
+            )
 
     def execute(self) -> None:
         """
@@ -563,5 +569,9 @@ class BootstrapBenchmark:
         mmd_values = self.bootstrap_sampling(
             gs, num=self.num, random_seed=self.random_seed, verbose=self.verbose
         )
-        mmd_median, mmd_left_quantile, mmd_right_quantile = self.output_median_and_quantile(mmd_values)
-        self.write_results("bootstrap_mmd.csv", mmd_median, mmd_left_quantile, mmd_right_quantile)
+        mmd_median, mmd_left_quantile, mmd_right_quantile = (
+            self.output_median_and_quantile(mmd_values)
+        )
+        self.write_results(
+            "bootstrap_mmd.csv", mmd_median, mmd_left_quantile, mmd_right_quantile
+        )
