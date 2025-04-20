@@ -18,7 +18,7 @@ def output_initial_step_size(model_sample_dim: int) -> float:
     Output a smooth initial step size based on model dimension using log-linear interpolation.
     """
     if model_name == "gp_pois_regr-gp_pois_regr":
-        return 1e-7
+        return 1e-6
     if model_sample_dim <= 10:
         return 0.5
     elif model_sample_dim >= 100:
