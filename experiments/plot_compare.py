@@ -4,7 +4,10 @@ from pyrlmala.utils.plot import PlotPipeLine
 model_list = [
     "test-banana-test-banana",
     "test-neals_funnel-test-neals_funnel",
+    "test-skew_t-test-skew_t",
+    "test-annulus-test-annulus",
     "test-laplace_1-test-laplace_1",
+    "test-laplace_2-test-laplace_2",
 ]
 
 # mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
@@ -20,6 +23,16 @@ bootstrap_res = {
         6.790319804189648e-05,
         5.552418464618847e-05,
         9.22387055656837e-05,
+    ),
+    "test-skew_t-test-skew_t": (
+        4.350704747890788e-05,
+        3.408956997466572e-05,
+        4.856453316870457e-05,
+    ),
+    "test-annulus-test-annulus": (
+        6.003918074098946e-05,
+        4.335330365598522e-05,
+        6.767102229762734e-05,
     ),
     "test-laplace_1-test-laplace_1": (
         6.880791394087149e-05,

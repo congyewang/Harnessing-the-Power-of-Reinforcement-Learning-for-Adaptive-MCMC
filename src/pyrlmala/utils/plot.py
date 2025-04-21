@@ -562,3 +562,267 @@ class AveragePolicy:
             plt.savefig(save_path)
         else:
             plt.show()
+
+
+class GeneralPlot:
+    """
+    A class for general plotting functions.
+    """
+
+    @staticmethod
+    def imbalanced_mesh_2d(
+        x_range: Float[torch.Tensor, "x_range"], y_range: Float[torch.Tensor, "y_range"]
+    ) -> Float[torch.Tensor, "mesh_2d"]:
+        """
+        Construct a 2D meshgrid from x and y ranges.
+
+        Args:
+            x_range (Float[torch.Tensor, "x_range"]): x range.
+            y_range (Float[torch.Tensor, "y_range"]): y range.
+
+        Returns:
+            Float[torch.Tensor, "mesh_2d"]: 2D meshgrid.
+        """
+        x_repeat = x_range.repeat_interleave(len(y_range))
+        y_tile = y_range.repeat(len(x_range))
+
+        return torch.stack([x_repeat, y_tile], dim=1)
+
+    @staticmethod
+    def plot_agent(
+        indicate: npt.NDArray[np.float64],
+        steps_per_episode: int = 100,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the agent's performance.
+
+        Args:
+            indicate (npt.NDArray[np.float64]): Indicate array.
+            steps_per_episode (int, optional): Steps per episode. Defaults to 100.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        time_points = np.arange(
+            steps_per_episode,
+            steps_per_episode * (len(indicate) + 1),
+            steps_per_episode,
+        )
+
+        plt.plot(time_points, indicate)
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @classmethod
+    def policy_plot_2D_heatmap(
+        cls,
+        policy: Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]],
+        x_range: Float[torch.Tensor, "x"],
+        y_range: Float[torch.Tensor, "y"],
+        softplus_mode: bool = True,
+        save_path: Optional[str] = None,
+        title: Optional[str] = None,
+        axes: Optional[Axes] = None,
+    ) -> None:
+        """
+        Plot the policy heatmap.
+
+        Args:
+            policy (Callable[[Float[torch.Tensor, "state"]], Float[torch.Tensor, "action"]]): Policy function.
+            x_range (Float[torch.Tensor, "x"], optional): x range. e.g. torch.arange(-5, 5, 0.1).
+            y_range (Float[torch.Tensor, "y"], optional): y range. e.g. torch.arange(-5, 5, 0.1).
+            softplus_mode (bool, optional): Softplus mode. Defaults to True.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+            axes (Optional[plt.Axes]): External axes for subplots. If None, creates a new figure.
+        """
+        if axes is None:
+            _, axes = plt.subplots()
+
+        # Plot heatmap
+        heatmap_plot = lambda x: axes.imshow(
+            x.T,
+            extent=[x_range.min(), x_range.max(), y_range.min(), y_range.max()],
+            origin="lower",
+            cmap="viridis",
+            aspect="auto",
+        )
+
+        if softplus_mode:
+            pipe(
+                (x_range, y_range),
+                lambda ranges: cls.imbalanced_mesh_2d(*ranges),
+                lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+                lambda x: x.double(),
+                policy,
+                F.softplus,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(len(x_range), len(y_range)),
+                heatmap_plot,
+            )
+        else:
+            pipe(
+                (x_range, y_range),
+                lambda ranges: cls.imbalanced_mesh_2d(*ranges),
+                lambda x: torch.cat((x, torch.zeros(x.shape)), dim=1),
+                lambda x: x.double(),
+                policy,
+                torch.detach,
+                lambda x: x.numpy()[:, 0].reshape(len(x_range), len(y_range)),
+                heatmap_plot,
+            )
+
+        if title:
+            axes.set_title(title_addition)
+        axes.set_xlabel("x")
+        axes.set_ylabel("y")
+
+        cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
+        cbar.set_label("Action")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @staticmethod
+    def reward_plot(
+        reward: npt.NDArray[np.float64],
+        step_per_episode: int = 500,
+        window_size: int = 5,
+        title: Optional[str] = None,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the average reward and moving average. Save the plot if save_path is provided.
+
+        Args:
+            reward (npt.NDArray[np.float64]): Immediate reward per step.
+            step_per_episode (int, optional): Steps per episode. Defaults to 500.
+            window_size (int, optional): Window size for moving average. Defaults to 5.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        average_reward = reward.reshape(-1, step_per_episode).mean(axis=1)
+        moving_averages = np.convolve(
+            a=average_reward, v=np.ones(window_size) / window_size, mode="valid"
+        )
+
+        plt.plot(average_reward, label="Average reward")
+        plt.plot(moving_averages, label="Moving average")
+        plt.legend()
+        if title:
+            plt.title(title)
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @staticmethod
+    def target_plot_1d(
+        x_range: Tuple[float, float, int],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            x_range (Tuple[float, float, int]): x range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function for 1D.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        x = np.linspace(*x_range)
+        res = np.exp([log_target_pdf(np.array(i, dtype=np.float64)) for i in x])
+
+        plt.plot(x, res)
+        plt.title("Target distribution")
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @staticmethod
+    def target_plot_2d(
+        x_mesh_range: Tuple[float, float, int],
+        y_mesh_range: Tuple[float, float, int],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            x_mesh_range (Tuple[float, float, int]): x mesh range.
+            y_mesh_range (Tuple[float, float, int]): y mesh range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function for 2D.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        mesh_x, mesh_y = np.meshgrid(
+            np.linspace(*x_mesh_range), np.linspace(*y_mesh_range)
+        )
+        x, y = mesh_x.reshape(1, -1), mesh_y.reshape(1, -1)
+        data = np.concatenate([x, y], axis=0).T
+
+        res = np.exp(
+            np.array([log_target_pdf(np.array(i, dtype=np.float64)) for i in data])
+        )
+
+        plt.contourf(mesh_x, mesh_y, res.reshape(x_mesh_range[2], y_mesh_range[2]))
+        plt.colorbar()
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+    @classmethod
+    def target_plot_multi(
+        cls,
+        data_range: Tuple[Tuple[float, float, int], ...],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            data_range (Tuple[Tuple[float, float, int], ...]): Data range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        for i in data_range:
+            cls.target_plot_1d(i, log_target_pdf, save_path)
+
+    @classmethod
+    def target_plot(
+        cls,
+        data_range: Tuple[Tuple[float, float, int], ...],
+        log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the target distribution. Save the plot if save_path is provided.
+
+        Args:
+            data_range (Tuple[Tuple[float, float, int], ...]): Data range.
+            log_target_pdf (Callable[[npt.NDArray[np.float64]], np.float64]): Log target pdf function.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        sample_dim = len(data_range)
+        match sample_dim:
+            case 1:
+                cls.target_plot_1d(data_range[0], log_target_pdf, save_path)
+            case 2:
+                cls.target_plot_2d(
+                    data_range[0], data_range[1], log_target_pdf, save_path
+                )
+            case _:
+                cls.target_plot_multi(data_range, log_target_pdf, save_path)

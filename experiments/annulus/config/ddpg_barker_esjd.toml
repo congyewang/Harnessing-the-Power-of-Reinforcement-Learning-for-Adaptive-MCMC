@@ -1,8 +1,8 @@
 [experiments]
 # the name of this experiment
-exp_name = "{{ exp_name }}"
+exp_name = "RLBarkerESJD"
 # seed of the experiment
-seed = {{ random_seed }}
+seed = 6
 # if toggled, `torch.backends.cudnn.deterministic=false`
 torch_deterministic = true
 # if toggled, cuda will be enabled by default
@@ -10,7 +10,7 @@ cuda = false
 # if toggled, this experiment will be tracked with Weights and Biases
 track = false
 # the wandb's project name
-wandb_project_name = "{{ exp_name }}"
+wandb_project_name = "RLBarkerESJD"
 # the entity (team) of wandb's project
 wandb_entity = ""
 # whether to capture videos of the agent performances (check out `videos` folder)
@@ -26,7 +26,7 @@ num_of_top_policies = 1
 
 [algorithm.general]
 # the environment id of the Atari game
-env_id = "{{ env_id }}"
+env_id = "BarkerESJDEnv-v1.0"
 # total timesteps of the experiments
 total_timesteps = 50_000
 # total timesteps of the prediction
@@ -54,11 +54,11 @@ actor_pretrain_batch_size = 16
 # the flag for shuffling the mock data for the actor pretrain
 actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 1e-6
+actor_learning_rate = 1e-4
 # the learning rate of the optimizer for the critic
 critic_learning_rate = 1e-2
 # the gradient clipping for the actor
-actor_gradient_clipping = false
+actor_gradient_clipping = true
 # the gradient threshold for the actor
 actor_gradient_threshold = 1.0
 # the gradient clipping norm for the actor

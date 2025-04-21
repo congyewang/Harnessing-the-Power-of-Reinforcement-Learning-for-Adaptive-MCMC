@@ -8,6 +8,8 @@ def main():
         "test-laplace_4-test-laplace_4",
         "test-banana-test-banana",
         "test-neals_funnel-test-neals_funnel",
+        "test-skew_t-test-skew_t",
+        "test-annulus-test-annulus",
     ]
     posteriordb_path = "../posteriordb/posterior_database"
 
