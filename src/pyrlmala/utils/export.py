@@ -103,6 +103,20 @@ class PosteriorDBGenerator:
                         row.extend(["-"] * 3)
                 f.write("| " + " | ".join(row) + " |\n")
 
+    def export_failed_bash(self) -> None:
+        """
+        Export bash commands for failed runs.
+        """
+        csv_path_list = glob.glob(f"./{self.results_dir}/*/*.csv")
+
+        with open("submit_failed.sh", "w") as f:
+            for i in tqdm(csv_path_list):
+                df = pd.read_csv(i)
+
+                if df.shape[0] != 10:
+                    sh_command = f"cd {i.split("/")[2]}\nsbatch run_bash_{re.search("ddpg.+", i.split("/")[3]).group().replace(".csv", "")}.sh\ncd -\n\n"
+                    f.write(sh_command)
+
     def execute(self) -> None:
         """
         Execute the main functionality of the PosteriorDBGenerator class.
