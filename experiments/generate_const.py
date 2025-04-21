@@ -2,8 +2,9 @@ import jinja2
 
 from pyrlmala.utils import Toolbox
 
-dir_name = ["banana", "neals_funnel", "skew_t"] + [f"laplace_{i}" for i in [1, 2, 4]]
+dir_name = ["annulus", "banana", "neals_funnel", "skew_t"] + [f"laplace_{i}" for i in [1, 2, 4]]
 model_name_list = [
+    "test-annulus-test-annulus",
     "test-banana-test-banana",
     "test-neals_funnel-test-neals_funnel",
     "test-skew_t-test-skew_t",
