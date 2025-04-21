@@ -2,10 +2,11 @@ import jinja2
 
 from pyrlmala.utils import Toolbox
 
-dir_name = ["banana", "neals_funnel"] + [f"laplace_{i}" for i in [1, 2, 4]]
+dir_name = ["banana", "neals_funnel", "skew_t"] + [f"laplace_{i}" for i in [1, 2, 4]]
 model_name_list = [
     "test-banana-test-banana",
     "test-neals_funnel-test-neals_funnel",
+    "test-skew_t-test-skew_t",
 ] + [f"test-laplace_{i}-test-laplace_{i}" for i in [1, 2, 4]]
 step_size_list = [0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0]
 

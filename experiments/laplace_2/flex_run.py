@@ -1,5 +1,7 @@
-from pyrlmala.utils.flex import FlexibleBatchRunner
+import numpy as np
 
+
+from pyrlmala.utils.flex import FlexibleBatchRunner
 
 if __name__ == "__main__":
     flex_batch_run = FlexibleBatchRunner(
@@ -12,7 +14,8 @@ if __name__ == "__main__":
     for i in mcmc_env_list:
         flex_batch_run.run(
             mcmc_env=i,
-            step_size=0.1,
+            step_size=2.0,
+            initial_sample=0.1 * np.ones(2),
             repeat_count=10,
             save_root_path=".",
             template_path="./config/config_template.toml",

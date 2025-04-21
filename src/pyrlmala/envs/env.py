@@ -493,12 +493,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         """
         Initialize the state of the environment. This function is used to initialize the state of the environment.
         """
-        # initial_next_proposed_sample = self.np_random.multivariate_normal(
-        #     mean=self.initial_sample, cov=self.initial_covariance, size=1
-        # ).flatten()
-
         initial_next_proposed_sample = self._generate_initial_next_proposed_sample()
-
         self.state = np.concatenate((self.initial_sample, initial_next_proposed_sample))
 
     def reset(
@@ -521,6 +516,68 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
             self._initialize_state()
 
         return self.state, {}
+
+    def clean_up(self) -> None:
+        """
+        Clean up the environment. This function is used to clean up the environment.
+        """
+        self.current_step = 0
+
+        self.store_observation: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim << 1)
+        )
+        self.store_action: npt.NDArray[np.float64] = np.empty((self.total_timesteps, 2))
+        self.store_log_acceptance_rate: npt.NDArray[np.float64] = np.empty(
+            self.total_timesteps
+        )
+        self.store_accepted_status: npt.NDArray[np.bool] = np.full(
+            self.total_timesteps, False, dtype=bool
+        )
+        self.store_reward: npt.NDArray[np.float64] = np.empty(self.total_timesteps)
+
+        self.store_current_sample: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim)
+        )
+        self.store_proposed_sample: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim)
+        )
+
+        self.store_current_mean: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim)
+        )
+        self.store_proposed_mean: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim)
+        )
+
+        self.store_current_covariance: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim, self.sample_dim)
+        )
+        self.store_proposed_covariance: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim, self.sample_dim)
+        )
+
+        self.store_log_target_proposed: npt.NDArray[np.float64] = np.empty(
+            self.total_timesteps
+        )
+        self.store_log_target_current: npt.NDArray[np.float64] = np.empty(
+            self.total_timesteps
+        )
+        self.store_log_proposal_proposed: npt.NDArray[np.float64] = np.empty(
+            self.total_timesteps
+        )
+        self.store_log_proposal_current: npt.NDArray[np.float64] = np.empty(
+            self.total_timesteps
+        )
+
+        self.store_accepted_mean: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim)
+        )
+        self.store_accepted_sample: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim)
+        )
+        self.store_accepted_covariance: npt.NDArray[np.float64] = np.empty(
+            (self.total_timesteps, self.sample_dim, self.sample_dim)
+        )
 
 
 class BarkerEnv(MCMCEnvBase):

@@ -190,6 +190,7 @@ class FlexibleBatchRunner:
         random_seed: int,
         gold_standard: npt.NDArray[np.float64],
         step_size: float,
+        initial_sample: npt.NDArray[np.float64],
         mcmc_env: str,
     ) -> float:
         """
@@ -206,7 +207,6 @@ class FlexibleBatchRunner:
             float: The calculated MMD value.
         """
         sample_dim = 2
-        initial_sample = 0.1 * np.ones(sample_dim)
         initial_step_size = np.array([step_size])
         algorithm = "ddpg"
 
@@ -227,7 +227,8 @@ class FlexibleBatchRunner:
 
         # Calculate MMD
         predicted_sample = learning_instance.predicted_observation[:, 0:sample_dim]
-        mmd = Toolbox.calculate_mmd(gold_standard, predicted_sample)
+        median_lengthscale = Toolbox.median_trick(gold_standard)
+        mmd = Toolbox.calculate_mmd(gold_standard, predicted_sample, median_lengthscale)
 
         return mmd
 
@@ -248,6 +249,7 @@ class FlexibleBatchRunner:
         self,
         mcmc_env: str,
         step_size: float,
+        initial_sample: npt.NDArray[np.float64],
         repeat_count: int = 10,
         save_root_path: str = ".",
         template_path: str = "./config/template.toml",
@@ -278,7 +280,9 @@ class FlexibleBatchRunner:
 
         for i in tqdm(random_seeds):
             try:
-                mmd = self.calculate_mmd(i, gold_standard, step_size, mcmc_env)
+                mmd = self.calculate_mmd(
+                    i, gold_standard, step_size, initial_sample, mcmc_env
+                )
                 mmd_res[i] = mmd
                 self.write_results(i, mmd, save_file_path)
             except Exception as e:

@@ -190,7 +190,17 @@ cython_debug/
 **/*.jpeg
 **/*.gif
 **/*.svg
+experiments/banana/const/const_run_*
+experiments/banana/const/run-const_*
+experiments/banana/flex/*.txt
+experiments/neals_funnel/const/const_run_*
+experiments/neals_funnel/const/run-const_*
+experiments/neals_funnel/flex/*.txt
+experiments/skew_t/const/const_run_*
+experiments/skew_t/const/run-const_*
+experiments/skew_t/flex/*.txt
 experiments/laplace_*/const/const_run_*
 experiments/laplace_*/const/run-const_*
 experiments/laplace_*/flex/*.txt
 experiments/whole_results
+**/backup
