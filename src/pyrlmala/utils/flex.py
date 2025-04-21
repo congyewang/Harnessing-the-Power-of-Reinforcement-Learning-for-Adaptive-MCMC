@@ -227,7 +227,8 @@ class FlexibleBatchRunner:
 
         # Calculate MMD
         predicted_sample = learning_instance.predicted_observation[:, 0:sample_dim]
-        mmd = Toolbox.calculate_mmd(gold_standard, predicted_sample)
+        median_lengthscale = Toolbox.median_trick(gold_standard)
+        mmd = Toolbox.calculate_mmd(gold_standard, predicted_sample, median_lengthscale)
 
         return mmd
 
