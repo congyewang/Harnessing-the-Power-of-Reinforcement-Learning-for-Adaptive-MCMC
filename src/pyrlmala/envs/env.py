@@ -493,12 +493,7 @@ class MCMCEnvBase(gym.Env[npt.NDArray[np.float64], npt.NDArray[np.float64]], ABC
         """
         Initialize the state of the environment. This function is used to initialize the state of the environment.
         """
-        # initial_next_proposed_sample = self.np_random.multivariate_normal(
-        #     mean=self.initial_sample, cov=self.initial_covariance, size=1
-        # ).flatten()
-
         initial_next_proposed_sample = self._generate_initial_next_proposed_sample()
-
         self.state = np.concatenate((self.initial_sample, initial_next_proposed_sample))
 
     def reset(
