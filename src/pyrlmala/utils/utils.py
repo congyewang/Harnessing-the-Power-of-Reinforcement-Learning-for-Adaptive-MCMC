@@ -411,7 +411,6 @@ class Toolbox:
 
         plt.contourf(mesh_x, mesh_y, res.reshape(x_mesh_range[2], y_mesh_range[2]))
         plt.colorbar()
-        plt.title("Target distribution")
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
