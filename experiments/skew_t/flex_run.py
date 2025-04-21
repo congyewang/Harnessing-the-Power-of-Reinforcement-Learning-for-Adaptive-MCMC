@@ -1,21 +1,20 @@
 import numpy as np
 
-
 from pyrlmala.utils.flex import FlexibleBatchRunner
 
 if __name__ == "__main__":
     flex_batch_run = FlexibleBatchRunner(
-        model_name="test-laplace_2-test-laplace_2",
+        model_name="test-skew_t-test-skew_t",
         posteriordb_path="../posteriordb/posterior_database",
-        load_policy="swa",
+        load_policy="best",
     )
     mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
 
     for i in mcmc_env_list:
         flex_batch_run.run(
             mcmc_env=i,
-            step_size=2.0,
-            initial_sample=0.1 * np.ones(2),
+            step_size=0.1,
+            initial_sample=np.array([-1.0, -1.0]),
             repeat_count=10,
             save_root_path=".",
             template_path="./config/config_template.toml",

@@ -1,8 +1,10 @@
 from pyrlmala.utils.plot import PlotPipeLine
 
 
-model_list = ["test-banana-test-banana", "test-neals_funnel-test-neals_funnel"] + [
-    f"test-laplace_{i}-test-laplace_{i}" for i in [1, 2, 4]
+model_list = [
+    "test-banana-test-banana",
+    "test-neals_funnel-test-neals_funnel",
+    "test-laplace_1-test-laplace_1",
 ]
 
 # mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
