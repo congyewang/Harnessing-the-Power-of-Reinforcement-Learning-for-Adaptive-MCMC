@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=flex-{{ critic_learning_rate }}_{{ actor_learning_rate }}_{{ tau }}
+#SBATCH --job-name=search-{{ critic_learning_rate }}_{{ actor_learning_rate }}_{{ tau }}
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 #SBATCH --time=2-00:00:00
