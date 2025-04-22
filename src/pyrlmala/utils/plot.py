@@ -592,6 +592,7 @@ class GeneralPlot:
     def plot_agent(
         indicate: npt.NDArray[np.float64],
         steps_per_episode: int = 100,
+        title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
         """
@@ -600,6 +601,7 @@ class GeneralPlot:
         Args:
             indicate (npt.NDArray[np.float64]): Indicate array.
             steps_per_episode (int, optional): Steps per episode. Defaults to 100.
+            title (str, optional): Title of the plot. Defaults to "".
             save_path (Optional[str], optional): Save path. Defaults to None.
         """
         time_points = np.arange(
@@ -609,6 +611,8 @@ class GeneralPlot:
         )
 
         plt.plot(time_points, indicate)
+        if title:
+            plt.title(title)
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
@@ -675,7 +679,7 @@ class GeneralPlot:
             )
 
         if title:
-            axes.set_title(title_addition)
+            axes.set_title(title)
         axes.set_xlabel("x")
         axes.set_ylabel("y")
 
