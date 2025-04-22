@@ -190,6 +190,9 @@ cython_debug/
 **/*.jpeg
 **/*.gif
 **/*.svg
+experiments/annulus/const/const_run_*
+experiments/annulus/const/run-const_*
+experiments/annulus/flex/*.txt
 experiments/banana/const/const_run_*
 experiments/banana/const/run-const_*
 experiments/banana/flex/*.txt
