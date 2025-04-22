@@ -54,13 +54,13 @@ actor_pretrain_batch_size = 16
 # the flag for shuffling the mock data for the actor pretrain
 actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 1e-5
+actor_learning_rate = {{ actor_learning_rate }}
 # the learning rate of the optimizer for the critic
-critic_learning_rate = 1e-2
+critic_learning_rate = {{ critic_learning_rate }}
 # the gradient clipping for the actor
 actor_gradient_clipping = false
 # the gradient threshold for the actor
-actor_gradient_threshold = 1.0
+actor_gradient_threshold = 1e-1
 # the gradient clipping norm for the actor
 actor_gradient_norm = 2
 # the gradient clipping for the critic
@@ -72,7 +72,7 @@ critic_gradient_norm = 2
 
 [algorithm.specific]
 # target smoothing coefficient (default.005)
-tau = 0.005
+tau = {{ tau }}
 # the scale of policy noise
 policy_noise = 0.0
 # the scale of exploration noise
