@@ -16,7 +16,7 @@ from torch.nn import functional as F
 from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.swa_utils import SWALR, AveragedModel
 from torch.utils.tensorboard import SummaryWriter
-from tqdm.auto import trange
+from tqdm.auto import tqdm
 
 from ..agent import EnsemblePolicyNetwork
 from ..datastructures import DynamicTopK
@@ -300,17 +300,24 @@ class LearningInterface(ABC):
                 )
 
     @abstractmethod
-    def trainning_loop(self, global_step: int) -> None:
+    def trainning_loop(self) -> None:
         """
         Training process. Must be implemented in the subclass.
-
-        Args:
-            global_step (int): Global step.
 
         Raises:
             NotImplementedError: If the method is not implemented.
         """
         raise NotImplementedError("train_process method is not implemented")
+
+    @property
+    def current_step(self) -> int:
+        """
+        Get the current step.
+
+        Returns:
+            int: Current step.
+        """
+        return self.env.get_attr("current_step")[0]
 
     def train(self) -> None:
         """
@@ -329,12 +336,19 @@ class LearningInterface(ABC):
         if self.critic_gradient_clipping:
             self.critic_gradient_clipping_function()
 
+        progress_bar = tqdm(
+            total=self.total_timesteps, disable=not self.verbose, desc="Training"
+        )
+
         # Training loop
-        for global_step in trange(self.total_timesteps, disable=not self.verbose):
-            self.trainning_loop(global_step)
+        while self.current_step < self.total_timesteps:
+            self.trainning_loop()
 
             # Trigger within train event
             self.event_manager.trigger(TrainEvents.WITHIN_TRAIN)
+
+            progress_bar.n = self.current_step
+            progress_bar.refresh()
 
         self.last_policy = self.actor.state_dict()
 
@@ -570,12 +584,12 @@ class LearningDDPG(LearningInterface):
             run_name=run_name,
         )
 
-    def trainning_loop(self, global_step: int) -> None:
+    def trainning_loop(self) -> None:
         """
         Training Session for DDPG.
         """
 
-        if global_step < self.learning_starts:
+        if self.current_step < self.learning_starts:
             initial_step_size_unconstrained = Toolbox.inverse_softplus(
                 self.initial_step_size
             )
@@ -607,22 +621,22 @@ class LearningDDPG(LearningInterface):
                     episodic_return,
                     {
                         "actor": self.actor.state_dict(),
-                        "step": global_step,
+                        "step": self.current_step,
                     },
                 )
             )
 
-            if global_step > self.total_timesteps >> 1:
+            if self.current_step > self.total_timesteps >> 1:
                 if episodic_return > self.best_episodic_return:
                     self.best_episodic_return = episodic_return
                     self.best_policy = self.actor.state_dict()
-                    self.best_policy_step = global_step
+                    self.best_policy_step = self.current_step
 
             self.writer.add_scalar(
-                "charts/episodic_return", episodic_return, global_step
+                "charts/episodic_return", episodic_return, self.current_step
             )
             self.writer.add_scalar(
-                "charts/episodic_length", infos["episode"]["l"], global_step
+                "charts/episodic_length", infos["episode"]["l"], self.current_step
             )
 
         real_next_obs = next_obs.copy()
@@ -632,7 +646,7 @@ class LearningDDPG(LearningInterface):
 
         self.obs = next_obs
 
-        if global_step > self.learning_starts:
+        if self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
                 next_state_actions = self.target_actor(data.next_observations)
@@ -650,7 +664,7 @@ class LearningDDPG(LearningInterface):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-            if global_step % self.policy_frequency == 0:
+            if self.current_step % self.policy_frequency == 0:
                 actor_loss = -self.critic(
                     data.observations, self.actor(data.observations)
                 ).mean()
@@ -659,7 +673,7 @@ class LearningDDPG(LearningInterface):
                 self.actor_optimizer.step()
 
                 # Stochastic Weight Averaging
-                if global_step > self.swa_start:
+                if self.current_step > self.swa_start:
                     self.swa_actor.update_parameters(self.actor)
                     self.swa_scheduler.step()
                 else:
@@ -680,17 +694,20 @@ class LearningDDPG(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-            if global_step % 100 == 0 and global_step > self.policy_frequency:
+            if (
+                self.current_step % 100 == 0
+                and self.current_step > self.policy_frequency
+            ):
                 self.writer.add_scalar(
                     "losses/critic_values",
                     critic_a_values.mean().item(),
-                    global_step,
+                    self.current_step,
                 )
                 self.writer.add_scalar(
-                    "losses/critic_loss", critic_loss.item(), global_step
+                    "losses/critic_loss", critic_loss.item(), self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/actor_loss", actor_loss.item(), global_step
+                    "losses/actor_loss", actor_loss.item(), self.current_step
                 )
 
                 self.critic_values.append(critic_a_values.mean().item())
@@ -903,11 +920,12 @@ class LearningTD3(LearningInterface):
                     )
                 )
 
-    def trainning_loop(self, global_step: int) -> None:
+    def trainning_loop(self) -> None:
         """
         Training Session for TD3.
         """
-        if global_step < self.learning_starts:
+
+        if self.current_step < self.learning_starts:
             initial_step_size_unconstrained = Toolbox.inverse_softplus(
                 self.initial_step_size
             )
@@ -940,22 +958,22 @@ class LearningTD3(LearningInterface):
                     episodic_return,
                     {
                         "actor": self.actor.state_dict(),
-                        "step": global_step,
+                        "step": self.current_step,
                     },
                 )
             )
 
-            if global_step > self.total_timesteps >> 1:
+            if self.current_step > self.total_timesteps >> 1:
                 if episodic_return > self.best_episodic_return:
                     self.best_episodic_return = episodic_return
                     self.best_policy = self.actor.state_dict()
-                    self.best_policy_step = global_step
+                    self.best_policy_step = self.current_step
 
             self.writer.add_scalar(
-                "charts/episodic_return", episodic_return, global_step
+                "charts/episodic_return", episodic_return, self.current_step
             )
             self.writer.add_scalar(
-                "charts/episodic_length", infos["episode"]["l"], global_step
+                "charts/episodic_length", infos["episode"]["l"], self.current_step
             )
 
         real_next_obs = next_obs.copy()
@@ -965,7 +983,7 @@ class LearningTD3(LearningInterface):
 
         self.obs = next_obs
 
-        if global_step > self.learning_starts:
+        if self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
                 clipped_noise = (
@@ -1000,7 +1018,7 @@ class LearningTD3(LearningInterface):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-            if global_step % self.policy_frequency == 0:
+            if self.current_step % self.policy_frequency == 0:
                 actor_loss = -self.critic(
                     data.observations, self.actor(data.observations)
                 ).mean()
@@ -1009,7 +1027,7 @@ class LearningTD3(LearningInterface):
                 self.actor_optimizer.step()
 
                 # Stochastic Weight Averaging
-                if global_step > self.swa_start:
+                if self.current_step > self.swa_start:
                     self.swa_actor.update_parameters(self.actor)
                     self.swa_scheduler.step()
                 else:
@@ -1036,28 +1054,28 @@ class LearningTD3(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-            if global_step % 100 == 0:
+            if self.current_step % 100 == 0:
                 self.writer.add_scalar(
                     "losses/critic1_values",
                     critic1_a_values.mean().item(),
-                    global_step,
+                    self.current_step,
                 )
                 self.writer.add_scalar(
                     "losses/critic2_values",
                     critic2_a_values.mean().item(),
-                    global_step,
+                    self.current_step,
                 )
                 self.writer.add_scalar(
-                    "losses/critic1_loss", critic1_loss.item(), global_step
+                    "losses/critic1_loss", critic1_loss.item(), self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/critic2_loss", critic2_loss.item(), global_step
+                    "losses/critic2_loss", critic2_loss.item(), self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/critic_loss", critic_loss.item() / 2.0, global_step
+                    "losses/critic_loss", critic_loss.item() / 2.0, self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/actor_loss", actor_loss.item(), global_step
+                    "losses/actor_loss", actor_loss.item(), self.current_step
                 )
 
                 self.critic_values.append(critic1_a_values.mean().item())

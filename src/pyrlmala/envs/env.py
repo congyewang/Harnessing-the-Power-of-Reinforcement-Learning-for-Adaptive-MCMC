@@ -15,7 +15,6 @@ from typing import (
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
-from loguru import logger
 from scipy.stats import multivariate_normal
 
 from ..utils import Toolbox
@@ -1296,29 +1295,16 @@ class MALAEnv(MCMCEnvBase):
         )
 
         # Accept or Reject
-        try:
-            _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
-                self.accepted_process(
-                    current_sample,
-                    proposed_sample,
-                    current_mean,
-                    proposed_mean,
-                    current_covariance,
-                    proposed_covariance,
-                )
+        _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
+            self.accepted_process(
+                current_sample,
+                proposed_sample,
+                current_mean,
+                proposed_mean,
+                current_covariance,
+                proposed_covariance,
             )
-        except np.linalg.LinAlgError:
-            logger.error("LinAlgError")
-            logger.error(f"current_sample: {current_sample}")
-            logger.error(f"proposed_sample: {proposed_sample}")
-            logger.error(f"current_mean: {current_mean}")
-            logger.error(f"proposed_mean: {proposed_mean}")
-            logger.error(f"current_covariance: {current_covariance}")
-            logger.error(f"proposed_covariance: {proposed_covariance}")
-            logger.error(f"current_phi: {current_phi}")
-            logger.error(f"proposed_phi: {proposed_phi}")
-
-            raise
+        )
 
         # Update Observation
         next_proposed_sample = self.sample_generator(accepted_mean, accepted_covariance)
