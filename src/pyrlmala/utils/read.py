@@ -107,7 +107,7 @@ class MCMCResultReader(ResultReader):
 
             mcmc_env_match = re.search(mcmc_env_pattern, filename)
             if not mcmc_env_match:
-                print(f"[Warning] Skip {filename}: no match for method.")
+                logger.warning(f"Skip {filename}: no match for method.")
                 continue
             method = mcmc_env_match.group()
 

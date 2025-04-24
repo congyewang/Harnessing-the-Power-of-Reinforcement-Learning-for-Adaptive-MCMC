@@ -15,6 +15,7 @@ from typing import (
 import gymnasium as gym
 import numpy as np
 import numpy.typing as npt
+from loguru import logger
 from scipy.stats import multivariate_normal
 
 from ..utils import Toolbox
@@ -1307,15 +1308,15 @@ class MALAEnv(MCMCEnvBase):
                 )
             )
         except np.linalg.LinAlgError:
-            print("LinAlgError")
-            print("current_sample", current_sample)
-            print("proposed_sample", proposed_sample)
-            print("current_mean", current_mean)
-            print("proposed_mean", proposed_mean)
-            print("current_covariance", current_covariance)
-            print("proposed_covariance", proposed_covariance)
-            print("current_phi", current_phi)
-            print("proposed_phi", proposed_phi)
+            logger.error("LinAlgError")
+            logger.error(f"current_sample: {current_sample}")
+            logger.error(f"proposed_sample: {proposed_sample}")
+            logger.error(f"current_mean: {current_mean}")
+            logger.error(f"proposed_mean: {proposed_mean}")
+            logger.error(f"current_covariance: {current_covariance}")
+            logger.error(f"proposed_covariance: {proposed_covariance}")
+            logger.error(f"current_phi: {current_phi}")
+            logger.error(f"proposed_phi: {proposed_phi}")
 
             raise
 

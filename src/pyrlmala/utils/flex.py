@@ -4,6 +4,7 @@ from typing import Dict, Iterator
 
 import jinja2
 import numpy as np
+from loguru import logger
 from numpy import typing as npt
 from tqdm.auto import tqdm
 
@@ -286,7 +287,7 @@ class FlexibleBatchRunner:
                 mmd_res[i] = mmd
                 self.write_results(i, mmd, save_file_path)
             except Exception as e:
-                print(f"Error in seed {i}: {e}")
+                logger.error(f"Error in seed {i}: {e}")
 
         with open(save_file_path, "a+") as f:
             f.write(f"Mean: {mmd_res.mean()}\n")
