@@ -7,7 +7,7 @@ from pyrlmala.utils.target import AutoStanTargetPDF
 model_name = "{{  model_name }}"
 posteriordb_path = "{{ posteriordb_path }}"
 replicate_num = 10
-mmd_file_path = f"./results/baseline_{model_name}.txt"
+mmd_file_path = f"./results/baseline_{model_name}.csv"
 Toolbox.create_folder(mmd_file_path)
 
 
