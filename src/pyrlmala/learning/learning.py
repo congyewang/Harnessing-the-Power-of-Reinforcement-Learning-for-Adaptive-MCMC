@@ -319,6 +319,16 @@ class LearningInterface(ABC):
         """
         return self.env.get_attr("current_step")[0]
 
+    @property
+    def predicted_step(self) -> int:
+        """
+        Get the predicted step.
+
+        Returns:
+            int: Predicted step.
+        """
+        return self.predicted_env.get_attr("current_step")[0]
+
     def train(self) -> None:
         """
         Training method. Must be implemented in the subclass.
@@ -408,7 +418,11 @@ class LearningInterface(ABC):
 
         predicted_actor.eval()
 
-        for _ in trange(self.predicted_timesteps, disable=not self.verbose):
+        progress_bar = tqdm(
+            total=self.predicted_timesteps, disable=not self.verbose, desc="Prediction"
+        )
+
+        while self.predicted_step < self.predicted_timesteps:
             with torch.no_grad():
                 predicted_actions = predicted_actor(
                     torch.from_numpy(predicted_obs).to(self.device)
@@ -421,6 +435,9 @@ class LearningInterface(ABC):
             predicted_observation.append(predicted_obs)
             predicted_action.append(predicted_actions.view(-1).detach().cpu().numpy())
             predicted_reward.append(predicted_rewards)
+
+            progress_bar.n = self.predicted_step
+            progress_bar.refresh()
 
         self.predicted_observation = np.array(predicted_observation).reshape(
             -1, np.prod(self.predicted_env.single_observation_space.shape)
