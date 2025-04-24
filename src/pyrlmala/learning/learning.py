@@ -703,9 +703,6 @@ class LearningDDPG(LearningInterface):
                 if self.current_step > self.swa_start:
                     self.swa_actor.update_parameters(self.actor)
                     self.swa_scheduler.step()
-                else:
-                    if self.actor_scheduler:
-                        self.actor_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
@@ -1057,9 +1054,6 @@ class LearningTD3(LearningInterface):
                 if self.current_step > self.swa_start:
                     self.swa_actor.update_parameters(self.actor)
                     self.swa_scheduler.step()
-                else:
-                    if self.actor_scheduler:
-                        self.actor_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
