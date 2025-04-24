@@ -38,6 +38,7 @@ dependencies = [
     "cytoolz>=1.0.1",
     "scikit-learn>=1.6.1",
     "mcmclib",
+    "loguru>=0.7.3",
 ]
 
 [dependency-groups]

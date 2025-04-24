@@ -1,68 +1,44 @@
 import glob
 import re
-from collections import defaultdict
-from typing import Any, Dict, List, Tuple
+import warnings
+from typing import List, Tuple
 
-import numpy as np
 import pandas as pd
+from prettytable import PrettyTable, TableStyle
 from tqdm.auto import tqdm
 
 from .posteriordb import PosteriorDBToolbox
+from .read import ResultReader
+
+warnings.filterwarnings(
+    "ignore",
+    message="Loading a shared object .* that has already been loaded",
+    category=UserWarning,
+    module="bridgestan.model",
+)
 
 
 class PosteriorDBGenerator:
-    def __init__(self, results_dir: str, posteriordb_path: str) -> None:
+    def __init__(self, result_reader: ResultReader, posteriordb_path: str, output_path: str = "mmd_results.md") -> None:
         """
         Initialize the PosteriorDBGenerator class.
 
         Args:
-            results_dir (str): Directory containing the results.
-            posteriordb_path (str): Path to the posterior database.
+            result_reader (ResultReader): An instance of a ResultReader class to read results.
+            posteriordb_path (str): Path to the PosteriorDB directory.
         """
-        self.results_dir = results_dir
-
+        self.result_reader = result_reader
         self.posteriordb_path = posteriordb_path
         self.pdb_toolbox = PosteriorDBToolbox(posteriordb_path)
-
-        self.mmd_results = self.export_result_to_dict()
-
-    def export_result_to_dict(self) -> Dict[str, Dict[str, Any]]:
-        """
-        Export the results to a dictionary.
-
-        Returns:
-            Dict[str, Dict[str, Any]]: A dictionary containing the results.
-        """
-        s = 0
-        csv_path_list = glob.glob(f"./{self.results_dir}/*/*.csv")
-        mcmc_env_pattern = r"(mala(?:_[a-zA-Z0-9]+)?|barker(?:_[a-zA-Z0-9]+)?)"
-        mmd_results: Dict[str, Dict[str, Any]] = defaultdict(dict)
-
-        for path in tqdm(csv_path_list):
-            model_name = path.split("/")[2]
-            csv_file_name = path.split("/")[3]
-            mcmc_env = re.search(mcmc_env_pattern, csv_file_name).group()
-            df = pd.read_csv(path)
-
-            if df.shape[0] != 10:
-                s += 1
-                print(f"Error in {model_name} {mcmc_env} {df.shape[0]}")
-                continue
-            else:
-                mmd_results[model_name][mcmc_env] = [
-                    df["mmd"].median(),
-                    np.percentile(df["mmd"], 25),
-                    np.percentile(df["mmd"], 75),
-                ]
-
-        return mmd_results
+        self.mmd_results = self.result_reader.load_results()
+        self.output_path = output_path
 
     def get_sorted_model_names(self) -> List[Tuple[int, str]]:
         """
-        Get the sorted model names based on the number of parameters in the gold standard.
+        Get sorted model names based on the number of parameters in the gold standard.
 
         Returns:
-            List[Tuple[int, str]]: A list of tuples containing the number of parameters and the model name, sorted by the number of parameters.
+            List[Tuple[int, str]]: A list of tuples containing the number of parameters and model names.
         """
         res: List[Tuple[int, str]] = []
         for model_name in tqdm(self.pdb_toolbox.get_model_name_with_gold_standard()):
@@ -73,48 +49,55 @@ class PosteriorDBGenerator:
                         model_name,
                     )
                 )
-
-        res_sorted = sorted(res)
-        return res_sorted
+        return sorted(res)
 
     def write_result_to_markdown(self) -> None:
         """
-        Write the results to a markdown file.
+        Write the MMD results to a markdown file in a table format.
         """
         res_sorted = self.get_sorted_model_names()
 
-        # Write the results to a markdown file
-        with open("mmd_results.md", "w") as f:
-            f.write(
-                "| Model | MALA Median | MALA Q1 | MALA Q3| MALA ESJD Median | MALA ESJD Q1 | MALA ESJD Q3 | Barker Median | Barker Q1 | Barker Q3 | Barker ESJD Median | Barker ESJD Q1 | Barker ESJD Q3 |\n"
-            )
-            f.write(
-                "|-------|-------------|---------|--------|------------------|--------------|--------------|---------------|----------|--------|--------------------|----------------|----------------|\n"
-            )
-            for _, model_name in res_sorted:
-                mmd_dict = self.mmd_results.get(model_name, {})
-                row = [model_name]
-                for key in ["mala", "mala_esjd", "barker", "barker_esjd"]:
-                    values = mmd_dict.get(key, None)
-                    if values and len(values) >= 3:
-                        formatted = [f"{v:.4g}" for v in values[:3]]
-                        row.extend(formatted)
-                    else:
-                        row.extend(["-"] * 3)
-                f.write("| " + " | ".join(row) + " |\n")
+        all_keys = set()
+        for model_dict in self.mmd_results.values():
+            all_keys.update(model_dict.keys())
+        all_keys = sorted(all_keys)
+
+        field_names = ["Model"]
+        for key in all_keys:
+            field_names.extend([f"{key} Median", f"{key} Q1", f"{key} Q3"])
+
+        table = PrettyTable()
+        table.set_style(TableStyle.MARKDOWN)
+        table.field_names = field_names
+
+        for _, model_name in res_sorted:
+            mmd_dict = self.mmd_results.get(model_name, {})
+            row = [model_name]
+            for key in all_keys:
+                values = mmd_dict.get(key)
+                if values and len(values) >= 3:
+                    row.extend([f"{v:.4g}" for v in values[:3]])
+                else:
+                    row.extend(["-"] * 3)
+            table.add_row(row)
+
+        with open(self.output_path, "w") as f:
+            f.write(table.get_string())
 
     def export_failed_bash(self) -> None:
         """
-        Export bash commands for failed runs.
+        Export bash commands to resubmit failed jobs.
         """
-        csv_path_list = glob.glob(f"./{self.results_dir}/*/*.csv")
+        csv_path_list = glob.glob(
+            f"{self.result_reader.results_dir}/**/*.csv", recursive=True
+        )
 
         with open("submit_failed.sh", "w") as f:
             for i in tqdm(csv_path_list):
                 df = pd.read_csv(i)
 
                 if df.shape[0] != 10:
-                    sh_command = f"cd {i.split("/")[2]}\nsbatch run_bash_{re.search("ddpg.+", i.split("/")[3]).group().replace(".csv", "")}.sh\ncd -\n\n"
+                    sh_command = f"cd {i.split('/')[2]}\nsbatch run_bash_{re.search('ddpg.+', i.split('/')[3]).group().replace('.csv', '')}.sh\ncd -\n\n"
                     f.write(sh_command)
 
     def execute(self) -> None:
