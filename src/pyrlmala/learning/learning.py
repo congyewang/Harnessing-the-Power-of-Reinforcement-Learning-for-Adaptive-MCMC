@@ -333,6 +333,10 @@ class LearningInterface(ABC):
         Raises:
             NotImplementedError: If the method is not implemented.
         """
+        # Set the actor and critic to training mode
+        self.actor.train()
+        self.critic.train()
+
         # Trigger before step event
         self.event_manager.trigger(TrainEvents.BEFORE_TRAIN)
 
@@ -401,6 +405,7 @@ class LearningInterface(ABC):
                     "Invalid load_policy. Must be 'ensemble', 'swa', 'best', or 'last'."
                 )
 
+        # Set the actor to evaluation mode
         predicted_actor.eval()
 
         progress_bar = tqdm(
