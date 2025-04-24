@@ -202,9 +202,6 @@ class LearningInterface(ABC):
 
         # Predicted
         self.predicted_timesteps: int | None = None
-        self.predicted_observation: npt.NDArray[np.float64]
-        self.predicted_action: npt.NDArray[np.float64]
-        self.predicted_reward: npt.NDArray[np.float64]
 
         # Best Policy
         self.best_episodic_return = -np.inf
@@ -382,22 +379,10 @@ class LearningInterface(ABC):
         Raises:
             NotImplementedError: If the method is not implemented.
         """
-        _single_predicted_envs: List[RecordEpisodeStatistics] = self.predicted_env.envs
-        if hasattr(_single_predicted_envs[0].unwrapped, "total_timesteps"):
-            self.predicted_timesteps: int = _single_predicted_envs[
-                0
-            ].unwrapped.total_timesteps
-        else:
-            self.predicted_timesteps: int = 10_000
+        self.predicted_timesteps = self.predicted_env.get_attr("total_timesteps")[0]
 
         # Reset the environment
         predicted_obs, _ = self.predicted_env.reset(seed=self.random_seed)
-
-        # Store predicted obs, action, and reward
-        predicted_observation: List[npt.NDArray[np.float64]] = []
-        predicted_action: List[npt.NDArray[np.float64]] = []
-        predicted_reward: List[npt.NDArray[np.float64]] = []
-
         predicted_actor = copy.deepcopy(self.actor)
 
         match load_policy:
@@ -428,22 +413,42 @@ class LearningInterface(ABC):
                     torch.from_numpy(predicted_obs).to(self.device)
                 )
 
-            predicted_obs, predicted_rewards, _, _, _ = self.predicted_env.step(
+            predicted_obs, _, _, _, _ = self.predicted_env.step(
                 predicted_actions.detach().cpu().numpy()
             )
-
-            predicted_observation.append(predicted_obs)
-            predicted_action.append(predicted_actions.view(-1).detach().cpu().numpy())
-            predicted_reward.append(predicted_rewards)
 
             progress_bar.n = self.predicted_step
             progress_bar.refresh()
 
-        self.predicted_observation = np.array(predicted_observation).reshape(
-            -1, np.prod(self.predicted_env.single_observation_space.shape)
-        )
-        self.predicted_action = np.array(predicted_action)
-        self.predicted_reward = np.array(predicted_reward).flatten()
+    @property
+    def predicted_observation(self) -> npt.NDArray[np.float64]:
+        """
+        Get the predicted observation.
+
+        Returns:
+            npt.NDArray[np.float64]: Predicted observation.
+        """
+        return self.predicted_env.get_attr("store_accepted_sample")[0]
+
+    @property
+    def predicted_action(self):
+        """
+        Get the predicted action.
+
+        Returns:
+            npt.NDArray[np.float64]: Predicted action.
+        """
+        return self.predicted_env.get_attr("store_action")[0]
+
+    @property
+    def predicted_reward(self):
+        """
+        Get the predicted reward.
+
+        Returns:
+            npt.NDArray[np.float64]: Predicted reward.
+        """
+        return self.predicted_env.get_attr("store_reward")[0]
 
     def switch_actor_weights(
         self,
