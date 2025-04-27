@@ -22,6 +22,7 @@ from ..agent import EnsemblePolicyNetwork
 from ..datastructures import DynamicTopK
 from ..utils import Toolbox
 from .events import EventManager, TrainEvents
+from .logging import DummyWriter
 
 T = TypeVar("T")
 
@@ -98,6 +99,7 @@ class LearningInterface(ABC):
         random_seed: int = 42,
         num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
+        track: bool = False,
         verbose: bool = True,
         run_name: str = "rlmcmc",
     ) -> None:
@@ -129,6 +131,7 @@ class LearningInterface(ABC):
             random_seed (int, optional): Random seed. Defaults to 42.
             num_of_top_policies (int, optional): Number of top policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            track (bool, optional): Track. Defaults to False.
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
 
@@ -227,7 +230,10 @@ class LearningInterface(ABC):
         ] = DynamicTopK(num_of_top_policies, key=lambda x: x[0])
 
         # Tensorboard
-        self.writer = SummaryWriter(f"runs/{run_name}")
+        if track:
+            self.writer = SummaryWriter(f"runs/{run_name}")
+        else:
+            self.writer = DummyWriter()
 
         # Event Manager Callback
         self.event_manager = EventManager()
@@ -514,6 +520,7 @@ class LearningDDPG(LearningInterface):
         best_policy (Optional[Dict[str, Any]]): Best policy.
         writer (SummaryWriter): Summary writer.
         event_manager (EventManager): Event manager.
+        track (bool): Track training progress.
     """
 
     def __init__(
@@ -544,6 +551,7 @@ class LearningDDPG(LearningInterface):
         random_seed: int = 42,
         num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
+        track: bool = False,
         verbose: bool = True,
         run_name: str = "rlmcmc",
     ) -> None:
@@ -607,6 +615,7 @@ class LearningDDPG(LearningInterface):
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
             device=device,
+            track=track,
             verbose=verbose,
             run_name=run_name,
         )
@@ -639,6 +648,20 @@ class LearningDDPG(LearningInterface):
                     )
                 )
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
+
+        self.writer.add_scalars(
+            "training/trace",
+            {
+                f"x{idx}": val.item()
+                for idx, val in enumerate(self.obs[0, 0 : self.sample_dim])
+            },
+            self.current_step,
+        )
+        self.writer.add_scalar(
+            "training/step_size",
+            Toolbox.softplus(actions[0, 0]).item(),
+            self.current_step,
+        )
 
         if "episode" in infos:
             episodic_return = float(infos["episode"]["r"][0])
@@ -802,6 +825,7 @@ class LearningTD3(LearningInterface):
         best_policy (Optional[Dict[str, Any]]): Best policy.
         writer (SummaryWriter): Summary writer.
         event_manager (EventManager): Event manager.
+        track (bool): Track training progress.
     """
 
     def __init__(
@@ -836,6 +860,7 @@ class LearningTD3(LearningInterface):
         noise_clip: float = 0.5,
         num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
+        track: bool = False,
         verbose: bool = True,
         run_name: str = "rlmcmc",
     ) -> None:
@@ -871,6 +896,7 @@ class LearningTD3(LearningInterface):
             noise_clip (float, optional): Noise clip. Defaults to 0.5.
             num_of_top_policies (int, optional): Number of top policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            track (bool, optional): Track. Defaults to False.
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
 
@@ -904,6 +930,7 @@ class LearningTD3(LearningInterface):
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
             device=device,
+            track=track,
             verbose=verbose,
             run_name=run_name,
         )
