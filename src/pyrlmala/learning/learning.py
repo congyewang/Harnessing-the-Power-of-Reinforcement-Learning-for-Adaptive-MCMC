@@ -14,7 +14,6 @@ from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import LRScheduler
-from torch.optim.swa_utils import SWALR, AveragedModel
 from torch.utils.tensorboard import SummaryWriter
 from tqdm.auto import tqdm
 
@@ -214,13 +213,6 @@ class LearningInterface(ABC):
         # Last Policy
         self.last_policy: Optional[Dict[str, Any]] = None
 
-        # Stochastic Weight Averaging
-        self.swa_start = int(self.total_timesteps * 0.75)
-        self.swa_actor = AveragedModel(self.actor)
-        self.swa_scheduler = SWALR(
-            self.actor_optimizer, swa_lr=self.actor_optimizer.param_groups[0]["lr"]
-        )
-
         # Top-K Policy
         if num_of_top_policies < 1:
             raise ValueError("Number of policies must be greater than 0")
@@ -400,8 +392,6 @@ class LearningInterface(ABC):
                 predicted_actor = EnsemblePolicyNetwork(
                     predicted_actor, self.topk_policy
                 )
-            case "swa":
-                predicted_actor.load_state_dict(self.swa_actor.module.state_dict())
             case "best":
                 predicted_actor.load_state_dict(self.best_policy)
             case "last":
@@ -469,8 +459,6 @@ class LearningInterface(ABC):
         Switch the actor weights.
         """
         match load_policy:
-            case "swa":
-                self.actor.load_state_dict(self.swa_actor.module.state_dict())
             case "best":
                 self.actor.load_state_dict(self.best_policy)
             case "last":
@@ -721,11 +709,6 @@ class LearningDDPG(LearningInterface):
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
-
-                # Stochastic Weight Averaging
-                if self.current_step > self.swa_start:
-                    self.swa_actor.update_parameters(self.actor)
-                    self.swa_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
@@ -1076,11 +1059,6 @@ class LearningTD3(LearningInterface):
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
-
-                # Stochastic Weight Averaging
-                if self.current_step > self.swa_start:
-                    self.swa_actor.update_parameters(self.actor)
-                    self.swa_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
