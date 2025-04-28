@@ -58,7 +58,7 @@ actor_learning_rate = {{ actor_learning_rate }}
 # the learning rate of the optimizer for the critic
 critic_learning_rate = 1e-2
 # the gradient clipping for the actor
-actor_gradient_clipping = true
+actor_gradient_clipping = false
 # the gradient threshold for the actor
 actor_gradient_threshold = 1.0
 # the gradient clipping norm for the actor
@@ -76,7 +76,7 @@ tau = 0.005
 # the scale of policy noise
 policy_noise = 0.0
 # the scale of exploration noise
-exploration_noise = 0.0
+exploration_noise = {{ exploration_noise }}
 # the frequency of training policy (delayed)
 policy_frequency = 2
 # noise clip parameter of the Target Policy Smoothing Regularization
