@@ -373,10 +373,9 @@ class LearningInterface(ABC):
 
         Args:
             load_policy (str, optional): Load policy. Defaults to "ensemble".
-            - "ensemble": Ensemble policy.
-            - "swa": Stochastic Weight Averaging.
-            - "best": Best policy.
-            - "last": Last policy.
+                - "ensemble": Ensemble policy.
+                - "best": Best policy.
+                - "last": Last policy.
 
         Raises:
             NotImplementedError: If the method is not implemented.
