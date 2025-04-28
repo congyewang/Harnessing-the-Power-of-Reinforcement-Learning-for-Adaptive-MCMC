@@ -1,5 +1,6 @@
 import numpy as np
 from mcmclib.metropolis import mala_adapt
+from wandb import init
 
 from pyrlmala.envs import MALAEnv
 from pyrlmala.utils import Toolbox
@@ -22,14 +23,15 @@ gs = Toolbox.gold_standard(model_name, posteriordb_path)
 
 
 def run_mmd(random_seed: int) -> float:
+    initial_covariance = Toolbox.nearestPD(np.cov(gs, rowvar=False))
     const_mala = mala_adapt(
         fp=fp,
         fg=fg,
         x0=gs[0],
         h0=0.1,
-        c0=np.cov(gs, rowvar=False),
-        alpha=[1.0] * 101,
-        epoch=[500] * 100 + [10_000],
+        c0=initial_covariance,
+        alpha=[1.0] * 100,
+        epoch=[500] * 100,
     )
 
     step_size = const_mala[-2] ** 2
@@ -38,7 +40,7 @@ def run_mmd(random_seed: int) -> float:
         log_target_pdf_unsafe=fp,
         grad_log_target_pdf_unsafe=fg,
         initial_sample=gs[0],
-        initial_covariance=np.cov(gs, rowvar=False),
+        initial_covariance=initial_covariance,
         initial_step_size=step_size,
         total_timesteps=10_000,
         max_steps_per_episode=500,
