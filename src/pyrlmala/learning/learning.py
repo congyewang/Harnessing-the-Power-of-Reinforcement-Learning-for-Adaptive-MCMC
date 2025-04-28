@@ -14,14 +14,14 @@ from jaxtyping import Float
 from stable_baselines3.common.buffers import ReplayBuffer
 from torch.nn import functional as F
 from torch.optim.lr_scheduler import LRScheduler
-from torch.optim.swa_utils import SWALR, AveragedModel
 from torch.utils.tensorboard import SummaryWriter
-from tqdm.auto import trange
+from tqdm.auto import tqdm
 
 from ..agent import EnsemblePolicyNetwork
 from ..datastructures import DynamicTopK
 from ..utils import Toolbox
 from .events import EventManager, TrainEvents
+from .logging import DummyWriter
 
 T = TypeVar("T")
 
@@ -98,6 +98,7 @@ class LearningInterface(ABC):
         random_seed: int = 42,
         num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
+        track: bool = False,
         verbose: bool = True,
         run_name: str = "rlmcmc",
     ) -> None:
@@ -129,6 +130,7 @@ class LearningInterface(ABC):
             random_seed (int, optional): Random seed. Defaults to 42.
             num_of_top_policies (int, optional): Number of top policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            track (bool, optional): Track. Defaults to False.
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
 
@@ -202,9 +204,6 @@ class LearningInterface(ABC):
 
         # Predicted
         self.predicted_timesteps: int | None = None
-        self.predicted_observation: npt.NDArray[np.float64]
-        self.predicted_action: npt.NDArray[np.float64]
-        self.predicted_reward: npt.NDArray[np.float64]
 
         # Best Policy
         self.best_episodic_return = -np.inf
@@ -213,13 +212,6 @@ class LearningInterface(ABC):
 
         # Last Policy
         self.last_policy: Optional[Dict[str, Any]] = None
-
-        # Stochastic Weight Averaging
-        self.swa_start = int(self.total_timesteps * 0.75)
-        self.swa_actor = AveragedModel(self.actor)
-        self.swa_scheduler = SWALR(
-            self.actor_optimizer, swa_lr=self.actor_optimizer.param_groups[0]["lr"]
-        )
 
         # Top-K Policy
         if num_of_top_policies < 1:
@@ -230,7 +222,10 @@ class LearningInterface(ABC):
         ] = DynamicTopK(num_of_top_policies, key=lambda x: x[0])
 
         # Tensorboard
-        self.writer = SummaryWriter(f"runs/{run_name}")
+        if track:
+            self.writer = SummaryWriter(f"runs/{run_name}")
+        else:
+            self.writer = DummyWriter()
 
         # Event Manager Callback
         self.event_manager = EventManager()
@@ -300,17 +295,34 @@ class LearningInterface(ABC):
                 )
 
     @abstractmethod
-    def trainning_loop(self, global_step: int) -> None:
+    def trainning_loop(self) -> None:
         """
         Training process. Must be implemented in the subclass.
-
-        Args:
-            global_step (int): Global step.
 
         Raises:
             NotImplementedError: If the method is not implemented.
         """
         raise NotImplementedError("train_process method is not implemented")
+
+    @property
+    def current_step(self) -> int:
+        """
+        Get the current step.
+
+        Returns:
+            int: Current step.
+        """
+        return self.env.get_attr("current_step")[0]
+
+    @property
+    def predicted_step(self) -> int:
+        """
+        Get the predicted step.
+
+        Returns:
+            int: Predicted step.
+        """
+        return self.predicted_env.get_attr("current_step")[0]
 
     def train(self) -> None:
         """
@@ -319,6 +331,10 @@ class LearningInterface(ABC):
         Raises:
             NotImplementedError: If the method is not implemented.
         """
+        # Set the actor and critic to training mode
+        self.actor.train()
+        self.critic.train()
+
         # Trigger before step event
         self.event_manager.trigger(TrainEvents.BEFORE_TRAIN)
 
@@ -329,12 +345,19 @@ class LearningInterface(ABC):
         if self.critic_gradient_clipping:
             self.critic_gradient_clipping_function()
 
+        progress_bar = tqdm(
+            total=self.total_timesteps, disable=not self.verbose, desc="Training"
+        )
+
         # Training loop
-        for global_step in trange(self.total_timesteps, disable=not self.verbose):
-            self.trainning_loop(global_step)
+        while self.current_step < self.total_timesteps:
+            self.trainning_loop()
 
             # Trigger within train event
             self.event_manager.trigger(TrainEvents.WITHIN_TRAIN)
+
+            progress_bar.n = self.current_step
+            progress_bar.refresh()
 
         self.last_policy = self.actor.state_dict()
 
@@ -350,30 +373,17 @@ class LearningInterface(ABC):
 
         Args:
             load_policy (str, optional): Load policy. Defaults to "ensemble".
-            - "ensemble": Ensemble policy.
-            - "swa": Stochastic Weight Averaging.
-            - "best": Best policy.
-            - "last": Last policy.
+                - "ensemble": Ensemble policy.
+                - "best": Best policy.
+                - "last": Last policy.
 
         Raises:
             NotImplementedError: If the method is not implemented.
         """
-        _single_predicted_envs: List[RecordEpisodeStatistics] = self.predicted_env.envs
-        if hasattr(_single_predicted_envs[0].unwrapped, "total_timesteps"):
-            self.predicted_timesteps: int = _single_predicted_envs[
-                0
-            ].unwrapped.total_timesteps
-        else:
-            self.predicted_timesteps: int = 10_000
+        self.predicted_timesteps = self.predicted_env.get_attr("total_timesteps")[0]
 
         # Reset the environment
         predicted_obs, _ = self.predicted_env.reset(seed=self.random_seed)
-
-        # Store predicted obs, action, and reward
-        predicted_observation: List[npt.NDArray[np.float64]] = []
-        predicted_action: List[npt.NDArray[np.float64]] = []
-        predicted_reward: List[npt.NDArray[np.float64]] = []
-
         predicted_actor = copy.deepcopy(self.actor)
 
         match load_policy:
@@ -381,8 +391,6 @@ class LearningInterface(ABC):
                 predicted_actor = EnsemblePolicyNetwork(
                     predicted_actor, self.topk_policy
                 )
-            case "swa":
-                predicted_actor.load_state_dict(self.swa_actor.module.state_dict())
             case "best":
                 predicted_actor.load_state_dict(self.best_policy)
             case "last":
@@ -392,27 +400,55 @@ class LearningInterface(ABC):
                     "Invalid load_policy. Must be 'ensemble', 'swa', 'best', or 'last'."
                 )
 
+        # Set the actor to evaluation mode
         predicted_actor.eval()
 
-        for _ in trange(self.predicted_timesteps, disable=not self.verbose):
+        progress_bar = tqdm(
+            total=self.predicted_timesteps, disable=not self.verbose, desc="Prediction"
+        )
+
+        while self.predicted_step < self.predicted_timesteps:
             with torch.no_grad():
                 predicted_actions = predicted_actor(
                     torch.from_numpy(predicted_obs).to(self.device)
                 )
 
-            predicted_obs, predicted_rewards, _, _, _ = self.predicted_env.step(
+            predicted_obs, _, _, _, _ = self.predicted_env.step(
                 predicted_actions.detach().cpu().numpy()
             )
 
-            predicted_observation.append(predicted_obs)
-            predicted_action.append(predicted_actions.view(-1).detach().cpu().numpy())
-            predicted_reward.append(predicted_rewards)
+            progress_bar.n = self.predicted_step
+            progress_bar.refresh()
 
-        self.predicted_observation = np.array(predicted_observation).reshape(
-            -1, np.prod(self.predicted_env.single_observation_space.shape)
-        )
-        self.predicted_action = np.array(predicted_action)
-        self.predicted_reward = np.array(predicted_reward).flatten()
+    @property
+    def predicted_observation(self) -> npt.NDArray[np.float64]:
+        """
+        Get the predicted observation.
+
+        Returns:
+            npt.NDArray[np.float64]: Predicted observation.
+        """
+        return self.predicted_env.get_attr("store_accepted_sample")[0]
+
+    @property
+    def predicted_action(self):
+        """
+        Get the predicted action.
+
+        Returns:
+            npt.NDArray[np.float64]: Predicted action.
+        """
+        return self.predicted_env.get_attr("store_action")[0]
+
+    @property
+    def predicted_reward(self):
+        """
+        Get the predicted reward.
+
+        Returns:
+            npt.NDArray[np.float64]: Predicted reward.
+        """
+        return self.predicted_env.get_attr("store_reward")[0]
 
     def switch_actor_weights(
         self,
@@ -422,8 +458,6 @@ class LearningInterface(ABC):
         Switch the actor weights.
         """
         match load_policy:
-            case "swa":
-                self.actor.load_state_dict(self.swa_actor.module.state_dict())
             case "best":
                 self.actor.load_state_dict(self.best_policy)
             case "last":
@@ -473,6 +507,7 @@ class LearningDDPG(LearningInterface):
         best_policy (Optional[Dict[str, Any]]): Best policy.
         writer (SummaryWriter): Summary writer.
         event_manager (EventManager): Event manager.
+        track (bool): Track training progress.
     """
 
     def __init__(
@@ -503,6 +538,7 @@ class LearningDDPG(LearningInterface):
         random_seed: int = 42,
         num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
+        track: bool = False,
         verbose: bool = True,
         run_name: str = "rlmcmc",
     ) -> None:
@@ -566,16 +602,17 @@ class LearningDDPG(LearningInterface):
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
             device=device,
+            track=track,
             verbose=verbose,
             run_name=run_name,
         )
 
-    def trainning_loop(self, global_step: int) -> None:
+    def trainning_loop(self) -> None:
         """
         Training Session for DDPG.
         """
 
-        if global_step < self.learning_starts:
+        if self.current_step < self.learning_starts:
             initial_step_size_unconstrained = Toolbox.inverse_softplus(
                 self.initial_step_size
             )
@@ -599,6 +636,20 @@ class LearningDDPG(LearningInterface):
                 )
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
 
+        self.writer.add_scalars(
+            "training/trace",
+            {
+                f"x{idx}": val.item()
+                for idx, val in enumerate(self.obs[0, 0 : self.sample_dim])
+            },
+            self.current_step,
+        )
+        self.writer.add_scalar(
+            "training/step_size",
+            Toolbox.softplus(actions[0, 0]).item(),
+            self.current_step,
+        )
+
         if "episode" in infos:
             episodic_return = float(infos["episode"]["r"][0])
 
@@ -607,22 +658,22 @@ class LearningDDPG(LearningInterface):
                     episodic_return,
                     {
                         "actor": self.actor.state_dict(),
-                        "step": global_step,
+                        "step": self.current_step,
                     },
                 )
             )
 
-            if global_step > self.total_timesteps >> 1:
+            if self.current_step > self.total_timesteps >> 1:
                 if episodic_return > self.best_episodic_return:
                     self.best_episodic_return = episodic_return
                     self.best_policy = self.actor.state_dict()
-                    self.best_policy_step = global_step
+                    self.best_policy_step = self.current_step
 
             self.writer.add_scalar(
-                "charts/episodic_return", episodic_return, global_step
+                "charts/episodic_return", episodic_return, self.current_step
             )
             self.writer.add_scalar(
-                "charts/episodic_length", infos["episode"]["l"], global_step
+                "charts/episodic_length", infos["episode"]["l"], self.current_step
             )
 
         real_next_obs = next_obs.copy()
@@ -632,7 +683,7 @@ class LearningDDPG(LearningInterface):
 
         self.obs = next_obs
 
-        if global_step > self.learning_starts:
+        if self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
                 next_state_actions = self.target_actor(data.next_observations)
@@ -650,21 +701,13 @@ class LearningDDPG(LearningInterface):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-            if global_step % self.policy_frequency == 0:
+            if self.current_step % self.policy_frequency == 0:
                 actor_loss = -self.critic(
                     data.observations, self.actor(data.observations)
                 ).mean()
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
-
-                # Stochastic Weight Averaging
-                if global_step > self.swa_start:
-                    self.swa_actor.update_parameters(self.actor)
-                    self.swa_scheduler.step()
-                else:
-                    if self.actor_scheduler:
-                        self.actor_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
@@ -680,17 +723,20 @@ class LearningDDPG(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-            if global_step % 100 == 0 and global_step > self.policy_frequency:
+            if (
+                self.current_step % 100 == 0
+                and self.current_step > self.policy_frequency
+            ):
                 self.writer.add_scalar(
                     "losses/critic_values",
                     critic_a_values.mean().item(),
-                    global_step,
+                    self.current_step,
                 )
                 self.writer.add_scalar(
-                    "losses/critic_loss", critic_loss.item(), global_step
+                    "losses/critic_loss", critic_loss.item(), self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/actor_loss", actor_loss.item(), global_step
+                    "losses/actor_loss", actor_loss.item(), self.current_step
                 )
 
                 self.critic_values.append(critic_a_values.mean().item())
@@ -761,6 +807,7 @@ class LearningTD3(LearningInterface):
         best_policy (Optional[Dict[str, Any]]): Best policy.
         writer (SummaryWriter): Summary writer.
         event_manager (EventManager): Event manager.
+        track (bool): Track training progress.
     """
 
     def __init__(
@@ -795,6 +842,7 @@ class LearningTD3(LearningInterface):
         noise_clip: float = 0.5,
         num_of_top_policies: int = 5,
         device: torch.device = torch.device("cpu"),
+        track: bool = False,
         verbose: bool = True,
         run_name: str = "rlmcmc",
     ) -> None:
@@ -830,6 +878,7 @@ class LearningTD3(LearningInterface):
             noise_clip (float, optional): Noise clip. Defaults to 0.5.
             num_of_top_policies (int, optional): Number of top policies to keep. Defaults to 5.
             device (torch.device, optional): Device. Defaults to torch.device("cpu").
+            track (bool, optional): Track. Defaults to False.
             verbose (bool, optional): Verbose. Defaults to True.
             run_name (str, optional): Run name. Defaults to "rlmcmc".
 
@@ -863,6 +912,7 @@ class LearningTD3(LearningInterface):
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
             device=device,
+            track=track,
             verbose=verbose,
             run_name=run_name,
         )
@@ -903,11 +953,12 @@ class LearningTD3(LearningInterface):
                     )
                 )
 
-    def trainning_loop(self, global_step: int) -> None:
+    def trainning_loop(self) -> None:
         """
         Training Session for TD3.
         """
-        if global_step < self.learning_starts:
+
+        if self.current_step < self.learning_starts:
             initial_step_size_unconstrained = Toolbox.inverse_softplus(
                 self.initial_step_size
             )
@@ -940,22 +991,22 @@ class LearningTD3(LearningInterface):
                     episodic_return,
                     {
                         "actor": self.actor.state_dict(),
-                        "step": global_step,
+                        "step": self.current_step,
                     },
                 )
             )
 
-            if global_step > self.total_timesteps >> 1:
+            if self.current_step > self.total_timesteps >> 1:
                 if episodic_return > self.best_episodic_return:
                     self.best_episodic_return = episodic_return
                     self.best_policy = self.actor.state_dict()
-                    self.best_policy_step = global_step
+                    self.best_policy_step = self.current_step
 
             self.writer.add_scalar(
-                "charts/episodic_return", episodic_return, global_step
+                "charts/episodic_return", episodic_return, self.current_step
             )
             self.writer.add_scalar(
-                "charts/episodic_length", infos["episode"]["l"], global_step
+                "charts/episodic_length", infos["episode"]["l"], self.current_step
             )
 
         real_next_obs = next_obs.copy()
@@ -965,7 +1016,7 @@ class LearningTD3(LearningInterface):
 
         self.obs = next_obs
 
-        if global_step > self.learning_starts:
+        if self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
                 clipped_noise = (
@@ -1000,21 +1051,13 @@ class LearningTD3(LearningInterface):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-            if global_step % self.policy_frequency == 0:
+            if self.current_step % self.policy_frequency == 0:
                 actor_loss = -self.critic(
                     data.observations, self.actor(data.observations)
                 ).mean()
                 self.actor_optimizer.zero_grad()
                 actor_loss.backward()
                 self.actor_optimizer.step()
-
-                # Stochastic Weight Averaging
-                if global_step > self.swa_start:
-                    self.swa_actor.update_parameters(self.actor)
-                    self.swa_scheduler.step()
-                else:
-                    if self.actor_scheduler:
-                        self.actor_scheduler.step()
 
                 # update the target network
                 for param, target_param in zip(
@@ -1036,28 +1079,28 @@ class LearningTD3(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-            if global_step % 100 == 0:
+            if self.current_step % 100 == 0:
                 self.writer.add_scalar(
                     "losses/critic1_values",
                     critic1_a_values.mean().item(),
-                    global_step,
+                    self.current_step,
                 )
                 self.writer.add_scalar(
                     "losses/critic2_values",
                     critic2_a_values.mean().item(),
-                    global_step,
+                    self.current_step,
                 )
                 self.writer.add_scalar(
-                    "losses/critic1_loss", critic1_loss.item(), global_step
+                    "losses/critic1_loss", critic1_loss.item(), self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/critic2_loss", critic2_loss.item(), global_step
+                    "losses/critic2_loss", critic2_loss.item(), self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/critic_loss", critic_loss.item() / 2.0, global_step
+                    "losses/critic_loss", critic_loss.item() / 2.0, self.current_step
                 )
                 self.writer.add_scalar(
-                    "losses/actor_loss", actor_loss.item(), global_step
+                    "losses/actor_loss", actor_loss.item(), self.current_step
                 )
 
                 self.critic_values.append(critic1_a_values.mean().item())

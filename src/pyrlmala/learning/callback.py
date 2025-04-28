@@ -2,6 +2,8 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
+from loguru import logger
+
 from .events import TrainEvents
 from .learning import LearningInterface
 from .observer import ConfigObserver
@@ -131,9 +133,9 @@ class Callback(CallbackBase):
         """
         try:
             self.observer.stop()
-            print(f"{self.__class__.__name__} observer stopped.")
+            logger.info(f"{self.__class__.__name__} observer stopped.")
         except Exception as e:
-            print(f"Error stopping observer: {e}")
+            logger.error(f"Error stopping observer: {e}")
         finally:
             if hasattr(super(), "__del__"):
                 super().__del__()
@@ -161,7 +163,7 @@ class Callback(CallbackBase):
         )
 
         self.observer.start()
-        print(f"{self.__class__.__name__} observer started.")
+        logger.info(f"{self.__class__.__name__} observer started.")
 
         self.actor_learning_rate_slider = ActorLearningRateSlider(runtime_config_path)
         # self._make_actor_learning_rate_slider()

@@ -706,6 +706,7 @@ class PreparationDDPG(PreparationInterface):
             random_seed=self.args.experiments.seed,
             num_of_top_policies=self.args.experiments.num_of_top_policies,
             device=self.device,
+            track=self.args.experiments.track,
             verbose=self.verbose,
             run_name=f"{self.args.algorithm.general.env_id}__{self.args.experiments.exp_name}__{self.args.experiments.seed}__{int(time.time())}",
         )
@@ -876,6 +877,7 @@ class PreparationTD3(PreparationInterface):
             num_of_top_policies=self.args.experiments.num_of_top_policies,
             device=self.device,
             verbose=self.verbose,
+            track=self.args.experiments.track,
             policy_noise=self.args.algorithm.specific.policy_noise,
             noise_clip=self.args.algorithm.specific.noise_clip,
             run_name=f"{self.args.algorithm.general.env_id}__{self.args.experiments.exp_name}__{self.args.experiments.seed}__{int(time.time())}",

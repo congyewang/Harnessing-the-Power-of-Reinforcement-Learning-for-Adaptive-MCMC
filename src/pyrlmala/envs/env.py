@@ -1295,29 +1295,16 @@ class MALAEnv(MCMCEnvBase):
         )
 
         # Accept or Reject
-        try:
-            _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
-                self.accepted_process(
-                    current_sample,
-                    proposed_sample,
-                    current_mean,
-                    proposed_mean,
-                    current_covariance,
-                    proposed_covariance,
-                )
+        _, accepted_sample, accepted_mean, accepted_covariance, log_alpha = (
+            self.accepted_process(
+                current_sample,
+                proposed_sample,
+                current_mean,
+                proposed_mean,
+                current_covariance,
+                proposed_covariance,
             )
-        except np.linalg.LinAlgError:
-            print("LinAlgError")
-            print("current_sample", current_sample)
-            print("proposed_sample", proposed_sample)
-            print("current_mean", current_mean)
-            print("proposed_mean", proposed_mean)
-            print("current_covariance", current_covariance)
-            print("proposed_covariance", proposed_covariance)
-            print("current_phi", current_phi)
-            print("proposed_phi", proposed_phi)
-
-            raise
+        )
 
         # Update Observation
         next_proposed_sample = self.sample_generator(accepted_mean, accepted_covariance)

@@ -206,4 +206,4 @@ experiments/laplace_*/const/const_run_*
 experiments/laplace_*/const/run-const_*
 experiments/laplace_*/flex/*.txt
 experiments/whole_results
-**/backup
+**/backup*

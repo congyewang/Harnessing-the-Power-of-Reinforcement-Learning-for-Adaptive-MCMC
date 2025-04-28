@@ -9,6 +9,7 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import pandas as pd
 import torch
+from loguru import logger
 from numpy import typing as npt
 from tqdm.auto import trange
 
@@ -288,7 +289,7 @@ class MMDBatchRunner:
                     save_file_path,
                 )
             except Exception as e:
-                print(f"Error in seed {i}: {e}")
+                logger.error(f"Error in seed {i}: {e}")
 
         match mode:
             case "mean":
