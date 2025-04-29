@@ -23,102 +23,57 @@ def output_initial_step_size(model_name: str) -> float:
     Returns:
         float: The initial step size for the model.
     """
-    if model_name == "kidiq_with_mom_work-kidscore_mom_work":
-        step_size = 2.96e-02
-    elif model_name == "bball_drive_event_0-hmm_drive_0":
-        step_size = 3.36e-02
-    elif model_name == "kilpisjarvi_mod-kilpisjarvi":
-        step_size = 3.75e-02
-    elif model_name == "kidiq-kidscore_momhsiq":
-        step_size = 6.66e-03
-    elif model_name == "eight_schools-eight_schools_noncentered":
-        step_size = 5.64e-01
-    elif model_name == "nes2000-nes":
-        step_size = 8.59e-04
-    elif model_name == "nes1996-nes":
-        step_size = 2.91e-06
-    elif model_name == "earnings-logearn_interaction":
-        step_size = 3.06e-02
-    elif model_name == "arK-arK":
-        step_size = 4.37e-05
-    elif model_name == "gp_pois_regr-gp_regr":
-        step_size = 8.78e-02
-    elif model_name == "diamonds-diamonds":
-        step_size = 1.02e-07
-    elif model_name == "garch-garch11":
-        step_size = 2.00e-03
-    elif model_name == "mesquite-logmesquite":
-        step_size = 3.29e-04
-    elif model_name == "mesquite-logmesquite_logva":
-        step_size = 2.15e-02
-    elif model_name == "nes1992-nes":
-        step_size = 1.08e-07
-    elif model_name == "nes1976-nes":
-        step_size = 9.61e-08
-    elif model_name == "sblri-blr":
-        step_size = 1.41e-02
-    elif model_name == "earnings-log10earn_height":
-        step_size = 7.81e-02
-    elif model_name == "earnings-logearn_height_male":
-        step_size = 7.74e-03
-    elif model_name == "nes1988-nes":
-        step_size = 1.04e-07
-    elif model_name == "mesquite-logmesquite_logvas":
-        step_size = 2.56e-04
-    elif model_name == "earnings-earn_height":
-        step_size = 1.70e-05
-    elif model_name == "mcycle_gp-accel_gp":
-        step_size = 5.64e-01
-    elif model_name == "hmm_example-hmm_example":
-        step_size = 4.26e-03
-    elif model_name == "bball_drive_event_1-hmm_drive_1":
-        step_size = 1.38e-02
-    elif model_name == "nes1980-nes":
-        step_size = 8.29e-04
-    elif model_name == "earnings-logearn_height":
-        step_size = 7.24e-02
-    elif model_name == "one_comp_mm_elim_abs-one_comp_mm_elim_abs":
-        step_size = 1.37e-06
-    elif model_name == "kidiq-kidscore_momhs":
-        step_size = 8.16e-02
-    elif model_name == "earnings-logearn_logheight_male":
-        step_size = 2.67e-02
-    elif model_name == "kidiq-kidscore_momiq":
-        step_size = 1.71e-01
-    elif model_name == "hudson_lynx_hare-lotka_volterra":
-        step_size = 1.93e-04
-    elif model_name == "nes1972-nes":
-        step_size = 1.02e-07
-    elif model_name == "sblrc-blr":
-        step_size = 2.68e-05
-    elif model_name == "kidiq_with_mom_work-kidscore_interaction_c":
-        step_size = 3.08e-02
-    elif model_name == "nes1984-nes":
-        step_size = 8.99e-08
-    elif model_name == "eight_schools-eight_schools_centered":
-        step_size = 6.33e-08
-    elif model_name == "earnings-logearn_interaction_z":
-        step_size = 3.18e-02
-    elif model_name == "mesquite-logmesquite_logvash":
-        step_size = 1.91e-05
-    elif model_name == "mesquite-logmesquite_logvolume":
-        step_size = 4.36e-02
-    elif model_name == "kidiq-kidscore_interaction":
-        step_size = 3.07e-02
-    elif model_name == "arma-arma11":
-        step_size = 5.06e-03
-    elif model_name == "kidiq_with_mom_work-kidscore_interaction_c2":
-        step_size = 1.24e-03
-    elif model_name == "kidiq_with_mom_work-kidscore_interaction_z":
-        step_size = 3.05e-02
-    elif model_name == "low_dim_gauss_mix-low_dim_gauss_mix":
-        step_size = 2.95e-02
-    elif model_name == "gp_pois_regr-gp_pois_regr":
-        step_size = 5.64e-01
-    elif model_name == "mesquite-mesquite":
-        step_size = 3.28e-04
-    else:
-        step_size = 1.0e-2
+    step_size_dict = {
+        "arK-arK": 1.4585439360203591,
+        "mesquite-logmesquite_logvash": 1.3060794113381227,
+        "earnings-logearn_interaction_z": 1.6861196334169768,
+        "sblri-blr": 1.4723059041154656,
+        "garch-garch11": 0.9192814322644454,
+        "diamonds-diamonds": 0.9305593090862834,
+        "nes1996-nes": 1.3123712218717887,
+        "kidiq-kidscore_momhsiq": 1.8004793478917995,
+        "low_dim_gauss_mix-low_dim_gauss_mix": 1.656372539306426,
+        "kidiq-kidscore_momiq": 2.0344597692837603,
+        "eight_schools-eight_schools_noncentered": 0.0319411328108101,
+        "mcycle_gp-accel_gp": 0.00492445720082105,
+        "hmm_example-hmm_example": 1.6673405866235762,
+        "earnings-logearn_logheight_male": 1.8101872880977699,
+        "nes1980-nes": 1.2838256300974658,
+        "kidiq-kidscore_momhs": 2.046293062369786,
+        "arma-arma11": 1.7448203409071206,
+        "earnings-logearn_interaction": 1.6640156277087146,
+        "eight_schools-eight_schools_centered": 0.11881713053953455,
+        "hudson_lynx_hare-lotka_volterra": 1.0644198340978521,
+        "kidiq_with_mom_work-kidscore_mom_work": 1.6603669530377132,
+        "gp_pois_regr-gp_regr": 2.0316139654020784,
+        "earnings-log10earn_height": 2.0259334027978984,
+        "kidiq_with_mom_work-kidscore_interaction_z": 1.6610312326659964,
+        "nes1984-nes": 1.2912750408861147,
+        "nes1988-nes": 1.2886950716335848,
+        "nes1972-nes": 1.3011283037649513,
+        "mesquite-logmesquite": 1.2411493109216718,
+        "nes1976-nes": 1.295678263975894,
+        "sblrc-blr": 1.501152571430175,
+        "mesquite-logmesquite_logvas": 1.2539059427738155,
+        "kidiq_with_mom_work-kidscore_interaction_c": 1.6800610533118199,
+        "mesquite-logmesquite_logvolume": 1.85341787398032,
+        "mesquite-logmesquite_logva": 1.4951836377115655,
+        "earnings-logearn_height": 2.036901934595459,
+        "kidiq_with_mom_work-kidscore_interaction_c2": 1.6577074506357439,
+        "kidiq-kidscore_interaction": 1.6623475565105363,
+        "nes2000-nes": 1.2677328326500032,
+        "bball_drive_event_1-hmm_drive_1": 1.3865659267836152,
+        "mesquite-mesquite": 1.2347085298452791,
+        "one_comp_mm_elim_abs-one_comp_mm_elim_abs": 0.7349372291097396,
+        "nes1992-nes": 1.3121021346338757,
+        "earnings-logearn_height_male": 1.8331391760913212,
+        "bball_drive_event_0-hmm_drive_0": 1.2675002248981289,
+        "earnings-earn_height": 1.7e-5,
+        "kilpisjarvi_mod-kilpisjarvi": 3.75e-2,
+        "gp_pois_regr-gp_pois_regr": 5.64e-1,
+    }
+
+    step_size = step_size_dict.get(model_name, 1e-2)
 
     return step_size
 
