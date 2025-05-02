@@ -1,6 +1,5 @@
 from typing import Tuple, TypeVar
 
-import numpy as np
 import torch
 import torch.optim as optim
 from jaxtyping import Float
@@ -8,8 +7,7 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from ..agent import PolicyNetwork, QNetwork
-from ..envs import MCMCEnvBase
+from ..agent import PolicyNetwork
 
 T = TypeVar("T")
 
