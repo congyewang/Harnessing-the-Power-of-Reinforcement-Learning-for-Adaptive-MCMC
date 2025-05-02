@@ -1,6 +1,6 @@
-from typing import Tuple, TypeVar
+from abc import abstractmethod
+from typing import Any, Tuple
 
-import numpy as np
 import torch
 import torch.optim as optim
 from jaxtyping import Float
@@ -8,13 +8,113 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 from tqdm.auto import tqdm
 
-from ..agent import PolicyNetwork, QNetwork
-from ..envs import MCMCEnvBase
-
-T = TypeVar("T")
+from ..agent import PolicyNetwork
+from ..utils import Toolbox
 
 
-class PretrainMockDataset(Dataset[T]):
+class PretrainDatasetBase(Dataset[Float[torch.Tensor, "num dim"]]):
+    def __init__(self, step_size: float, *args: Any, **kwargs: Any) -> None:
+        """
+        Pretrain Dataset Base Class.
+
+        Args:
+            step_size (float): Step size for the dataset.
+        """
+        super().__init__()
+        self.step_size = self.check_step_size(step_size)
+
+    def check_step_size(self, step_size: float) -> float:
+        """
+        Check if the step size is valid.
+
+        Args:
+            step_size (float): Step size to check.
+
+        Raises:
+            ValueError: Raised if the step size is non-positive.
+
+        Returns:
+            float: Validated step size.
+        """
+        if step_size <= 0:
+            raise ValueError("Step size must be positive.")
+        return step_size
+
+    def check_num_data(self, num_data: int) -> int:
+        """
+        Check if the number of samples is valid.
+
+        Args:
+            num_data (int): Number of samples to check.
+
+        Raises:
+            ValueError: Raised if the number of samples is non-positive.
+
+        Returns:
+            int: Validated number of samples.
+        """
+        if num_data <= 0 or not isinstance(num_data, int):
+            raise ValueError("Number of samples must be a positive integer.")
+        return num_data
+
+    def __len__(self) -> int:
+        """
+        Returns the number of samples.
+
+        Returns:
+            int: Number of samples.
+        """
+        return self.num_data
+
+    def __getitem__(
+        self, index: int
+    ) -> Tuple[Float[torch.Tensor, "num dim"], Float[torch.Tensor, "num dim"]]:
+        """
+        Returns the state and action at the given index.
+
+        Returns:
+            Tuple[Float[torch.Tensor, "num dim"], Float[torch.Tensor, "num dim"]]: State and action.
+        """
+        return self.mock_state[index].double(), self.mock_step_size[index].double()
+
+    def inverse_softplus(
+        self, /, x: Float[torch.Tensor, "num dim"]
+    ) -> Float[torch.Tensor, "num dim"]:
+        """
+        Inverse softplus function.
+
+        Returns:
+            Float[torch.Tensor, "num dim"]: Output.
+        """
+        return x + torch.log1p(-torch.exp(-x))
+
+    @abstractmethod
+    def mock_state_generator(
+        self, *args: Any, **kwargs: Any
+    ) -> Float[torch.Tensor, "num dim"]:
+        """
+        Mock state generator.
+
+        Returns:
+            Float[torch.Tensor, "num dim"]: State.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
+
+    def mock_step_size_generator(self) -> Float[torch.Tensor, "num dim"]:
+        """
+        Mock step size generator.
+
+        Returns:
+            Float[torch.Tensor, "num dim"]: Step size.
+        """
+        return self.inverse_softplus(
+            torch.repeat_interleave(
+                torch.tensor([self.step_size]), self.num_data << 1
+            ).view(self.num_data, -1)
+        )
+
+
+class PretrainMockDataset(PretrainDatasetBase):
     """
     Pretrain Mock Dataset for Actor.
 
@@ -29,7 +129,7 @@ class PretrainMockDataset(Dataset[T]):
 
     def __init__(
         self,
-        initial_sample: Float[torch.Tensor, "initial sample"],
+        initial_sample: Float[torch.Tensor, "num dim"],
         step_size: float = 1.0,
         num_data: int = 1_000,
         mag: float = 10.0,
@@ -38,7 +138,7 @@ class PretrainMockDataset(Dataset[T]):
         Pretrain Mock Dataset for Actor.
 
         Args:
-            initial_sample (Float[torch.Tensor, "initial sample"]): Initial sample.
+            initial_sample (Float[torch.Tensor, "num dim"]): Initial sample.
             step_size (float, optional): Step size. Defaults to 1.0.
             num_data (int, optional): Number of samples. Defaults to 1_000.
             mag (float, optional): Magnification. Defaults to 10.0.
@@ -48,59 +148,43 @@ class PretrainMockDataset(Dataset[T]):
             ValueError: If number of samples is non-positive.
             ValueError: If magnification is non-positive.
         """
-        if step_size <= 0:
-            raise ValueError("Step size must be positive.")
-        if num_data <= 0 and not isinstance(num_data, int):
-            raise ValueError("Number of samples must be a positive integer.")
-        if mag <= 0:
-            raise ValueError("Magnification must be positive.")
+        super().__init__(step_size)
+        self.mag = self.check_mag(mag)
 
         self.initial_sample = initial_sample
         self.sample_dim = len(initial_sample)
-        self.step_size = step_size
-        self.num_data = num_data
-        self.mag = mag
 
-        self.mock_state = self.mock_state_generator()
+        self.num_data = self.check_num_data(num_data)
+
+        self.mock_state = self.mock_state_generator(num_data)
         self.mock_step_size = self.mock_step_size_generator()
 
-    def __len__(self) -> int:
+    def check_mag(self, mag: float) -> float:
         """
-        Returns the number of samples.
+        Check if the magnification is valid.
+
+        Args:
+            mag (float): Magnification to check.
+
+        Raises:
+            ValueError: Raised if the magnification is non-positive.
 
         Returns:
-            int: Number of samples.
+            float: Validated magnification.
         """
-        return self.num_data
+        if mag <= 0:
+            raise ValueError("Magnification must be positive.")
+        return mag
 
-    def __getitem__(
-        self, index: int
-    ) -> Tuple[Float[torch.Tensor, "state"], Float[torch.Tensor, "action"]]:
-        """
-        Returns the state and action at the given index.
-
-        Returns:
-            Tuple[Float[torch.Tensor, "state"], Float[torch.Tensor, "action"]]: State and action.
-        """
-        return self.mock_state[index].double(), self.mock_step_size[index].double()
-
-    def inverse_softplus(
-        self, /, x: Float[torch.Tensor, "input"]
-    ) -> Float[torch.Tensor, "output"]:
-        """
-        Inverse softplus function.
-
-        Returns:
-            Float[torch.Tensor, "output"]: Output.
-        """
-        return x + torch.log1p(-torch.exp(-x))
-
-    def mock_state_generator(self) -> Float[torch.Tensor, "state"]:
+    def mock_state_generator(self, num_data: int) -> Float[torch.Tensor, "num dim"]:
         """
         Mock state generator.
 
+        Args:
+            num_data (int): Number of samples.
+
         Returns:
-            Float[torch.Tensor, "state"]: State.
+            Float[torch.Tensor, "num dim"]: State.
         """
         multivariate_normal = torch.distributions.MultivariateNormal(
             loc=self.initial_sample,
@@ -109,32 +193,48 @@ class PretrainMockDataset(Dataset[T]):
             ),
         )
 
-        return multivariate_normal.sample((self.num_data, self.sample_dim)).view(
+        return multivariate_normal.sample((num_data, self.sample_dim)).view(
             -1, self.sample_dim << 1
         )
 
-    def mock_step_size_generator(self) -> Float[torch.Tensor, "step size"]:
+
+class PretrainPosteriorDBDataset(PretrainDatasetBase):
+    def __init__(
+        self,
+        model_name: str,
+        posteriordb_path: str,
+        step_size: float = 1.0,
+    ) -> None:
+        super().__init__(step_size)
+
+        self.mock_state = self.mock_state_generator(model_name, posteriordb_path)
+        self.num_data = self.check_num_data(self.mock_state.shape[0])
+        self.mock_step_size = self.mock_step_size_generator()
+
+    def mock_state_generator(
+        self, model_name: str, posteriordb_path: str
+    ) -> Float[torch.Tensor, "num dim"]:
         """
-        Mock step size generator.
+        Mock state generator.
+
+        Args:
+            model_name (str): Model name.
+            posteriordb_path (str): PosteriorDB path.
 
         Returns:
-            Float[torch.Tensor, "step size"]: Step size.
+            Float[torch.Tensor, "num dim"]: State.
         """
-        return self.inverse_softplus(
-            torch.repeat_interleave(
-                torch.tensor([self.step_size]), self.num_data << 1
-            ).view(self.num_data, -1)
-        )
+        gold_standard = Toolbox.gold_standard(model_name, posteriordb_path)
+        gold_standard_torch = torch.from_numpy(gold_standard).double()
+        mock_state = gold_standard_torch.tile((2,))
+        return mock_state
 
 
 class PretrainFactory:
     @staticmethod
     def train(
         actor: PolicyNetwork,
-        initial_sample: Float[torch.Tensor, "initial sample"],
-        step_size: float = 1.0,
-        num_data: int = 1_000,
-        mag: float = 10.0,
+        mock_dataset: PretrainDatasetBase,
         num_epochs: int = 100,
         batch_size: int = 16,
         shuffle: bool = True,
@@ -148,7 +248,7 @@ class PretrainFactory:
 
         Args:
             actor (PolicyNetwork): Actor.
-            initial_sample (Float[torch.Tensor, "initial sample"]): Initial sample.
+            initial_sample (Float[torch.Tensor, "num dim"]): Initial sample.
             step_size (float, optional): Step size. Defaults to 1.0.
             num_data (int, optional): Number of samples. Defaults to 1_000.
             mag (float, optional): Magnification. Defaults to 10.0.
@@ -162,7 +262,7 @@ class PretrainFactory:
             PolicyNetwork: Actor.
         """
         # Load Mock Dataset
-        mock_dataset = PretrainMockDataset(initial_sample, step_size, num_data, mag)
+        # mock_dataset = PretrainMockDataset(initial_sample, step_size, num_data, mag)
         data_loader = DataLoader(mock_dataset, batch_size=batch_size, shuffle=shuffle)
 
         # Configure Actor
@@ -195,152 +295,3 @@ class PretrainFactory:
                 progress_bar.set_postfix({"Loss": f"{loss.item():.4f}"})
 
         return actor
-
-
-class PretrainingQNetwork:
-    def __init__(
-        self,
-        mock_env: MCMCEnvBase,
-        q_network: QNetwork,
-        initial_sample: Float[torch.Tensor, "initial sample"],
-        step_size: float = 1.0,
-        mag: float = 10.0,
-        batch_size: int = 64,
-        pretrain_steps: int = 1_000,
-        device: torch.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        ),
-        verbose: bool = True,
-    ) -> None:
-        """
-        Pretraining class for the DDPG Q-function.
-
-        Args:
-            mock_env (MCMCEnvBase): Mock environment.
-            q_network (QNetwork): Q-network.
-            initial_sample (Float[torch.Tensor, "initial sample"]): Initial sample.
-            step_size (float, optional): Step size. Defaults to 1.0.
-            mag (float, optional): Magnification. Defaults to 10.0.
-            batch_size (int, optional): Batch size. Defaults to 64.
-            pretrain_steps (int, optional): Number of pretraining steps. Defaults to 1_000.
-            device (torch.device, optional): Device. Defaults to torch.device("cpu").
-            verbose (bool, optional): Verbose. Defaults to True.
-        """
-        self.mock_env = mock_env
-        self.q_network = q_network
-        self.q_network.to(device)
-        self.initial_sample = initial_sample
-        self.step_size = step_size
-        self.mag = mag
-        self.verbose = verbose
-
-        self.optimizer = optim.Adam(self.q_network.parameters(), lr=0.01)
-        self.batch_size = batch_size
-        self.pretrain_steps = pretrain_steps
-
-    def generate_pretrain_data(
-        self,
-    ) -> Tuple[
-        Float[torch.Tensor, "observation"],
-        Float[torch.Tensor, "action"],
-        Float[torch.Tensor, "q value"],
-    ]:
-        """
-        Generate pretraining data by sampling observations and actions.
-
-        Returns:
-            Tuple[
-                Float[torch.Tensor, "observation"],
-                Float[torch.Tensor, "action"],
-                Float[torch.Tensor, "q value"]
-            ]: Observations, actions, and Q-values.
-        """
-        observations = []
-        actions = []
-        q_values = []
-
-        for _ in range(self.batch_size):
-            # Sample observation ~ N(initial_sample, 10I)
-            observation = self.mock_env.np_random.multivariate_normal(
-                mean=self.mock_env.initial_sample,
-                cov=self.mag * np.eye(self.mock_env.sample_dim),
-            )
-
-            # Sample action ~ N(initial_step_size, 10)
-            action = self.mock_env.np_random.normal(
-                loc=self.mock_env.initial_step_size,
-                scale=np.sqrt(self.mag),
-                size=2,
-            )
-
-            # Get the Q-value for the observation-action pair
-            obs_tensor = torch.from_numpy(
-                np.concatenate([observation, observation])
-            ).float()
-            action_tensor = torch.from_numpy(action).float()
-            q_value = (
-                self.q_network(obs_tensor.unsqueeze(0), action_tensor.unsqueeze(0))
-                .detach()
-                .item()
-            )
-
-            observations.append(obs_tensor)
-            actions.append(action_tensor)
-            q_values.append(q_value)
-
-        return (
-            torch.stack(observations),
-            torch.stack(actions),
-            torch.tensor(q_values).float(),
-        )
-
-    def train_one_step(
-        self,
-        observations: Float[torch.Tensor, "observations"],
-        actions: Float[torch.Tensor, "actions"],
-        q_values: Float[torch.Tensor, "q values"],
-    ) -> float:
-        """
-        Perform one step of Q-network optimization.
-
-        Args:
-            observations (Float[torch.Tensor, "observations"]): Observations.
-            actions (Float[torch.Tensor, "actions"]): Actions.
-            q_values (Float[torch.Tensor, "q values"]): Q-values.
-        """
-        # Compute predicted Q-values
-        predicted_q_values = self.q_network(observations, actions).squeeze()
-
-        # Compute loss (MSE)
-        loss = torch.nn.functional.mse_loss(predicted_q_values, q_values)
-
-        # Backpropagation and optimization
-        self.optimizer.zero_grad()
-        loss.backward()
-        self.optimizer.step()
-
-        return loss.item()
-
-    def train(self) -> None:
-        """
-        Run the pretraining process for the specified number of steps.
-        """
-        # Progress Bar
-        progress_bar = tqdm(
-            range(self.pretrain_steps),
-            desc="Training Epochs",
-            disable=not self.verbose,
-            leave=False,
-        )
-
-        # for step in range(self.pretrain_steps):
-        for step in progress_bar:
-            # Generate batch of data
-            observations, actions, q_values = self.generate_pretrain_data()
-
-            # Train for one step
-            loss = self.train_one_step(observations, actions, q_values)
-
-            # Optionally add progress bar updates with detailed logging
-            if (step + 1) % 10 == 0:
-                progress_bar.set_postfix({"Loss": f"{loss:.4f}"})

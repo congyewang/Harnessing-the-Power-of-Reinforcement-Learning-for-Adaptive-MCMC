@@ -22,7 +22,7 @@ from ..config import (
 )
 from ..envs import MCMCEnvBase
 from .learning import LearningDDPG, LearningTD3
-from .pretrain import PretrainFactory
+from .pretrain import PretrainFactory, PretrainMockDataset, PretrainPosteriorDBDataset
 
 T = TypeVar("T")
 
@@ -212,7 +212,11 @@ class PreparationInterface(ABC):
         self.envs, self.predicted_envs = self.make_env()
 
         # Make Actor
-        self.actor, self.target_actor = self.make_actor(compile)
+        self.actor, self.target_actor = self.make_actor(
+            compile,
+            model_name,
+            posteriordb_path,
+        )
 
         # Make Replay Buffer
         self.replay_buffer = self.make_replay_buffer()
@@ -404,7 +408,12 @@ class PreparationInterface(ABC):
     def get_actor_input_size(self) -> int:
         return self.envs.single_observation_space.shape[0] >> 1
 
-    def make_actor(self, compile: bool) -> Tuple[PolicyNetwork, PolicyNetwork]:
+    def make_actor(
+        self,
+        compile: bool,
+        model_name: Optional[str],
+        posteriordb_path: Optional[str],
+    ) -> Tuple[PolicyNetwork, PolicyNetwork]:
         """
         Make actor.
 
@@ -428,12 +437,23 @@ class PreparationInterface(ABC):
             initial_sample_torch = (
                 torch.from_numpy(self.initial_sample).to(self.device).double()
             )
+
+            if model_name is None or posteriordb_path is None:
+                mock_dataset = PretrainMockDataset(
+                    initial_sample=initial_sample_torch,
+                    step_size=self.initial_step_size.item(),
+                    num_data=self.args.algorithm.general.actor_pretrain_num_data,
+                    mag=self.args.algorithm.general.actor_pretrain_mag,
+                )
+            else:
+                mock_dataset = PretrainPosteriorDBDataset(
+                    model_name=model_name,
+                    posteriordb_path=posteriordb_path,
+                    step_size=self.initial_step_size.item(),
+                )
             actor = PretrainFactory.train(
                 actor,
-                initial_sample_torch,
-                step_size=self.initial_step_size.item(),
-                num_data=self.args.algorithm.general.actor_pretrain_num_data,
-                mag=self.args.algorithm.general.actor_pretrain_mag,
+                mock_dataset,
                 num_epochs=self.args.algorithm.general.actor_pretrain_num_epochs,
                 batch_size=self.args.algorithm.general.actor_pretrain_batch_size,
                 shuffle=self.args.algorithm.general.actor_pretrain_shuffle,
