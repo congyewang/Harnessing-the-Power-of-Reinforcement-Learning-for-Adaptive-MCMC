@@ -22,7 +22,7 @@ upload_model = false
 # the user or org name of the model repository from the Hugging Face Hub
 hf_entity = ""
 # The number of top policies to save
-num_of_top_policies = 1
+num_of_top_policies = 5
 
 [algorithm.general]
 # the environment id of the Atari game

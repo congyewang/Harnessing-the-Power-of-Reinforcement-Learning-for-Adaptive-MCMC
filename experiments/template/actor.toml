@@ -1,10 +1,5 @@
 [network]
-hidden_layers = [8, 16, 16, 8]
+hidden_layers = [8, 8]
 activation_function = "ReLU"
 
 [scheduler]
-type = "StepLR"
-
-[scheduler.params]
-step_size = 10000
-gamma = 0.5
