@@ -134,7 +134,7 @@ def generate_files(
                 "random_seed": str(random_seed),
                 "env_id": mcmc_env_dict[mcmc_env],
                 "actor_learning_rate": "1e-5",
-                "exploration_noise": str(2.0 * output_initial_step_size(model_name)),
+                "exploration_noise": str(3.0 * output_initial_step_size(model_name)),
             }
             hyperparameter_template_path = (
                 f"{template_root_dir}/config_template_pdb.toml"
