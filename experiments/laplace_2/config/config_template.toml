@@ -76,7 +76,7 @@ tau = 0.005
 # the scale of policy noise
 policy_noise = 0.0
 # the scale of exploration noise
-exploration_noise = 0.0
+exploration_noise = 1.0
 # the frequency of training policy (delayed)
 policy_frequency = 2
 # noise clip parameter of the Target Policy Smoothing Regularization
