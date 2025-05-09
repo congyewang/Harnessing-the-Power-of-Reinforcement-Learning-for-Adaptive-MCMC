@@ -21,7 +21,3 @@ if __name__ == "__main__":
             template_path="./config/config_template.toml",
             output_root_path="./config",
         )
-
-    import requests
-
-    requests.post("https://ntfy.greenlimes.top/asus", data="Finished")
