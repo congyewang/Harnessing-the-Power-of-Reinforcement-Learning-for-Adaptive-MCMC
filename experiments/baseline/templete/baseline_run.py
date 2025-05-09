@@ -29,8 +29,8 @@ def run_mmd(random_seed: int) -> float:
         x0=gs[0],
         h0=0.1,
         c0=initial_covariance,
-        alpha=[1.0] * 10,
-        epoch=[5_000] * 10,
+        alpha=[1.0] * 5,
+        epoch=[5_000] * 5,
     )
 
     step_size = const_mala[-2] ** 2
