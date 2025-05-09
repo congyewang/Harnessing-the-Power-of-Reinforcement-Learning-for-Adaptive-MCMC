@@ -136,7 +136,9 @@ def main():
         try:
             gs, predicted_sample = get_samples(random_number)
             median_lengthscale = Toolbox.median_trick(gs)
-            mmd = Toolbox.calculate_mmd(gs, predicted_sample, median_lengthscale)
+            mmd = Toolbox.calculate_mmd(
+                gs, predicted_sample[-5_000:], median_lengthscale
+            )
             write_results(random_number, mmd, file_path)
         except Exception as e:
             logger.error(f"Error occurred for random seed {random_number}: {e}")
