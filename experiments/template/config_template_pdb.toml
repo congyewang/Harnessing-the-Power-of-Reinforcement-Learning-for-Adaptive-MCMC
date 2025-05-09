@@ -30,7 +30,7 @@ env_id = "{{ env_id }}"
 # total timesteps of the experiments
 total_timesteps = 25_000
 # total timesteps of the prediction
-predicted_timesteps = 5_000
+predicted_timesteps = 10_000
 # the number of steps per episode
 max_steps_per_episode = 500
 # timestep to start learning
