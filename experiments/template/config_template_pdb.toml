@@ -28,15 +28,15 @@ num_of_top_policies = 5
 # the environment id of the Atari game
 env_id = "{{ env_id }}"
 # total timesteps of the experiments
-total_timesteps = 50_000
+total_timesteps = 25_000
 # total timesteps of the prediction
-predicted_timesteps = 10_000
+predicted_timesteps = 5_000
 # the number of steps per episode
 max_steps_per_episode = 500
 # timestep to start learning
 learning_starts = 48
 # the replay memory buffer size
-buffer_size = 50_000
+buffer_size = 25_000
 # the batch size of sample from the reply memory
 batch_size = 48
 # the discount factor gamma
