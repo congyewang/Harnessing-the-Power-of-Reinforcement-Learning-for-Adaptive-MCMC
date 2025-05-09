@@ -59,7 +59,7 @@ class BaselineResultReader(ResultReader):
         for path in csv_paths:
             df = pd.read_csv(path)
 
-            if df.shape[0] != self.repeat_num:
+            if df.shape[0] < 1:
                 logger.warning(f"Skipping {path}: incorrect number of rows.")
                 continue
 
@@ -112,7 +112,7 @@ class MCMCResultReader(ResultReader):
             method = mcmc_env_match.group()
 
             df = pd.read_csv(path)
-            if df.shape[0] != self.repeat_num:
+            if df.shape[0] < 1:
                 logger.warning(
                     f"Skipping {model_name} {method}: incomplete result ({df.shape[0]} rows)"
                 )
