@@ -3,6 +3,7 @@ import os
 import re
 import warnings
 from functools import cache
+from io import StringIO
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import bridgestan as bs
@@ -10,6 +11,7 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import torch
 from cytoolz import pipe
 from gymnasium.envs.registration import EnvSpec
@@ -17,7 +19,7 @@ from jaxtyping import Float
 from matplotlib.axes import Axes
 from posteriordb import PosteriorDatabase
 from torch.nn import functional as F
-
+from loguru import logger
 from .mmd import (
     BatchedCalculateMMDTorch,
     CalculateMMDNumpy,
@@ -699,3 +701,80 @@ class Toolbox:
 
             for i in markdown_total:
                 f.write(i + "\n")
+
+    @staticmethod
+    def bold_markdown(
+        input_file_path: str,
+        output_file_path: str = "output.md",
+        model_key_name: str = "Model",
+        flex_key_name: str = "mala Median",
+        baseline_key_name: str = "baseline Median",
+    ) -> None:
+        """
+        Convert a markdown table to a new markdown table with bold values for the flex_key_name and baseline_key_name.
+
+        Args:
+            input_file_path (str): Path to the input markdown file.
+            output_file_path (str): Path to the output markdown file.
+            model_key_name (str): Name of the model key in the table.
+            flex_key_name (str): Name of the flexible key in the table.
+            baseline_key_name (str): Name of the baseline key in the table.
+        """
+        # Read markdown file content
+        with open(input_file_path, "r") as f:
+            md_table = f.read()
+
+        # Remove the separator line in the header (lines like ---)
+        lines = [
+            line
+            for line in md_table.strip().split("\n")
+            if not re.match(r"^\s*\|?\s*-+", line)
+        ]
+
+        # Read a table using pandas
+        df = pd.read_csv(StringIO("\n".join(lines)), sep="|", skipinitialspace=True)
+
+        # Remove extra empty columns on both sides
+        df.columns = df.columns.str.strip()
+        if "" in df.columns:
+            df = df.drop(columns=[""])
+        # Delete columns containing Unnamed
+        df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+
+        # Remove extra rows (Model column is the alignment line)
+        df = df[~df[model_key_name].str.contains(":-", na=False)].reset_index(drop=True)
+
+        # Check column names
+        logger.info(f"Columns: {df.columns.tolist()}")
+
+        # Bold logic
+        def bold_compare(row):
+            try:
+                mala = float(row[flex_key_name])
+                base = float(row[baseline_key_name])
+            except ValueError:
+                return pd.Series(
+                    {
+                        flex_key_name: row[flex_key_name],
+                        baseline_key_name: row[baseline_key_name],
+                    }
+                )
+
+            if mala < base:
+                mala_fmt = f"**{mala}**"
+                base_fmt = f"{base}"
+            elif mala > base:
+                mala_fmt = f"{mala}"
+                base_fmt = f"**{base}**"
+            else:
+                mala_fmt = f"{mala}"
+                base_fmt = f"{base}"
+
+            return pd.Series({flex_key_name: mala_fmt, baseline_key_name: base_fmt})
+
+        # Apply bold logic
+        df[[flex_key_name, baseline_key_name]] = df.apply(bold_compare, axis=1)
+
+        # Export markdown
+        with open(output_file_path, "w") as f:
+            f.write(df.to_markdown(index=False))
