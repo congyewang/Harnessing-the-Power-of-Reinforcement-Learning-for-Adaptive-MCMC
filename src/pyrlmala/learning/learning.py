@@ -650,6 +650,22 @@ class LearningDDPG(LearningInterface):
             self.current_step,
         )
 
+        if self.current_step == self.learning_starts:
+            max_steps_per_episode = self.env.get_attr("max_steps_per_episode")[0]
+            episodic_return = (
+                self.env.get_attr("store_reward")[0][0 : self.learning_starts].mean()
+                * max_steps_per_episode
+            )
+            self.topk_policy.add(
+                (
+                    episodic_return,
+                    {
+                        "actor": self.actor.state_dict(),
+                        "step": self.current_step,
+                    },
+                )
+            )
+
         if "episode" in infos:
             episodic_return = float(infos["episode"]["r"][0])
 
@@ -982,6 +998,22 @@ class LearningTD3(LearningInterface):
                 )
 
         next_obs, rewards, terminations, _, infos = self.env.step(actions)
+
+        if self.current_step == self.learning_starts:
+            max_steps_per_episode = self.env.get_attr("max_steps_per_episode")[0]
+            episodic_return = (
+                self.env.get_attr("store_reward")[0][0 : self.learning_starts].mean()
+                * max_steps_per_episode
+            )
+            self.topk_policy.add(
+                (
+                    episodic_return,
+                    {
+                        "actor": self.actor.state_dict(),
+                        "step": self.current_step,
+                    },
+                )
+            )
 
         if "episode" in infos:
             episodic_return = infos["episode"]["r"][0]

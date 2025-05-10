@@ -34,7 +34,7 @@ predicted_timesteps = 10_000
 # the number of steps per episode
 max_steps_per_episode = 500
 # timestep to start learning
-learning_starts = 48
+learning_starts = 500
 # the replay memory buffer size
 buffer_size = 25_000
 # the batch size of sample from the reply memory
