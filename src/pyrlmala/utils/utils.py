@@ -745,7 +745,7 @@ class Toolbox:
         df = df[~df[model_key_name].str.contains(":-", na=False)].reset_index(drop=True)
 
         # Check column names
-        logger.info("Columns:", df.columns.tolist())
+        logger.info(f"Columns: {df.columns.tolist()}")
 
         # Bold logic
         def bold_compare(row):
