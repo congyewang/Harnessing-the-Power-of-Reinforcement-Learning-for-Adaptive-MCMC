@@ -41,7 +41,7 @@ def run_mmd(random_seed: int) -> float:
         initial_sample=gs[0],
         initial_covariance=initial_covariance,
         initial_step_size=step_size,
-        total_timesteps=10_000,
+        total_timesteps=5_000,
         max_steps_per_episode=500,
         log_mode=True,
     )
@@ -49,7 +49,7 @@ def run_mmd(random_seed: int) -> float:
     action = Toolbox.softplus(np.tile(step_size, 2))
     baseline_env.reset(seed=random_seed)
 
-    for _ in range(10_000):
+    for _ in range(5_000):
         baseline_env.step(action)
 
     mmd = Toolbox.calculate_mmd(
