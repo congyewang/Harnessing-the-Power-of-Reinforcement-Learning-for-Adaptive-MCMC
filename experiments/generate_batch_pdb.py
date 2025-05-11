@@ -230,7 +230,9 @@ if __name__ == "__main__":
     posteriordb_path = "./posteriordb/posterior_database"
 
     pdb_toolbox = PosteriorDBToolbox(posteriordb_path)
-    model_name_list = pdb_toolbox.get_model_name_with_gold_standard()
+    model_name_list = [
+        i for i in pdb_toolbox.get_model_name_with_gold_standard() if "test" not in i
+    ]
 
     for model_name in model_name_list:
         posteriordb_path = "../../posteriordb/posterior_database"
