@@ -7,6 +7,25 @@ import jinja2
 
 from pyrlmala.utils import Toolbox
 from pyrlmala.utils.posteriordb import PosteriorDBToolbox
+import math
+
+
+def get_magnitude(x: float) -> float:
+    """
+    Get the magnitude of a number.
+
+    Args:
+        x (float): The input number.
+
+    Returns:
+        float: The magnitude of the number.
+    """
+    if x == 0:
+        return 0
+
+    exponent = math.floor(math.log10(abs(x)))
+
+    return 10**exponent
 
 
 def create_model_result_dir(model_name: str) -> str:
@@ -134,7 +153,9 @@ def generate_files(
                 "random_seed": str(random_seed),
                 "env_id": mcmc_env_dict[mcmc_env],
                 "actor_learning_rate": "1e-5",
-                "exploration_noise": str(3.0 * output_initial_step_size(model_name)),
+                "exploration_noise": str(
+                    get_magnitude(output_initial_step_size(model_name))
+                ),
             }
             hyperparameter_template_path = (
                 f"{template_root_dir}/config_template_pdb.toml"

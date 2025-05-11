@@ -230,6 +230,11 @@ class LearningInterface(ABC):
         # Event Manager Callback
         self.event_manager = EventManager()
 
+        # Reward Centering
+        self.reward_centering = True
+        self.R_bar = 0.0
+        self.rbar_alpha = 1e-3
+
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
     ) -> Float[torch.Tensor, "gradient"]:
@@ -699,16 +704,28 @@ class LearningDDPG(LearningInterface):
 
         self.obs = next_obs
 
-        if self.current_step > self.learning_starts:
+        if self.current_step == self.learning_starts:
+            if self.reward_centering:
+                self.R_bar = np.mean(
+                    self.env.get_attr("store_reward")[0][0 : self.current_step]
+                )
+        elif self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
                 next_state_actions = self.target_actor(data.next_observations)
                 critic_next_target = self.target_critic(
                     data.next_observations, next_state_actions
                 )
-                next_q_value = data.rewards.flatten() + (
-                    1 - data.dones.flatten()
-                ) * self.gamma * (critic_next_target).view(-1)
+                if self.reward_centering:
+                    rewards_centered = data.rewards.flatten() - self.R_bar
+                    next_q_value = rewards_centered + (
+                        1 - data.dones.flatten()
+                    ) * self.gamma * critic_next_target.view(-1)
+                else:
+                    next_q_value = data.rewards.flatten() + (
+                        1 - data.dones.flatten()
+                    ) * self.gamma * (critic_next_target).view(-1)
+
             critic_a_values = self.critic(data.observations, data.actions).view(-1)
             critic_loss = F.mse_loss(critic_a_values, next_q_value)
 
@@ -739,6 +756,11 @@ class LearningDDPG(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
+            if self.reward_centering:
+                batch_mean_r = data.rewards.flatten().mean().item()
+                delta = batch_mean_r - self.R_bar
+                self.R_bar += self.rbar_alpha * delta
+
             if (
                 self.current_step % 100 == 0
                 and self.current_step > self.policy_frequency
@@ -758,6 +780,8 @@ class LearningDDPG(LearningInterface):
                 self.critic_values.append(critic_a_values.mean().item())
                 self.critic_loss.append(critic_loss.item())
                 self.actor_loss.append(actor_loss.item())
+        else:
+            pass
 
         if self.actor_scheduler:
             self.actor_scheduler.step()
