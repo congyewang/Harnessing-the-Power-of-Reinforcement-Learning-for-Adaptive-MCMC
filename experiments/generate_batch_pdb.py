@@ -5,6 +5,7 @@ from itertools import product
 from typing import Dict
 
 import jinja2
+import numpy as np
 
 from pyrlmala.utils import Toolbox
 from pyrlmala.utils.posteriordb import PosteriorDBToolbox
