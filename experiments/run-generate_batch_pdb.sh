@@ -10,6 +10,9 @@ python generate_batch_pdb.py
 
 cd whole_results
 rm -rf test-*
+cd -
+
+bash submit_batch_pdb.sh
 
 echo "Finished Job"
 exit 0
