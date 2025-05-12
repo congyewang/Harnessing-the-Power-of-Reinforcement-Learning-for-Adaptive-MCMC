@@ -70,7 +70,10 @@ class BaselineResultReader(ResultReader):
             q1 = float(np.percentile(mmd_values, 25))
             q3 = float(np.percentile(mmd_values, 75))
 
-            results[model_name][self.method_name] = [median, q1, q3]
+            mean = float(np.mean(mmd_values))
+            se = float(np.std(mmd_values) / np.sqrt(self.repeat_num))
+
+            results[model_name][self.method_name] = [median, q1, q3, mean, se]
 
         return results
 
@@ -119,9 +122,14 @@ class MCMCResultReader(ResultReader):
                 continue
 
             mmd_values = df["mmd"].values
+
             median = float(np.median(mmd_values))
             q1 = float(np.percentile(mmd_values, 25))
             q3 = float(np.percentile(mmd_values, 75))
-            results[model_name][method] = [median, q1, q3]
+
+            mean = float(np.mean(mmd_values))
+            se = float(np.std(mmd_values) / np.sqrt(self.repeat_num))
+
+            results[model_name][method] = [median, q1, q3, mean, se]
 
         return results
