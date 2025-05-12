@@ -19,7 +19,12 @@ warnings.filterwarnings(
 
 
 class PosteriorDBGenerator:
-    def __init__(self, result_reader: ResultReader, posteriordb_path: str, output_path: str = "mmd_results.md") -> None:
+    def __init__(
+        self,
+        result_reader: ResultReader,
+        posteriordb_path: str,
+        output_path: str = "mmd_results.md",
+    ) -> None:
         """
         Initialize the PosteriorDBGenerator class.
 
@@ -64,7 +69,9 @@ class PosteriorDBGenerator:
 
         field_names = ["Model"]
         for key in all_keys:
-            field_names.extend([f"{key} Median", f"{key} Q1", f"{key} Q3"])
+            field_names.extend(
+                [f"{key} Median", f"{key} Q1", f"{key} Q3", f"{key} Mean", f"{key} SE"]
+            )
 
         table = PrettyTable()
         table.set_style(TableStyle.MARKDOWN)
@@ -75,10 +82,10 @@ class PosteriorDBGenerator:
             row = [model_name]
             for key in all_keys:
                 values = mmd_dict.get(key)
-                if values and len(values) >= 3:
-                    row.extend([f"{v:.4g}" for v in values[:3]])
+                if values and len(values) >= 5:
+                    row.extend([f"{v:.4g}" for v in values[:5]])
                 else:
-                    row.extend(["-"] * 3)
+                    row.extend(["-"] * 5)
             table.add_row(row)
 
         with open(self.output_path, "w") as f:
