@@ -172,7 +172,7 @@ def generate_files(
                 "exp_name": exp_name_dict[mcmc_env],
                 "random_seed": str(random_seed),
                 "env_id": mcmc_env_dict[mcmc_env],
-                "actor_learning_rate": "1e-5",
+                "actor_learning_rate": "1e-6",
                 "exploration_noise": str(
                     get_magnitude(output_initial_step_size(model_name))
                 ),
