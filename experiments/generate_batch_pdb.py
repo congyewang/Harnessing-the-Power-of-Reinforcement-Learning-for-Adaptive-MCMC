@@ -64,8 +64,7 @@ def output_initial_step_size(
 
     lam_max = np.linalg.eigvalsh(sigma_inv).max()
     eps0 = l / np.sqrt(lam_max * d ** (1 / 3))
-    # initial_step_size = 29.0168 * eps0**3 - 25.6180 * eps0**2 + 3.0239 * eps0 + 1.3476
-    initial_step_size = np.sqrt(eps0)
+    initial_step_size = 29.0168 * eps0**3 - 25.6180 * eps0**2 + 3.0239 * eps0 + 1.3476
 
     return initial_step_size.item()
 
