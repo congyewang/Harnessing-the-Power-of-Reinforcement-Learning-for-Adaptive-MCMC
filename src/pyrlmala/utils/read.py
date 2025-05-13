@@ -2,7 +2,7 @@ import glob
 import re
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -79,7 +79,9 @@ class BaselineResultReader(ResultReader):
 
 
 class MCMCResultReader(ResultReader):
-    def __init__(self, results_dir: str, repeat_num: int = 10) -> None:
+    def __init__(
+        self, results_dir: str, repeat_num: int = 10, method_name: Optional[str] = None
+    ) -> None:
         """
         Initialize the MCMCResultReader class.
 
@@ -88,6 +90,7 @@ class MCMCResultReader(ResultReader):
             repeat_num (int): Number of repetitions for loading results.
         """
         super().__init__(results_dir, repeat_num)
+        self.method_name = method_name
 
     def load_results(self) -> Dict[str, Dict[str, List[float]]]:
         """
@@ -108,11 +111,14 @@ class MCMCResultReader(ResultReader):
             model_name = parts[-2]
             filename = parts[-1]
 
-            mcmc_env_match = re.search(mcmc_env_pattern, filename)
-            if not mcmc_env_match:
-                logger.warning(f"Skip {filename}: no match for method.")
-                continue
-            method = mcmc_env_match.group()
+            if self.method_name:
+                method = self.method_name
+            else:
+                mcmc_env_match = re.search(mcmc_env_pattern, filename)
+                if not mcmc_env_match:
+                    logger.warning(f"Skip {filename}: no match for method.")
+                    continue
+                method = mcmc_env_match.group()
 
             df = pd.read_csv(path)
             if df.shape[0] < 1:
