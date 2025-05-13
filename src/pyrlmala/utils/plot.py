@@ -684,7 +684,7 @@ class GeneralPlot:
         axes.set_ylabel("y")
 
         cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
-        cbar.set_label("Action")
+        cbar.set_label("Step Size")
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
