@@ -61,16 +61,18 @@ class PosteriorDBGenerator:
 
     def write_result_to_markdown(self) -> None:
         """
-        Write the MMD results to a markdown file in a table format.
+        Write the MMD results to a markdown file in a table format, including model dimensions.
         """
         res_sorted = self.get_sorted_model_names()
 
+        # Gather all metric keys
         all_keys = set()
         for model_dict in self.mmd_results.values():
             all_keys.update(model_dict.keys())
         all_keys = sorted(all_keys)
 
-        field_names = ["Model"]
+        # Add Dimension column after Model
+        field_names = ["Model", "d"]
         for key in all_keys:
             field_names.extend(
                 [f"{key} Median", f"{key} Q1", f"{key} Q3", f"{key} Mean", f"{key} SE"]
@@ -80,9 +82,9 @@ class PosteriorDBGenerator:
         table.set_style(TableStyle.MARKDOWN)
         table.field_names = field_names
 
-        for _, model_name in res_sorted:
+        for model_dim, model_name in res_sorted:
             mmd_dict = self.mmd_results.get(model_name, {})
-            row = [model_name]
+            row = [model_name, model_dim]
             for key in all_keys:
                 values = mmd_dict.get(key)
                 if values and len(values) >= 5:
@@ -96,28 +98,31 @@ class PosteriorDBGenerator:
 
     def get_result_dataframe(self) -> pd.DataFrame:
         """
-        Return the MMD results as a pandas DataFrame.
+        Return the MMD results as a pandas DataFrame, including model dimensions.
 
         Returns:
-            pd.DataFrame: A DataFrame containing model names and MMD statistics.
+            pd.DataFrame: A DataFrame containing model names, dimensions, and MMD statistics.
         """
         res_sorted = self.get_sorted_model_names()
 
+        # Collect all available keys
         all_keys = set()
         for model_dict in self.mmd_results.values():
             all_keys.update(model_dict.keys())
         all_keys = sorted(all_keys)
 
-        field_names = ["Model"]
+        # Set up field names with Model and Dimension
+        field_names = ["Model", "d"]
         for key in all_keys:
             field_names.extend(
                 [f"{key} Median", f"{key} Q1", f"{key} Q3", f"{key} Mean", f"{key} SE"]
             )
 
+        # Construct rows
         rows = []
-        for _, model_name in res_sorted:
+        for model_dim, model_name in res_sorted:
             mmd_dict = self.mmd_results.get(model_name, {})
-            row = [model_name]
+            row = [model_name, model_dim]  # include dimension here
             for key in all_keys:
                 values = mmd_dict.get(key)
                 if values and len(values) >= 5:
@@ -241,7 +246,8 @@ class TableGenerator:
 
         for _, row in df.iterrows():
             model: str = row["Model"]
-            out_row = {"Model": model}
+            dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
+            out_row = {"Model": model, "d": dim}
 
             if has_median:
                 med_rl, q1_rl, q3_rl = map(
@@ -311,12 +317,30 @@ class TableGenerator:
         return pd.DataFrame(rows)
 
     @staticmethod
+    def escape_underscores(text: str) -> str:
+        """
+        Escape underscores in non-LaTeX formatted strings.
+
+        Args:
+            text (str): Input string.
+
+        Returns:
+            str: String with underscores escaped.
+        """
+        if isinstance(text, str):
+            return re.sub(r"(?<!\\)_", r"\_", text)
+        return text
+
+    @staticmethod
     def generate_latex_table(df: pd.DataFrame, output_path: str = "table.tex") -> None:
         """
         Generate a LaTeX table from a DataFrame and save it to a file.
         """
-        latex_code: str = df.to_latex(
-            index=False, escape=False, column_format="ccccccc"
+        escaped_df = df.applymap(TableGenerator.escape_underscores)
+
+        column_format = "c" * len(escaped_df.columns)
+        latex_code: str = escaped_df.to_latex(
+            index=False, escape=False, column_format=column_format
         )
         with open(output_path, "w") as f:
             f.write(latex_code)

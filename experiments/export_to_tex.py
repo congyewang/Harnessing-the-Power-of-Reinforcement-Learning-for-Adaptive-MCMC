@@ -1,8 +1,10 @@
-import pandas as pd
 import os
+
+import pandas as pd
+
+from pyrlmala.utils import Toolbox
 from pyrlmala.utils.export import PosteriorDBGenerator, TableGenerator
 from pyrlmala.utils.read import BaselineResultReader, MCMCResultReader
-from pyrlmala.utils import Toolbox
 
 
 def get_dataframe() -> pd.DataFrame:
@@ -36,8 +38,8 @@ def get_dataframe() -> pd.DataFrame:
     baseline_esjd_df = baseline_esjd_exporter.get_result_dataframe()
     rl_cdlb_df = rl_cdlb_exporter.get_result_dataframe()
 
-    merged_df = pd.merge(baseline_aar_df, baseline_esjd_df, on="Model")
-    merged_df = pd.merge(merged_df, rl_cdlb_df, on="Model")
+    merged_df = pd.merge(baseline_aar_df, baseline_esjd_df, on=["Model", "d"])
+    merged_df = pd.merge(merged_df, rl_cdlb_df, on=["Model", "d"])
 
     return merged_df
 
@@ -52,7 +54,7 @@ def get_mean_sub_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A filtered DataFrame containing only the columns with 'Mean' or 'SE'.
     """
-    return df.filter(regex="Model|Mean|SE")
+    return df.filter(regex="Model|^d$|Mean|SE")
 
 
 def get_median_sub_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -65,7 +67,7 @@ def get_median_sub_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A filtered DataFrame containing only the columns with 'Median', 'Q1', or 'Q3'.
     """
-    return df.filter(regex="Model|Median|Q1|Q3")
+    return df.filter(regex="Model|^d$)|Median|Q1|Q3")
 
 
 def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:
