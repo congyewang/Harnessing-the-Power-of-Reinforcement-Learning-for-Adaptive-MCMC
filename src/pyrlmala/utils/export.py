@@ -1,9 +1,12 @@
 import glob
+import io
 import re
 import warnings
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
 import pandas as pd
+from loguru import logger
 from prettytable import PrettyTable, TableStyle
 from tqdm.auto import tqdm
 
@@ -91,6 +94,40 @@ class PosteriorDBGenerator:
         with open(self.output_path, "w") as f:
             f.write(table.get_string())
 
+    def get_result_dataframe(self) -> pd.DataFrame:
+        """
+        Return the MMD results as a pandas DataFrame.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing model names and MMD statistics.
+        """
+        res_sorted = self.get_sorted_model_names()
+
+        all_keys = set()
+        for model_dict in self.mmd_results.values():
+            all_keys.update(model_dict.keys())
+        all_keys = sorted(all_keys)
+
+        field_names = ["Model"]
+        for key in all_keys:
+            field_names.extend(
+                [f"{key} Median", f"{key} Q1", f"{key} Q3", f"{key} Mean", f"{key} SE"]
+            )
+
+        rows = []
+        for _, model_name in res_sorted:
+            mmd_dict = self.mmd_results.get(model_name, {})
+            row = [model_name]
+            for key in all_keys:
+                values = mmd_dict.get(key)
+                if values and len(values) >= 5:
+                    row.extend(values[:5])
+                else:
+                    row.extend([None] * 5)
+            rows.append(row)
+
+        return pd.DataFrame(rows, columns=field_names)
+
     def export_failed_bash(self) -> None:
         """
         Export bash commands to resubmit failed jobs.
@@ -107,8 +144,215 @@ class PosteriorDBGenerator:
                     sh_command = f"cd {i.split('/')[2]}\nsbatch run_bash_{re.search('ddpg.+', i.split('/')[3]).group().replace('.csv', '')}.sh\ncd -\n\n"
                     f.write(sh_command)
 
-    def execute(self) -> None:
+    def execute(self, mode: str = "pandas") -> None | pd.DataFrame:
         """
         Execute the main functionality of the PosteriorDBGenerator class.
         """
+        match mode:
+            case "pandas":
+                self.get_sorted_model_names
         self.write_result_to_markdown()
+
+
+class TableGenerator:
+    @staticmethod
+    def read_markdown_table(file_path: str) -> pd.DataFrame:
+        """
+        Read a markdown table from a file and convert it to a DataFrame.
+
+        Args:
+            file_path (str): Path to the markdown file.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the table data.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Find the line where the table starts (starts with |)
+        header_index = next(i for i, line in enumerate(lines) if re.match(r"^\|", line))
+        table_lines = lines[header_index:]
+
+        return (
+            pd.read_csv(io.StringIO("".join(table_lines)), sep="|", engine="python")
+            .dropna(axis=1, how="all")
+            .iloc[1:]
+            .reset_index(drop=True)
+        )
+
+    @staticmethod
+    def format_scientific_with_error(
+        center: Optional[float], spread: Optional[float]
+    ) -> str:
+        """
+        Format a number with its uncertainty in scientific notation.
+
+        Args:
+            center (Optional[float]): The central value.
+            spread (Optional[float]): The spread or uncertainty.
+
+        Returns:
+            str: Formatted string in scientific notation.
+        """
+        if pd.isna(center) or pd.isna(spread):
+            return "-"
+        if center == 0:
+            return "0.0(0.0)E0"
+        exp = int(np.floor(np.log10(abs(center))))
+        base = center / (10**exp)
+        relative_spread = spread / (10**exp)
+        return f"{base:.1f}({relative_spread:.1f})E{exp}"
+
+    @classmethod
+    def apply_transformation_with_highlight(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply transformation to the DataFrame and highlight the smallest values
+        among three methods for either Mean(SE) or Mid(IQR) or both if available.
+
+        Args:
+            df (pd.DataFrame): Input DataFrame to be transformed.
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame with highlighted values.
+        """
+        df.columns = df.columns.str.strip()
+        df = df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        df = df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        df = df.replace(r"^\s*$", np.nan, regex=True)
+
+        def fmt(center: float, spread: float, highlight: bool = False) -> str:
+            result = cls.format_scientific_with_error(center, spread)
+            return f"\\textbf{{{result}}}" if highlight else result
+
+        has_median = all(
+            col in df.columns
+            for col in [
+                "RMALA-RLMH CDLB Median",
+                "RMALA AAR Median",
+                "RMALA ESJD Median",
+            ]
+        )
+        has_mean = all(
+            col in df.columns
+            for col in ["RMALA-RLMH CDLB Mean", "RMALA AAR Mean", "RMALA ESJD Mean"]
+        )
+
+        rows: List[Dict[str, str]] = []
+
+        for _, row in df.iterrows():
+            model: str = row["Model"]
+            out_row = {"Model": model}
+
+            if has_median:
+                med_rl, q1_rl, q3_rl = map(
+                    float,
+                    (
+                        row["RMALA-RLMH CDLB Median"],
+                        row["RMALA-RLMH CDLB Q1"],
+                        row["RMALA-RLMH CDLB Q3"],
+                    ),
+                )
+                med_base, q1_base, q3_base = map(
+                    float,
+                    (
+                        row["RMALA AAR Median"],
+                        row["RMALA AAR Q1"],
+                        row["RMALA AAR Q3"],
+                    ),
+                )
+                med_esjd, q1_esjd, q3_esjd = map(
+                    float,
+                    (
+                        row["RMALA ESJD Median"],
+                        row["RMALA ESJD Q1"],
+                        row["RMALA ESJD Q3"],
+                    ),
+                )
+
+                med_values = [med_rl, med_base, med_esjd]
+                min_med_idx = int(np.argmin(med_values))
+
+                out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(
+                    med_rl, q3_rl - q1_rl, min_med_idx == 0
+                )
+                out_row["RMALA AAR Mid(IQR)"] = fmt(
+                    med_base, q3_base - q1_base, min_med_idx == 1
+                )
+                out_row["RMALA ESJD Mid(IQR)"] = fmt(
+                    med_esjd, q3_esjd - q1_esjd, min_med_idx == 2
+                )
+
+            if has_mean:
+                mean_rl, se_rl = map(
+                    float, (row["RMALA-RLMH CDLB Mean"], row["RMALA-RLMH CDLB SE"])
+                )
+                mean_base, se_base = map(
+                    float, (row["RMALA AAR Mean"], row["RMALA AAR SE"])
+                )
+                mean_esjd, se_esjd = map(
+                    float, (row["RMALA ESJD Mean"], row["RMALA ESJD SE"])
+                )
+
+                mean_values = [mean_rl, mean_base, mean_esjd]
+                min_mean_idx = int(np.argmin(mean_values))
+
+                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(
+                    mean_rl, se_rl, min_mean_idx == 0
+                )
+                out_row["RMALA AAR Mean(SE)"] = fmt(
+                    mean_base, se_base, min_mean_idx == 1
+                )
+                out_row["RMALA ESJD Mean(SE)"] = fmt(
+                    mean_esjd, se_esjd, min_mean_idx == 2
+                )
+
+            rows.append(out_row)
+
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def generate_latex_table(df: pd.DataFrame, output_path: str = "table.tex") -> None:
+        """
+        Generate a LaTeX table from a DataFrame and save it to a file.
+        """
+        latex_code: str = df.to_latex(
+            index=False, escape=False, column_format="ccccccc"
+        )
+        with open(output_path, "w") as f:
+            f.write(latex_code)
+        logger.info(f"LaTeX table saved to {output_path}")
+
+    @classmethod
+    def output(
+        cls,
+        input: str | pd.DataFrame,
+        output_path: str = "formatted_table.tex",
+    ) -> None:
+        """
+        Read a markdown table, clean it, and output a LaTeX table.
+
+        Args:
+            input_path (str): Path to the input markdown file.
+        """
+        if isinstance(input, str) and input.endswith(".md"):
+            # Read Markdown Table
+            raw_df = cls.read_markdown_table(input)
+        elif isinstance(input, pd.DataFrame):
+            raw_df = input
+        else:
+            raise TypeError(
+                "Input must be a markdown file path ending with .md or a pandas DataFrame."
+            )
+
+        # Cleaning: Remove bold markers and column name spaces
+        raw_df = raw_df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        raw_df.columns = raw_df.columns.str.strip()
+
+        # Replace illegal values with NaN (such as '-' or spaces)
+        raw_df = raw_df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        raw_df = raw_df.replace(r"^\s*$", np.nan, regex=True)
+
+        # Convert format
+        final_df = cls.apply_transformation_with_highlight(raw_df)
+
+        cls.generate_latex_table(final_df, output_path)
