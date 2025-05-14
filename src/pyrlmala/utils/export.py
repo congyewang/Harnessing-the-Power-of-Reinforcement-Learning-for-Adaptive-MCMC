@@ -212,7 +212,8 @@ class TableGenerator:
     def apply_transformation_with_highlight(cls, df: pd.DataFrame) -> pd.DataFrame:
         """
         Apply transformation to the DataFrame and highlight the smallest values
-        among three methods for either Mean(SE) or Mid(IQR) or both if available.
+        among four methods (RMALA-RLMH CDLB, RMALA AAR, RMALA ESJD, RMALA-RLMH LESJD)
+        for either Mean(SE) or Mid(IQR) or both if available.
 
         Args:
             df (pd.DataFrame): Input DataFrame to be transformed.
@@ -235,11 +236,17 @@ class TableGenerator:
                 "RMALA-RLMH CDLB Median",
                 "RMALA AAR Median",
                 "RMALA ESJD Median",
+                "RMALA-RLMH LESJD Median",
             ]
         )
         has_mean = all(
             col in df.columns
-            for col in ["RMALA-RLMH CDLB Mean", "RMALA AAR Mean", "RMALA ESJD Mean"]
+            for col in [
+                "RMALA-RLMH CDLB Mean",
+                "RMALA AAR Mean",
+                "RMALA ESJD Mean",
+                "RMALA-RLMH LESJD Mean",
+            ]
         )
 
         rows: List[Dict[str, str]] = []
@@ -274,8 +281,16 @@ class TableGenerator:
                         row["RMALA ESJD Q3"],
                     ),
                 )
+                med_lesjd, q1_lesjd, q3_lesjd = map(
+                    float,
+                    (
+                        row["RMALA-RLMH LESJD Median"],
+                        row["RMALA-RLMH LESJD Q1"],
+                        row["RMALA-RLMH LESJD Q3"],
+                    ),
+                )
 
-                med_values = [med_rl, med_base, med_esjd]
+                med_values = [med_rl, med_base, med_esjd, med_lesjd]
                 min_med_idx = int(np.argmin(med_values))
 
                 out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(
@@ -286,6 +301,9 @@ class TableGenerator:
                 )
                 out_row["RMALA ESJD Mid(IQR)"] = fmt(
                     med_esjd, q3_esjd - q1_esjd, min_med_idx == 2
+                )
+                out_row["RMALA-RLMH LESJD Mid(IQR)"] = fmt(
+                    med_lesjd, q3_lesjd - q1_lesjd, min_med_idx == 3
                 )
 
             if has_mean:
@@ -298,8 +316,11 @@ class TableGenerator:
                 mean_esjd, se_esjd = map(
                     float, (row["RMALA ESJD Mean"], row["RMALA ESJD SE"])
                 )
+                mean_lesjd, se_lesjd = map(
+                    float, (row["RMALA-RLMH LESJD Mean"], row["RMALA-RLMH LESJD SE"])
+                )
 
-                mean_values = [mean_rl, mean_base, mean_esjd]
+                mean_values = [mean_rl, mean_base, mean_esjd, mean_lesjd]
                 min_mean_idx = int(np.argmin(mean_values))
 
                 out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(
@@ -310,6 +331,9 @@ class TableGenerator:
                 )
                 out_row["RMALA ESJD Mean(SE)"] = fmt(
                     mean_esjd, se_esjd, min_mean_idx == 2
+                )
+                out_row["RMALA-RLMH LESJD Mean(SE)"] = fmt(
+                    mean_lesjd, se_lesjd, min_mean_idx == 3
                 )
 
             rows.append(out_row)
