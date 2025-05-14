@@ -15,7 +15,7 @@ model_name_list = [
     "test-banana-test-banana",
     "test-neals_funnel-test-neals_funnel",
     "test-skew_t-test-skew_t",
-    "test-laplace_4-test-laplace_4",
+    "test-laplace_4_wide-test-laplace_4_wide",
     "test-heavy_light_tail-test-heavy_light_tail",
 ] + [f"test-laplace_{i}-test-laplace_{i}" for i in [1, 2, 4]]
 step_size_list = [0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0]
