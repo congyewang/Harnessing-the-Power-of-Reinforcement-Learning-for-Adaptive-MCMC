@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the list of directories to be processed
-directories=("annulus/const" "banana/const" "neals_funnel/const" "skew_t/const" "laplace_1/const" "laplace_2/const" "laplace_4/const")
+directories=("annulus/const" "banana/const" "neals_funnel/const" "skew_t/const" "laplace_4_wide/const" "heavy_light_tail/const" "laplace_1/const" "laplace_2/const" "laplace_4/const")
 
 # Traverse each directory
 for dir in "${directories[@]}"; do
