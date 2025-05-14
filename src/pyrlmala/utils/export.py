@@ -212,8 +212,9 @@ class TableGenerator:
     def apply_transformation_with_highlight(cls, df: pd.DataFrame) -> pd.DataFrame:
         """
         Apply transformation to the DataFrame and highlight the smallest values
-        among four methods (RMALA-RLMH CDLB, RMALA AAR, RMALA ESJD, RMALA-RLMH LESJD)
-        for either Mean(SE) or Mid(IQR) or both if available.
+        among four methods for either Mean(SE) or Mid(IQR) or both if available.
+        If RMALA-RLMH CDLB and RMALA-RLMH LESJD have the same minimum value, both are highlighted.
+        Output columns ordered as: RMALA AAR, RMALA ESJD, RMALA-RLMH LESJD, RMALA-RLMH CDLB.
 
         Args:
             df (pd.DataFrame): Input DataFrame to be transformed.
@@ -233,19 +234,19 @@ class TableGenerator:
         has_median = all(
             col in df.columns
             for col in [
-                "RMALA-RLMH CDLB Median",
                 "RMALA AAR Median",
                 "RMALA ESJD Median",
                 "RMALA-RLMH LESJD Median",
+                "RMALA-RLMH CDLB Median",
             ]
         )
         has_mean = all(
             col in df.columns
             for col in [
-                "RMALA-RLMH CDLB Mean",
                 "RMALA AAR Mean",
                 "RMALA ESJD Mean",
                 "RMALA-RLMH LESJD Mean",
+                "RMALA-RLMH CDLB Mean",
             ]
         )
 
@@ -291,19 +292,24 @@ class TableGenerator:
                 )
 
                 med_values = [med_rl, med_base, med_esjd, med_lesjd]
-                min_med_idx = int(np.argmin(med_values))
+                min_med_value = min(med_values)
 
-                out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(
-                    med_rl, q3_rl - q1_rl, min_med_idx == 0
-                )
+                is_rl_min = med_rl == min_med_value
+                is_lesjd_min = med_lesjd == min_med_value
+                is_base_min = med_base == min_med_value
+                is_esjd_min = med_esjd == min_med_value
+
                 out_row["RMALA AAR Mid(IQR)"] = fmt(
-                    med_base, q3_base - q1_base, min_med_idx == 1
+                    med_base, q3_base - q1_base, is_base_min
                 )
                 out_row["RMALA ESJD Mid(IQR)"] = fmt(
-                    med_esjd, q3_esjd - q1_esjd, min_med_idx == 2
+                    med_esjd, q3_esjd - q1_esjd, is_esjd_min
                 )
                 out_row["RMALA-RLMH LESJD Mid(IQR)"] = fmt(
-                    med_lesjd, q3_lesjd - q1_lesjd, min_med_idx == 3
+                    med_lesjd, q3_lesjd - q1_lesjd, is_lesjd_min
+                )
+                out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(
+                    med_rl, q3_rl - q1_rl, is_rl_min
                 )
 
             if has_mean:
@@ -321,20 +327,19 @@ class TableGenerator:
                 )
 
                 mean_values = [mean_rl, mean_base, mean_esjd, mean_lesjd]
-                min_mean_idx = int(np.argmin(mean_values))
+                min_mean_value = min(mean_values)
 
-                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(
-                    mean_rl, se_rl, min_mean_idx == 0
-                )
-                out_row["RMALA AAR Mean(SE)"] = fmt(
-                    mean_base, se_base, min_mean_idx == 1
-                )
-                out_row["RMALA ESJD Mean(SE)"] = fmt(
-                    mean_esjd, se_esjd, min_mean_idx == 2
-                )
+                is_rl_min = mean_rl == min_mean_value
+                is_lesjd_min = mean_lesjd == min_mean_value
+                is_base_min = mean_base == min_mean_value
+                is_esjd_min = mean_esjd == min_mean_value
+
+                out_row["RMALA AAR Mean(SE)"] = fmt(mean_base, se_base, is_base_min)
+                out_row["RMALA ESJD Mean(SE)"] = fmt(mean_esjd, se_esjd, is_esjd_min)
                 out_row["RMALA-RLMH LESJD Mean(SE)"] = fmt(
-                    mean_lesjd, se_lesjd, min_mean_idx == 3
+                    mean_lesjd, se_lesjd, is_lesjd_min
                 )
+                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(mean_rl, se_rl, is_rl_min)
 
             rows.append(out_row)
 
