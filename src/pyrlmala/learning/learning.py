@@ -97,6 +97,9 @@ class LearningInterface(ABC):
         tau: float = 0.005,
         random_seed: int = 42,
         num_of_top_policies: int = 5,
+        reward_centering: bool = True,
+        R_bar: float = 0.0,
+        rbar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
         verbose: bool = True,
@@ -231,9 +234,9 @@ class LearningInterface(ABC):
         self.event_manager = EventManager()
 
         # Reward Centering
-        self.reward_centering = True
-        self.R_bar = 0.0
-        self.rbar_alpha = 1e-3
+        self.reward_centering = reward_centering
+        self.R_bar = R_bar
+        self.rbar_alpha = rbar_alpha
 
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
@@ -542,6 +545,9 @@ class LearningDDPG(LearningInterface):
         tau: float = 0.005,
         random_seed: int = 42,
         num_of_top_policies: int = 5,
+        reward_centering: bool = True,
+        R_bar: float = 0.0,
+        rbar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
         verbose: bool = True,
@@ -606,6 +612,9 @@ class LearningDDPG(LearningInterface):
             tau=tau,
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
+            reward_centering=reward_centering,
+            R_bar=R_bar,
+            rbar_alpha=rbar_alpha,
             device=device,
             track=track,
             verbose=verbose,
@@ -881,6 +890,9 @@ class LearningTD3(LearningInterface):
         policy_noise: float = 0.2,
         noise_clip: float = 0.5,
         num_of_top_policies: int = 5,
+        reward_centering: bool = True,
+        R_bar: float = 0.0,
+        rbar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
         verbose: bool = True,
@@ -951,6 +963,9 @@ class LearningTD3(LearningInterface):
             tau=tau,
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
+            reward_centering=reward_centering,
+            R_bar=R_bar,
+            rbar_alpha=rbar_alpha,
             device=device,
             track=track,
             verbose=verbose,
