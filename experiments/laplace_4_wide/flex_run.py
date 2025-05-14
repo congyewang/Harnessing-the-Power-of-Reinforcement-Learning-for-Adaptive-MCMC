@@ -6,9 +6,9 @@ from pyrlmala.utils.flex import FlexibleBatchRunner
 
 if __name__ == "__main__":
     flex_batch_run = FlexibleBatchRunner(
-        model_name="test-laplace_4-test-laplace_4",
+        model_name="test-laplace_4_wide-test-laplace_4_wide",
         posteriordb_path="../posteriordb/posterior_database",
-        load_policy="best",
+        load_policy="ensemble",
     )
     mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
 
