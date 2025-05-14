@@ -190,6 +190,7 @@ cython_debug/
 **/*.jpeg
 **/*.gif
 **/*.svg
+**/*.tex
 experiments/**/*.md
 experiments/annulus/const/const_run_*
 experiments/annulus/const/run-const_*

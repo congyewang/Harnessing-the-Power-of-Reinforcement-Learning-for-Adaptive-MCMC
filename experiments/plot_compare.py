@@ -5,12 +5,10 @@ model_list = [
     "test-banana-test-banana",
     "test-neals_funnel-test-neals_funnel",
     "test-skew_t-test-skew_t",
-    "test-annulus-test-annulus",
     "test-laplace_1-test-laplace_1",
     "test-laplace_2-test-laplace_2",
 ]
 
-# mcmc_env_list = ["mala", "mala_esjd", "barker", "barker_esjd"]
 mcmc_env_list = ["mala"]
 
 bootstrap_res = {

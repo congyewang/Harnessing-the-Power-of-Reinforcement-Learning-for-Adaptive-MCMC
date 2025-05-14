@@ -21,7 +21,10 @@ def get_dataframe() -> pd.DataFrame:
         results_dir="./baseline_esjd", method_name="RMALA ESJD"
     )
     rl_cdlb_reader = MCMCResultReader(
-        results_dir="./whole_results", method_name="RMALA-RLMH CDLB"
+        results_dir="./whole_results_cdlb", method_name="RMALA-RLMH CDLB"
+    )
+    rl_esjd_reader = MCMCResultReader(
+        results_dir="./whole_results_esjd", method_name="RMALA-RLMH LESJD"
     )
 
     baseline_aar_exporter = PosteriorDBGenerator(
@@ -33,13 +36,18 @@ def get_dataframe() -> pd.DataFrame:
     rl_cdlb_exporter = PosteriorDBGenerator(
         rl_cdlb_reader, "./posteriordb/posterior_database"
     )
+    rl_esjd_exporter = PosteriorDBGenerator(
+        rl_esjd_reader, "./posteriordb/posterior_database"
+    )
 
     baseline_aar_df = baseline_aar_exporter.get_result_dataframe()
     baseline_esjd_df = baseline_esjd_exporter.get_result_dataframe()
     rl_cdlb_df = rl_cdlb_exporter.get_result_dataframe()
+    rl_esjd_df = rl_esjd_exporter.get_result_dataframe()
 
     merged_df = pd.merge(baseline_aar_df, baseline_esjd_df, on=["Model", "d"])
     merged_df = pd.merge(merged_df, rl_cdlb_df, on=["Model", "d"])
+    merged_df = pd.merge(merged_df, rl_esjd_df, on=["Model", "d"])
 
     return merged_df
 
@@ -67,7 +75,7 @@ def get_median_sub_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A filtered DataFrame containing only the columns with 'Median', 'Q1', or 'Q3'.
     """
-    return df.filter(regex="Model|^d$)|Median|Q1|Q3")
+    return df.filter(regex="Model|^d$|Median|Q1|Q3")
 
 
 def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:

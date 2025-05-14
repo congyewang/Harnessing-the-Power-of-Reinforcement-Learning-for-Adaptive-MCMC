@@ -212,13 +212,17 @@ class TableGenerator:
     def apply_transformation_with_highlight(cls, df: pd.DataFrame) -> pd.DataFrame:
         """
         Apply transformation to the DataFrame and highlight the smallest values
-        among three methods for either Mean(SE) or Mid(IQR) or both if available.
+        among four methods for either Mean(SE) or Mid(IQR) or both if available.
+        If RMALA-RLMH CDLB and RMALA-RLMH LESJD have the same minimum value, both are highlighted.
+        Output columns ordered as: RMALA AAR, RMALA ESJD, RMALA-RLMH LESJD, RMALA-RLMH CDLB.
+        Comparison is based on formatted values (scientific notation with 1 decimal place).
+        If any RMALA-RLMH method has smaller value than RMALA methods, the row is flagged for highlighting.
 
         Args:
             df (pd.DataFrame): Input DataFrame to be transformed.
 
         Returns:
-            pd.DataFrame: Transformed DataFrame with highlighted values.
+            pd.DataFrame: Transformed DataFrame with highlighted values and row highlight flags.
         """
         df.columns = df.columns.str.strip()
         df = df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
@@ -226,20 +230,58 @@ class TableGenerator:
         df = df.replace(r"^\s*$", np.nan, regex=True)
 
         def fmt(center: float, spread: float, highlight: bool = False) -> str:
-            result = cls.format_scientific_with_error(center, spread)
+            """
+            Format the value and add bold if needed.
+            Handles special case when formatted value is "-".
+            """
+            if pd.isna(center) or pd.isna(spread):
+                result = "-"
+            else:
+                result = cls.format_scientific_with_error(center, spread)
+
+            if result == "-":
+                return "\\textbf{-}" if highlight else "-"
+
             return f"\\textbf{{{result}}}" if highlight else result
+
+        def get_formatted_value(center: float, spread: float) -> float:
+            """
+            Parse the formatted scientific notation value as a float for comparison.
+            If the value is "-", return 4.0 for comparison but preserve "-" for display.
+            """
+            if pd.isna(center) or pd.isna(spread):
+                return 4.0
+
+            formatted = cls.format_scientific_with_error(center, spread)
+
+            if formatted == "-" or formatted.startswith("-"):
+                return 4.0
+
+            center_str = formatted.split("(")[0].strip()
+
+            try:
+                # Convert back to float
+                return float(center_str.replace("\\times 10^{", "e").replace("}", ""))
+            except ValueError:
+                return 4.0
 
         has_median = all(
             col in df.columns
             for col in [
-                "RMALA-RLMH CDLB Median",
                 "RMALA AAR Median",
                 "RMALA ESJD Median",
+                "RMALA-RLMH LESJD Median",
+                "RMALA-RLMH CDLB Median",
             ]
         )
         has_mean = all(
             col in df.columns
-            for col in ["RMALA-RLMH CDLB Mean", "RMALA AAR Mean", "RMALA ESJD Mean"]
+            for col in [
+                "RMALA AAR Mean",
+                "RMALA ESJD Mean",
+                "RMALA-RLMH LESJD Mean",
+                "RMALA-RLMH CDLB Mean",
+            ]
         )
 
         rows: List[Dict[str, str]] = []
@@ -249,68 +291,234 @@ class TableGenerator:
             dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
             out_row = {"Model": model, "d": dim}
 
+            med_rmala_rlmh_better = False
+            mean_rmala_rlmh_better = False
+
             if has_median:
-                med_rl, q1_rl, q3_rl = map(
-                    float,
-                    (
-                        row["RMALA-RLMH CDLB Median"],
-                        row["RMALA-RLMH CDLB Q1"],
-                        row["RMALA-RLMH CDLB Q3"],
-                    ),
-                )
-                med_base, q1_base, q3_base = map(
-                    float,
-                    (
-                        row["RMALA AAR Median"],
-                        row["RMALA AAR Q1"],
-                        row["RMALA AAR Q3"],
-                    ),
-                )
-                med_esjd, q1_esjd, q3_esjd = map(
-                    float,
-                    (
-                        row["RMALA ESJD Median"],
-                        row["RMALA ESJD Q1"],
-                        row["RMALA ESJD Q3"],
-                    ),
+                try:
+                    med_rl, q1_rl, q3_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RMALA-RLMH CDLB Median"],
+                            row["RMALA-RLMH CDLB Q1"],
+                            row["RMALA-RLMH CDLB Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_rl, q1_rl, q3_rl = float("nan"), float("nan"), float("nan")
+
+                try:
+                    med_base, q1_base, q3_base = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RMALA AAR Median"],
+                            row["RMALA AAR Q1"],
+                            row["RMALA AAR Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_base, q1_base, q3_base = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
+                try:
+                    med_esjd, q1_esjd, q3_esjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RMALA ESJD Median"],
+                            row["RMALA ESJD Q1"],
+                            row["RMALA ESJD Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_esjd, q1_esjd, q3_esjd = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
+                try:
+                    med_lesjd, q1_lesjd, q3_lesjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RMALA-RLMH LESJD Median"],
+                            row["RMALA-RLMH LESJD Q1"],
+                            row["RMALA-RLMH LESJD Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_lesjd, q1_lesjd, q3_lesjd = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
+                formatted_med_rl = get_formatted_value(med_rl, q3_rl - q1_rl)
+                formatted_med_base = get_formatted_value(med_base, q3_base - q1_base)
+                formatted_med_esjd = get_formatted_value(med_esjd, q3_esjd - q1_esjd)
+                formatted_med_lesjd = get_formatted_value(
+                    med_lesjd, q3_lesjd - q1_lesjd
                 )
 
-                med_values = [med_rl, med_base, med_esjd]
-                min_med_idx = int(np.argmin(med_values))
+                valid_med_values = []
+                if not pd.isna(formatted_med_rl) and formatted_med_rl != 4.0:
+                    valid_med_values.append(formatted_med_rl)
+                if not pd.isna(formatted_med_base) and formatted_med_base != 4.0:
+                    valid_med_values.append(formatted_med_base)
+                if not pd.isna(formatted_med_esjd) and formatted_med_esjd != 4.0:
+                    valid_med_values.append(formatted_med_esjd)
+                if not pd.isna(formatted_med_lesjd) and formatted_med_lesjd != 4.0:
+                    valid_med_values.append(formatted_med_lesjd)
 
-                out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(
-                    med_rl, q3_rl - q1_rl, min_med_idx == 0
+                min_med_value = min(valid_med_values) if valid_med_values else None
+
+                is_rl_min = (
+                    formatted_med_rl == min_med_value
+                    if min_med_value is not None
+                    else False
                 )
+                is_lesjd_min = (
+                    formatted_med_lesjd == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+                is_base_min = (
+                    formatted_med_base == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+                is_esjd_min = (
+                    formatted_med_esjd == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+
+                valid_rlmh_med = [
+                    v
+                    for v in [formatted_med_rl, formatted_med_lesjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+                valid_rmala_med = [
+                    v
+                    for v in [formatted_med_base, formatted_med_esjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+
+                if valid_rlmh_med and valid_rmala_med:
+                    med_rmala_rlmh_better = min(valid_rlmh_med) < min(valid_rmala_med)
+
                 out_row["RMALA AAR Mid(IQR)"] = fmt(
-                    med_base, q3_base - q1_base, min_med_idx == 1
+                    med_base, q3_base - q1_base, is_base_min
                 )
                 out_row["RMALA ESJD Mid(IQR)"] = fmt(
-                    med_esjd, q3_esjd - q1_esjd, min_med_idx == 2
+                    med_esjd, q3_esjd - q1_esjd, is_esjd_min
+                )
+                out_row["RMALA-RLMH LESJD Mid(IQR)"] = fmt(
+                    med_lesjd, q3_lesjd - q1_lesjd, is_lesjd_min
+                )
+                out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(
+                    med_rl, q3_rl - q1_rl, is_rl_min
                 )
 
             if has_mean:
-                mean_rl, se_rl = map(
-                    float, (row["RMALA-RLMH CDLB Mean"], row["RMALA-RLMH CDLB SE"])
+                try:
+                    mean_rl, se_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA-RLMH CDLB Mean"], row["RMALA-RLMH CDLB SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_rl, se_rl = float("nan"), float("nan")
+
+                try:
+                    mean_base, se_base = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA AAR Mean"], row["RMALA AAR SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_base, se_base = float("nan"), float("nan")
+
+                try:
+                    mean_esjd, se_esjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA ESJD Mean"], row["RMALA ESJD SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_esjd, se_esjd = float("nan"), float("nan")
+
+                try:
+                    mean_lesjd, se_lesjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA-RLMH LESJD Mean"], row["RMALA-RLMH LESJD SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_lesjd, se_lesjd = float("nan"), float("nan")
+
+                formatted_mean_rl = get_formatted_value(mean_rl, se_rl)
+                formatted_mean_base = get_formatted_value(mean_base, se_base)
+                formatted_mean_esjd = get_formatted_value(mean_esjd, se_esjd)
+                formatted_mean_lesjd = get_formatted_value(mean_lesjd, se_lesjd)
+
+                valid_mean_values = []
+                if not pd.isna(formatted_mean_rl) and formatted_mean_rl != 4.0:
+                    valid_mean_values.append(formatted_mean_rl)
+                if not pd.isna(formatted_mean_base) and formatted_mean_base != 4.0:
+                    valid_mean_values.append(formatted_mean_base)
+                if not pd.isna(formatted_mean_esjd) and formatted_mean_esjd != 4.0:
+                    valid_mean_values.append(formatted_mean_esjd)
+                if not pd.isna(formatted_mean_lesjd) and formatted_mean_lesjd != 4.0:
+                    valid_mean_values.append(formatted_mean_lesjd)
+
+                min_mean_value = min(valid_mean_values) if valid_mean_values else None
+
+                is_rl_min = (
+                    formatted_mean_rl == min_mean_value
+                    if min_mean_value is not None
+                    else False
                 )
-                mean_base, se_base = map(
-                    float, (row["RMALA AAR Mean"], row["RMALA AAR SE"])
+                is_lesjd_min = (
+                    formatted_mean_lesjd == min_mean_value
+                    if min_mean_value is not None
+                    else False
                 )
-                mean_esjd, se_esjd = map(
-                    float, (row["RMALA ESJD Mean"], row["RMALA ESJD SE"])
+                is_base_min = (
+                    formatted_mean_base == min_mean_value
+                    if min_mean_value is not None
+                    else False
+                )
+                is_esjd_min = (
+                    formatted_mean_esjd == min_mean_value
+                    if min_mean_value is not None
+                    else False
                 )
 
-                mean_values = [mean_rl, mean_base, mean_esjd]
-                min_mean_idx = int(np.argmin(mean_values))
+                valid_rlmh_mean = [
+                    v
+                    for v in [formatted_mean_rl, formatted_mean_lesjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+                valid_rmala_mean = [
+                    v
+                    for v in [formatted_mean_base, formatted_mean_esjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
 
-                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(
-                    mean_rl, se_rl, min_mean_idx == 0
+                if valid_rlmh_mean and valid_rmala_mean:
+                    mean_rmala_rlmh_better = min(valid_rlmh_mean) < min(
+                        valid_rmala_mean
+                    )
+
+                out_row["RMALA AAR Mean(SE)"] = fmt(mean_base, se_base, is_base_min)
+                out_row["RMALA ESJD Mean(SE)"] = fmt(mean_esjd, se_esjd, is_esjd_min)
+                out_row["RMALA-RLMH LESJD Mean(SE)"] = fmt(
+                    mean_lesjd, se_lesjd, is_lesjd_min
                 )
-                out_row["RMALA AAR Mean(SE)"] = fmt(
-                    mean_base, se_base, min_mean_idx == 1
-                )
-                out_row["RMALA ESJD Mean(SE)"] = fmt(
-                    mean_esjd, se_esjd, min_mean_idx == 2
-                )
+                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(mean_rl, se_rl, is_rl_min)
+
+            row_needs_gray = med_rmala_rlmh_better or mean_rmala_rlmh_better
+
+            out_row["_needs_gray"] = row_needs_gray
 
             rows.append(out_row)
 
@@ -335,13 +543,37 @@ class TableGenerator:
     def generate_latex_table(df: pd.DataFrame, output_path: str = "table.tex") -> None:
         """
         Generate a LaTeX table from a DataFrame and save it to a file.
+        Adds row coloring for rows that need highlighting.
         """
+        gray_rows = df["_needs_gray"] if "_needs_gray" in df.columns else []
+
+        if "_needs_gray" in df.columns:
+            df = df.drop("_needs_gray", axis=1)
+
         escaped_df = df.applymap(TableGenerator.escape_underscores)
 
         column_format = "c" * len(escaped_df.columns)
-        latex_code: str = escaped_df.to_latex(
-            index=False, escape=False, column_format=column_format
-        )
+
+        header = escaped_df.columns.tolist()
+        rows = escaped_df.values.tolist()
+
+        latex_lines = [
+            "\\begin{tabular}{" + column_format + "}",
+            "\\hline",
+            " & ".join(header) + " \\\\",
+            "\\hline",
+        ]
+
+        for i, row in enumerate(rows):
+            if i < len(gray_rows) and gray_rows.iloc[i]:
+                latex_lines.append("\\rowcolor{gray!20}")
+
+            latex_lines.append(" & ".join(str(cell) for cell in row) + " \\\\")
+
+        latex_lines.extend(["\\hline", "\\end{tabular}"])
+
+        latex_code = "\n".join(latex_lines)
+
         with open(output_path, "w") as f:
             f.write(latex_code)
         logger.info(f"LaTeX table saved to {output_path}")

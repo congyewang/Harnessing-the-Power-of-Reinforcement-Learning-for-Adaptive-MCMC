@@ -22,7 +22,7 @@ upload_model = false
 # the user or org name of the model repository from the Hugging Face Hub
 hf_entity = ""
 # The number of top policies to save
-num_of_top_policies = 1
+num_of_top_policies = 5
 
 [algorithm.general]
 # the environment id of the Atari game
@@ -65,6 +65,12 @@ actor_gradient_threshold = 1.0
 actor_gradient_norm = 2
 # the gradient clipping for the critic
 critic_gradient_clipping = false
+# the gradient threshold for the critic
+critic_gradient_threshold = 1.0
+# the gradient clipping norm for the critic
+critic_gradient_norm = 2
+# the gradient clipping for the critic
+critic_gradient_clipping = true
 # the gradient threshold for the critic
 critic_gradient_threshold = 1.0
 # the gradient clipping norm for the critic

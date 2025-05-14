@@ -208,11 +208,6 @@ class PlotPipeLine:
             left_quantile=flex_left_quantile,
             right_quantile=flex_right_quantile,
         )
-        self.plot_bootstrap(
-            median=bootstrap_median,
-            left_quantile=bootstrap_left_quantile,
-            right_quantile=bootstrap_right_quantile,
-        )
 
         self.ax.set_xlabel("Step Size")
         self.ax.set_ylabel("MMD")
@@ -684,7 +679,7 @@ class GeneralPlot:
         axes.set_ylabel("y")
 
         cbar = plt.colorbar(axes.images[0], ax=axes, shrink=0.8)
-        cbar.set_label("Action")
+        cbar.set_label("Step Size")
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
@@ -716,6 +711,10 @@ class GeneralPlot:
 
         plt.plot(average_reward, label="Average reward")
         plt.plot(moving_averages, label="Moving average")
+
+        plt.xlabel("Episode")
+        plt.ylabel("Reward")
+
         plt.legend()
         if title:
             plt.title(title)

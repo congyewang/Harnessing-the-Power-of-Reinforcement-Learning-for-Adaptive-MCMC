@@ -1,8 +1,8 @@
 [experiments]
 # the name of this experiment
-exp_name = "{{ exp_name }}"
+exp_name = "RLMALAESJD"
 # seed of the experiment
-seed = {{ random_seed }}
+seed = 1
 # if toggled, `torch.backends.cudnn.deterministic=false`
 torch_deterministic = true
 # if toggled, cuda will be enabled by default
@@ -10,7 +10,7 @@ cuda = false
 # if toggled, this experiment will be tracked with Weights and Biases
 track = false
 # the wandb's project name
-wandb_project_name = "{{ exp_name }}"
+wandb_project_name = "RLMALAESJD"
 # the entity (team) of wandb's project
 wandb_entity = ""
 # whether to capture videos of the agent performances (check out `videos` folder)
@@ -23,10 +23,22 @@ upload_model = false
 hf_entity = ""
 # The number of top policies to save
 num_of_top_policies = 1
+# the gradient clipping for the critic
+critic_gradient_clipping = true
+# the gradient threshold for the critic
+critic_gradient_threshold = 1.0
+# the gradient clipping norm for the critic
+critic_gradient_norm = 2
+# the flag for the reward centering
+reward_centering = false
+# the initial average reward of reward centering
+r_bar = 0.0
+# the update rate of reward centering
+r_bar_alpha = 1e-3
 
 [algorithm.general]
 # the environment id of the Atari game
-env_id = "{{ env_id }}"
+env_id = "MALAESJDEnv-v1.0"
 # total timesteps of the experiments
 total_timesteps = 50_000
 # total timesteps of the prediction
@@ -69,12 +81,6 @@ critic_gradient_clipping = false
 critic_gradient_threshold = 1.0
 # the gradient clipping norm for the critic
 critic_gradient_norm = 2
-# the flag for the reward centering
-reward_centering = false
-# the initial average reward of reward centering
-r_bar = 0.0
-# the update rate of reward centering
-r_bar_alpha = 1e-3
 
 [algorithm.specific]
 # target smoothing coefficient (default.005)
