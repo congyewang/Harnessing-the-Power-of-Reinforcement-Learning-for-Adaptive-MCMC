@@ -98,7 +98,7 @@ class LearningInterface(ABC):
         random_seed: int = 42,
         num_of_top_policies: int = 5,
         reward_centering: bool = True,
-        R_bar: float = 0.0,
+        r_bar: float = 0.0,
         rbar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
@@ -235,7 +235,7 @@ class LearningInterface(ABC):
 
         # Reward Centering
         self.reward_centering = reward_centering
-        self.R_bar = R_bar
+        self.r_bar = r_bar
         self.rbar_alpha = rbar_alpha
 
     def soft_clipping(
@@ -546,7 +546,7 @@ class LearningDDPG(LearningInterface):
         random_seed: int = 42,
         num_of_top_policies: int = 5,
         reward_centering: bool = True,
-        R_bar: float = 0.0,
+        r_bar: float = 0.0,
         rbar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
@@ -613,7 +613,7 @@ class LearningDDPG(LearningInterface):
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
             reward_centering=reward_centering,
-            R_bar=R_bar,
+            r_bar=r_bar,
             rbar_alpha=rbar_alpha,
             device=device,
             track=track,
@@ -715,7 +715,7 @@ class LearningDDPG(LearningInterface):
 
         if self.current_step == self.learning_starts:
             if self.reward_centering:
-                self.R_bar = np.mean(
+                self.r_bar = np.mean(
                     self.env.get_attr("store_reward")[0][0 : self.current_step]
                 )
         elif self.current_step > self.learning_starts:
@@ -726,7 +726,7 @@ class LearningDDPG(LearningInterface):
                     data.next_observations, next_state_actions
                 )
                 if self.reward_centering:
-                    rewards_centered = data.rewards.flatten() - self.R_bar
+                    rewards_centered = data.rewards.flatten() - self.r_bar
                     next_q_value = rewards_centered + (
                         1 - data.dones.flatten()
                     ) * self.gamma * critic_next_target.view(-1)
@@ -767,8 +767,8 @@ class LearningDDPG(LearningInterface):
 
             if self.reward_centering:
                 batch_mean_r = data.rewards.flatten().mean().item()
-                delta = batch_mean_r - self.R_bar
-                self.R_bar += self.rbar_alpha * delta
+                delta = batch_mean_r - self.r_bar
+                self.r_bar += self.rbar_alpha * delta
 
             if (
                 self.current_step % 100 == 0
@@ -891,7 +891,7 @@ class LearningTD3(LearningInterface):
         noise_clip: float = 0.5,
         num_of_top_policies: int = 5,
         reward_centering: bool = True,
-        R_bar: float = 0.0,
+        r_bar: float = 0.0,
         rbar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
@@ -964,7 +964,7 @@ class LearningTD3(LearningInterface):
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
             reward_centering=reward_centering,
-            R_bar=R_bar,
+            r_bar=r_bar,
             rbar_alpha=rbar_alpha,
             device=device,
             track=track,
@@ -1087,7 +1087,12 @@ class LearningTD3(LearningInterface):
 
         self.obs = next_obs
 
-        if self.current_step > self.learning_starts:
+        if self.current_step == self.learning_starts:
+            if self.reward_centering:
+                self.r_bar = np.mean(
+                    self.env.get_attr("store_reward")[0][0 : self.current_step]
+                )
+        elif self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
                 clipped_noise = (
@@ -1107,9 +1112,16 @@ class LearningTD3(LearningInterface):
                 min_critic_next_target = torch.min(
                     critic_next_target, critic2_next_target
                 )
-                next_q_value = data.rewards.flatten() + (
-                    1 - data.dones.flatten()
-                ) * self.gamma * (min_critic_next_target).view(-1)
+
+                if self.reward_centering:
+                    rewards_centered = data.rewards.flatten() - self.r_bar
+                    next_q_value = rewards_centered + (
+                        1 - data.dones.flatten()
+                    ) * self.gamma * (min_critic_next_target).view(-1)
+                else:
+                    next_q_value = data.rewards.flatten() + (
+                        1 - data.dones.flatten()
+                    ) * self.gamma * (min_critic_next_target).view(-1)
 
             critic1_a_values = self.critic(data.observations, data.actions).view(-1)
             critic2_a_values = self.critic2(data.observations, data.actions).view(-1)
@@ -1150,6 +1162,11 @@ class LearningTD3(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
+            if self.reward_centering:
+                batch_mean_r = data.rewards.flatten().mean().item()
+                delta = batch_mean_r - self.r_bar
+                self.r_bar += self.rbar_alpha * delta
+
             if self.current_step % 100 == 0:
                 self.writer.add_scalar(
                     "losses/critic1_values",
@@ -1180,6 +1197,8 @@ class LearningTD3(LearningInterface):
                 self.critic2_loss.append(critic2_loss.item())
                 self.critic_loss.append(critic_loss.item() / 2.0)
                 self.actor_loss.append(actor_loss.item())
+        else:
+            pass
 
         if self.actor_scheduler:
             self.actor_scheduler.step()
