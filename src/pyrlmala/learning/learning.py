@@ -99,7 +99,7 @@ class LearningInterface(ABC):
         num_of_top_policies: int = 5,
         reward_centering: bool = True,
         r_bar: float = 0.0,
-        rbar_alpha: float = 1e-3,
+        r_bar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
         verbose: bool = True,
@@ -236,7 +236,7 @@ class LearningInterface(ABC):
         # Reward Centering
         self.reward_centering = reward_centering
         self.r_bar = r_bar
-        self.rbar_alpha = rbar_alpha
+        self.r_bar_alpha = r_bar_alpha
 
     def soft_clipping(
         self, g: Float[torch.Tensor, "gradient"], t: float = 1.0, p: int = 2
@@ -547,7 +547,7 @@ class LearningDDPG(LearningInterface):
         num_of_top_policies: int = 5,
         reward_centering: bool = True,
         r_bar: float = 0.0,
-        rbar_alpha: float = 1e-3,
+        r_bar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
         verbose: bool = True,
@@ -614,7 +614,7 @@ class LearningDDPG(LearningInterface):
             num_of_top_policies=num_of_top_policies,
             reward_centering=reward_centering,
             r_bar=r_bar,
-            rbar_alpha=rbar_alpha,
+            r_bar_alpha=r_bar_alpha,
             device=device,
             track=track,
             verbose=verbose,
@@ -768,7 +768,7 @@ class LearningDDPG(LearningInterface):
             if self.reward_centering:
                 batch_mean_r = data.rewards.flatten().mean().item()
                 delta = batch_mean_r - self.r_bar
-                self.r_bar += self.rbar_alpha * delta
+                self.r_bar += self.r_bar_alpha * delta
 
             if (
                 self.current_step % 100 == 0
@@ -892,7 +892,7 @@ class LearningTD3(LearningInterface):
         num_of_top_policies: int = 5,
         reward_centering: bool = True,
         r_bar: float = 0.0,
-        rbar_alpha: float = 1e-3,
+        r_bar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
         track: bool = False,
         verbose: bool = True,
@@ -965,7 +965,7 @@ class LearningTD3(LearningInterface):
             num_of_top_policies=num_of_top_policies,
             reward_centering=reward_centering,
             r_bar=r_bar,
-            rbar_alpha=rbar_alpha,
+            r_bar_alpha=r_bar_alpha,
             device=device,
             track=track,
             verbose=verbose,
@@ -1165,7 +1165,7 @@ class LearningTD3(LearningInterface):
             if self.reward_centering:
                 batch_mean_r = data.rewards.flatten().mean().item()
                 delta = batch_mean_r - self.r_bar
-                self.r_bar += self.rbar_alpha * delta
+                self.r_bar += self.r_bar_alpha * delta
 
             if self.current_step % 100 == 0:
                 self.writer.add_scalar(
