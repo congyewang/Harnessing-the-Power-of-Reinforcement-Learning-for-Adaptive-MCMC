@@ -75,7 +75,7 @@ def get_median_sub_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: A filtered DataFrame containing only the columns with 'Median', 'Q1', or 'Q3'.
     """
-    return df.filter(regex="Model|^d$)|Median|Q1|Q3")
+    return df.filter(regex="Model|^d$|Median|Q1|Q3")
 
 
 def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:
