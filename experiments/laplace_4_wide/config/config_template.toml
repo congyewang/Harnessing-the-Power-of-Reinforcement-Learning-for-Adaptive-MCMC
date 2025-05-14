@@ -75,6 +75,12 @@ critic_gradient_clipping = true
 critic_gradient_threshold = 1.0
 # the gradient clipping norm for the critic
 critic_gradient_norm = 2
+# the flag for the reward centering
+reward_centering = false
+# the initial average reward of reward centering
+r_bar = 0.0
+# the update rate of reward centering
+r_bar_alpha = 1e-3
 
 [algorithm.specific]
 # target smoothing coefficient (default.005)
