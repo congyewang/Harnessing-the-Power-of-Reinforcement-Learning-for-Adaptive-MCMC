@@ -22,7 +22,7 @@ upload_model = false
 # the user or org name of the model repository from the Hugging Face Hub
 hf_entity = ""
 # The number of top policies to save
-num_of_top_policies = 5
+num_of_top_policies = 1
 
 [algorithm.general]
 # the environment id of the Atari game
@@ -54,23 +54,17 @@ actor_pretrain_batch_size = 16
 # the flag for shuffling the mock data for the actor pretrain
 actor_pretrain_shuffle = true
 # the learning rate of the optimizer for the actor
-actor_learning_rate = 1e-5
+actor_learning_rate = 1.5e-5
 # the learning rate of the optimizer for the critic
 critic_learning_rate = 1e-2
 # the gradient clipping for the actor
-actor_gradient_clipping = true
+actor_gradient_clipping = false
 # the gradient threshold for the actor
 actor_gradient_threshold = 1.0
 # the gradient clipping norm for the actor
 actor_gradient_norm = 2
 # the gradient clipping for the critic
 critic_gradient_clipping = false
-# the gradient threshold for the critic
-critic_gradient_threshold = 1.0
-# the gradient clipping norm for the critic
-critic_gradient_norm = 2
-# the gradient clipping for the critic
-critic_gradient_clipping = true
 # the gradient threshold for the critic
 critic_gradient_threshold = 1.0
 # the gradient clipping norm for the critic
@@ -88,7 +82,7 @@ tau = 0.005
 # the scale of policy noise
 policy_noise = 0.0
 # the scale of exploration noise
-exploration_noise = 0.0
+exploration_noise = 0.01
 # the frequency of training policy (delayed)
 policy_frequency = 2
 # noise clip parameter of the Target Policy Smoothing Regularization
