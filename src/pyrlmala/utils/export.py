@@ -234,44 +234,36 @@ class TableGenerator:
             Format the value and add bold if needed.
             Handles special case when formatted value is "-".
             """
-            # 检查是否为nan或者特殊情况
             if pd.isna(center) or pd.isna(spread):
                 result = "-"
             else:
                 result = cls.format_scientific_with_error(center, spread)
-                
-            # 如果结果已经是'-'，直接使用
-            if result == '-':
+
+            if result == "-":
                 return "\\textbf{-}" if highlight else "-"
-                
+
             return f"\\textbf{{{result}}}" if highlight else result
-            
+
         def get_formatted_value(center: float, spread: float) -> float:
             """
             Parse the formatted scientific notation value as a float for comparison.
             If the value is "-", return 4.0 for comparison but preserve "-" for display.
             """
-            # 检查是否为nan或者可能会导致格式化为'-'的情况
             if pd.isna(center) or pd.isna(spread):
-                return 4.0  # 使用一个默认大值进行比较
-                
-            # Extract just the center value portion from the formatted string
-            formatted = cls.format_scientific_with_error(center, spread)
-            
-            # 如果格式化结果为'-'，返回4.0用于比较
-            if formatted == '-' or formatted.startswith('-'):
-                return 4.0
-                
-            # Extract just the center value (before the parenthesis)
-            center_str = formatted.split('(')[0].strip()
-            
-            try:
-                # Convert back to float
-                return float(center_str.replace('\\times 10^{', 'e').replace('}', ''))
-            except ValueError:
-                # 如果转换失败，也返回4.0作为默认值
                 return 4.0
 
+            formatted = cls.format_scientific_with_error(center, spread)
+
+            if formatted == "-" or formatted.startswith("-"):
+                return 4.0
+
+            center_str = formatted.split("(")[0].strip()
+
+            try:
+                # Convert back to float
+                return float(center_str.replace("\\times 10^{", "e").replace("}", ""))
+            except ValueError:
+                return 4.0
 
         has_median = all(
             col in df.columns
@@ -285,7 +277,7 @@ class TableGenerator:
         has_mean = all(
             col in df.columns
             for col in [
-                "RMALA AAR Mean", 
+                "RMALA AAR Mean",
                 "RMALA ESJD Mean",
                 "RMALA-RLMH LESJD Mean",
                 "RMALA-RLMH CDLB Mean",
@@ -298,16 +290,14 @@ class TableGenerator:
             model: str = row["Model"]
             dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
             out_row = {"Model": model, "d": dim}
-            
-            # 初始化标志，用于跟踪RMALA-RLMH方法是否优于RMALA方法
+
             med_rmala_rlmh_better = False
             mean_rmala_rlmh_better = False
 
             if has_median:
-                # 安全地提取值，处理可能的nan和特殊情况
                 try:
                     med_rl, q1_rl, q3_rl = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
                         (
                             row["RMALA-RLMH CDLB Median"],
                             row["RMALA-RLMH CDLB Q1"],
@@ -315,11 +305,11 @@ class TableGenerator:
                         ),
                     )
                 except (ValueError, TypeError):
-                    med_rl, q1_rl, q3_rl = float('nan'), float('nan'), float('nan')
-                    
+                    med_rl, q1_rl, q3_rl = float("nan"), float("nan"), float("nan")
+
                 try:
                     med_base, q1_base, q3_base = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
                         (
                             row["RMALA AAR Median"],
                             row["RMALA AAR Q1"],
@@ -327,11 +317,15 @@ class TableGenerator:
                         ),
                     )
                 except (ValueError, TypeError):
-                    med_base, q1_base, q3_base = float('nan'), float('nan'), float('nan')
-                    
+                    med_base, q1_base, q3_base = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
                 try:
                     med_esjd, q1_esjd, q3_esjd = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
                         (
                             row["RMALA ESJD Median"],
                             row["RMALA ESJD Q1"],
@@ -339,11 +333,15 @@ class TableGenerator:
                         ),
                     )
                 except (ValueError, TypeError):
-                    med_esjd, q1_esjd, q3_esjd = float('nan'), float('nan'), float('nan')
-                    
+                    med_esjd, q1_esjd, q3_esjd = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
                 try:
                     med_lesjd, q1_lesjd, q3_lesjd = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
                         (
                             row["RMALA-RLMH LESJD Median"],
                             row["RMALA-RLMH LESJD Q1"],
@@ -351,15 +349,19 @@ class TableGenerator:
                         ),
                     )
                 except (ValueError, TypeError):
-                    med_lesjd, q1_lesjd, q3_lesjd = float('nan'), float('nan'), float('nan')
+                    med_lesjd, q1_lesjd, q3_lesjd = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
 
-                # 获取格式化后的值进行比较
                 formatted_med_rl = get_formatted_value(med_rl, q3_rl - q1_rl)
                 formatted_med_base = get_formatted_value(med_base, q3_base - q1_base)
                 formatted_med_esjd = get_formatted_value(med_esjd, q3_esjd - q1_esjd)
-                formatted_med_lesjd = get_formatted_value(med_lesjd, q3_lesjd - q1_lesjd)
+                formatted_med_lesjd = get_formatted_value(
+                    med_lesjd, q3_lesjd - q1_lesjd
+                )
 
-                # 过滤掉非有效值，确保我们只比较有效的值
                 valid_med_values = []
                 if not pd.isna(formatted_med_rl) and formatted_med_rl != 4.0:
                     valid_med_values.append(formatted_med_rl)
@@ -369,24 +371,44 @@ class TableGenerator:
                     valid_med_values.append(formatted_med_esjd)
                 if not pd.isna(formatted_med_lesjd) and formatted_med_lesjd != 4.0:
                     valid_med_values.append(formatted_med_lesjd)
-                
-                # 如果有有效值，找出最小值
+
                 min_med_value = min(valid_med_values) if valid_med_values else None
-                
-                # 检查是否有最小值
-                is_rl_min = formatted_med_rl == min_med_value if min_med_value is not None else False
-                is_lesjd_min = formatted_med_lesjd == min_med_value if min_med_value is not None else False
-                is_base_min = formatted_med_base == min_med_value if min_med_value is not None else False
-                is_esjd_min = formatted_med_esjd == min_med_value if min_med_value is not None else False
-                
-                # 只有当所有必要的值都有效时才进行比较
-                valid_rlmh_med = [v for v in [formatted_med_rl, formatted_med_lesjd] if v != 4.0 and not pd.isna(v)]
-                valid_rmala_med = [v for v in [formatted_med_base, formatted_med_esjd] if v != 4.0 and not pd.isna(v)]
-                
-                if valid_rlmh_med and valid_rmala_med:  # 确保两组都有有效值
+
+                is_rl_min = (
+                    formatted_med_rl == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+                is_lesjd_min = (
+                    formatted_med_lesjd == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+                is_base_min = (
+                    formatted_med_base == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+                is_esjd_min = (
+                    formatted_med_esjd == min_med_value
+                    if min_med_value is not None
+                    else False
+                )
+
+                valid_rlmh_med = [
+                    v
+                    for v in [formatted_med_rl, formatted_med_lesjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+                valid_rmala_med = [
+                    v
+                    for v in [formatted_med_base, formatted_med_esjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+
+                if valid_rlmh_med and valid_rmala_med:
                     med_rmala_rlmh_better = min(valid_rlmh_med) < min(valid_rmala_med)
 
-                # 按新顺序添加到输出行
                 out_row["RMALA AAR Mid(IQR)"] = fmt(
                     med_base, q3_base - q1_base, is_base_min
                 )
@@ -401,46 +423,43 @@ class TableGenerator:
                 )
 
             if has_mean:
-                # 安全地提取值，处理可能的nan和特殊情况
                 try:
                     mean_rl, se_rl = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
-                        (row["RMALA-RLMH CDLB Mean"], row["RMALA-RLMH CDLB SE"])
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA-RLMH CDLB Mean"], row["RMALA-RLMH CDLB SE"]),
                     )
                 except (ValueError, TypeError):
-                    mean_rl, se_rl = float('nan'), float('nan')
-                    
+                    mean_rl, se_rl = float("nan"), float("nan")
+
                 try:
                     mean_base, se_base = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
-                        (row["RMALA AAR Mean"], row["RMALA AAR SE"])
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA AAR Mean"], row["RMALA AAR SE"]),
                     )
                 except (ValueError, TypeError):
-                    mean_base, se_base = float('nan'), float('nan')
-                    
+                    mean_base, se_base = float("nan"), float("nan")
+
                 try:
                     mean_esjd, se_esjd = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
-                        (row["RMALA ESJD Mean"], row["RMALA ESJD SE"])
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA ESJD Mean"], row["RMALA ESJD SE"]),
                     )
                 except (ValueError, TypeError):
-                    mean_esjd, se_esjd = float('nan'), float('nan')
-                    
+                    mean_esjd, se_esjd = float("nan"), float("nan")
+
                 try:
                     mean_lesjd, se_lesjd = map(
-                        lambda x: float(x) if not pd.isna(x) else float('nan'),
-                        (row["RMALA-RLMH LESJD Mean"], row["RMALA-RLMH LESJD SE"])
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA-RLMH LESJD Mean"], row["RMALA-RLMH LESJD SE"]),
                     )
                 except (ValueError, TypeError):
-                    mean_lesjd, se_lesjd = float('nan'), float('nan')
+                    mean_lesjd, se_lesjd = float("nan"), float("nan")
 
-                # 获取格式化后的值进行比较
                 formatted_mean_rl = get_formatted_value(mean_rl, se_rl)
                 formatted_mean_base = get_formatted_value(mean_base, se_base)
                 formatted_mean_esjd = get_formatted_value(mean_esjd, se_esjd)
                 formatted_mean_lesjd = get_formatted_value(mean_lesjd, se_lesjd)
 
-                # 过滤掉非有效值，确保我们只比较有效的值
                 valid_mean_values = []
                 if not pd.isna(formatted_mean_rl) and formatted_mean_rl != 4.0:
                     valid_mean_values.append(formatted_mean_rl)
@@ -450,43 +469,57 @@ class TableGenerator:
                     valid_mean_values.append(formatted_mean_esjd)
                 if not pd.isna(formatted_mean_lesjd) and formatted_mean_lesjd != 4.0:
                     valid_mean_values.append(formatted_mean_lesjd)
-                
-                # 如果有有效值，找出最小值
-                min_mean_value = min(valid_mean_values) if valid_mean_values else None
-                
-                # 检查是否有最小值
-                is_rl_min = formatted_mean_rl == min_mean_value if min_mean_value is not None else False
-                is_lesjd_min = formatted_mean_lesjd == min_mean_value if min_mean_value is not None else False
-                is_base_min = formatted_mean_base == min_mean_value if min_mean_value is not None else False
-                is_esjd_min = formatted_mean_esjd == min_mean_value if min_mean_value is not None else False
-                
-                # 只有当所有必要的值都有效时才进行比较
-                valid_rlmh_mean = [v for v in [formatted_mean_rl, formatted_mean_lesjd] if v != 4.0 and not pd.isna(v)]
-                valid_rmala_mean = [v for v in [formatted_mean_base, formatted_mean_esjd] if v != 4.0 and not pd.isna(v)]
-                
-                if valid_rlmh_mean and valid_rmala_mean:  # 确保两组都有有效值
-                    mean_rmala_rlmh_better = min(valid_rlmh_mean) < min(valid_rmala_mean)
 
-                # 按新顺序添加到输出行
-                out_row["RMALA AAR Mean(SE)"] = fmt(
-                    mean_base, se_base, is_base_min
+                min_mean_value = min(valid_mean_values) if valid_mean_values else None
+
+                is_rl_min = (
+                    formatted_mean_rl == min_mean_value
+                    if min_mean_value is not None
+                    else False
                 )
-                out_row["RMALA ESJD Mean(SE)"] = fmt(
-                    mean_esjd, se_esjd, is_esjd_min
+                is_lesjd_min = (
+                    formatted_mean_lesjd == min_mean_value
+                    if min_mean_value is not None
+                    else False
                 )
+                is_base_min = (
+                    formatted_mean_base == min_mean_value
+                    if min_mean_value is not None
+                    else False
+                )
+                is_esjd_min = (
+                    formatted_mean_esjd == min_mean_value
+                    if min_mean_value is not None
+                    else False
+                )
+
+                valid_rlmh_mean = [
+                    v
+                    for v in [formatted_mean_rl, formatted_mean_lesjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+                valid_rmala_mean = [
+                    v
+                    for v in [formatted_mean_base, formatted_mean_esjd]
+                    if v != 4.0 and not pd.isna(v)
+                ]
+
+                if valid_rlmh_mean and valid_rmala_mean:
+                    mean_rmala_rlmh_better = min(valid_rlmh_mean) < min(
+                        valid_rmala_mean
+                    )
+
+                out_row["RMALA AAR Mean(SE)"] = fmt(mean_base, se_base, is_base_min)
+                out_row["RMALA ESJD Mean(SE)"] = fmt(mean_esjd, se_esjd, is_esjd_min)
                 out_row["RMALA-RLMH LESJD Mean(SE)"] = fmt(
                     mean_lesjd, se_lesjd, is_lesjd_min
                 )
-                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(
-                    mean_rl, se_rl, is_rl_min
-                )
+                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(mean_rl, se_rl, is_rl_min)
 
-            # 判断是否需要灰色显示（任何一个指标中RMALA-RLMH方法胜出）
             row_needs_gray = med_rmala_rlmh_better or mean_rmala_rlmh_better
-            
-            # 将行高亮标志添加到行中
+
             out_row["_needs_gray"] = row_needs_gray
-                
+
             rows.append(out_row)
 
         return pd.DataFrame(rows)
@@ -512,46 +545,35 @@ class TableGenerator:
         Generate a LaTeX table from a DataFrame and save it to a file.
         Adds row coloring for rows that need highlighting.
         """
-        # 获取需要高亮显示的行索引
         gray_rows = df["_needs_gray"] if "_needs_gray" in df.columns else []
-        
-        # 移除辅助列
+
         if "_needs_gray" in df.columns:
             df = df.drop("_needs_gray", axis=1)
-        
-        # 转义下划线
+
         escaped_df = df.applymap(TableGenerator.escape_underscores)
-        
-        # 生成LaTeX代码
+
         column_format = "c" * len(escaped_df.columns)
-        
-        # 不使用pandas的to_latex，而是自己构建LaTeX表格
+
         header = escaped_df.columns.tolist()
         rows = escaped_df.values.tolist()
-        
-        # 构建LaTeX表格
+
         latex_lines = [
             "\\begin{tabular}{" + column_format + "}",
             "\\hline",
             " & ".join(header) + " \\\\",
-            "\\hline"
+            "\\hline",
         ]
-        
+
         for i, row in enumerate(rows):
-            # 检查是否需要高亮
             if i < len(gray_rows) and gray_rows.iloc[i]:
                 latex_lines.append("\\rowcolor{gray!20}")
-            
+
             latex_lines.append(" & ".join(str(cell) for cell in row) + " \\\\")
-        
-        latex_lines.extend([
-            "\\hline",
-            "\\end{tabular}"
-        ])
-        
+
+        latex_lines.extend(["\\hline", "\\end{tabular}"])
+
         latex_code = "\n".join(latex_lines)
-        
-        # 保存到文件
+
         with open(output_path, "w") as f:
             f.write(latex_code)
         logger.info(f"LaTeX table saved to {output_path}")
