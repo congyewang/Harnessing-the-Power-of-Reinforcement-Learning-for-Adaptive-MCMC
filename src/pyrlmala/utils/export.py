@@ -612,3 +612,237 @@ class TableGenerator:
         final_df = cls.apply_transformation_with_highlight(raw_df)
 
         cls.generate_latex_table(final_df, output_path)
+
+
+class SimplifiedTableGenerator:
+    @staticmethod
+    def read_markdown_table(file_path: str) -> pd.DataFrame:
+        """
+        Read a markdown table from a file and convert it to a DataFrame.
+
+        Args:
+            file_path (str): Path to the markdown file.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the table data.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Find the line where the table starts (starts with |)
+        header_index = next(i for i, line in enumerate(lines) if re.match(r"^\|", line))
+        table_lines = lines[header_index:]
+
+        return (
+            pd.read_csv(io.StringIO("".join(table_lines)), sep="|", engine="python")
+            .dropna(axis=1, how="all")
+            .iloc[1:]
+            .reset_index(drop=True)
+        )
+
+    @staticmethod
+    def format_scientific_with_error(
+        center: Optional[float], spread: Optional[float]
+    ) -> str:
+        """
+        Format a number with its uncertainty in scientific notation.
+
+        Args:
+            center (Optional[float]): The central value.
+            spread (Optional[float]): The spread or uncertainty.
+
+        Returns:
+            str: Formatted string in scientific notation.
+        """
+        if pd.isna(center) or pd.isna(spread):
+            return "-"
+        if center == 0:
+            return "0.0(0.0)E0"
+        exp = int(np.floor(np.log10(abs(center))))
+        base = center / (10**exp)
+        relative_spread = spread / (10**exp)
+        return f"{base:.1f}({relative_spread:.1f})E{exp}"
+
+    @classmethod
+    def apply_simple_transformation(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply transformation to the DataFrame to format values in scientific notation
+        without any comparison or highlighting. Processes both Mean(SE) and Mid(IQR) formats.
+
+        Args:
+            df (pd.DataFrame): Input DataFrame to be transformed.
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame with formatted values.
+        """
+        df.columns = df.columns.str.strip()
+        df = df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        df = df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        df = df.replace(r"^\s*$", np.nan, regex=True)
+
+        def fmt(center: float, spread: float) -> str:
+            """
+            Format the value in scientific notation.
+            """
+            if pd.isna(center) or pd.isna(spread):
+                return "-"
+            else:
+                return cls.format_scientific_with_error(center, spread)
+
+        has_median = all(
+            col in df.columns
+            for col in [
+                "RLBarker LESJD Median",
+                "RLBarker CDLB Median",
+            ]
+        )
+        has_mean = all(
+            col in df.columns
+            for col in [
+                "RLBarker LESJD Mean",
+                "RLBarker CDLB Mean",
+            ]
+        )
+
+        rows: List[Dict[str, str]] = []
+
+        for _, row in df.iterrows():
+            model: str = row["Model"]
+            dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
+            out_row = {"Model": model, "d": dim}
+
+            if has_median:
+                try:
+                    med_rl, q1_rl, q3_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RLBarker CDLB Median"],
+                            row["RLBarker CDLB Q1"],
+                            row["RLBarker CDLB Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_rl, q1_rl, q3_rl = float("nan"), float("nan"), float("nan")
+
+                try:
+                    med_lesjd, q1_lesjd, q3_lesjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RLBarker LESJD Median"],
+                            row["RLBarker LESJD Q1"],
+                            row["RLBarker LESJD Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_lesjd, q1_lesjd, q3_lesjd = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
+                out_row["RLBarker LESJD Mid(IQR)"] = fmt(med_lesjd, q3_lesjd - q1_lesjd)
+                out_row["RLBarker CDLB Mid(IQR)"] = fmt(med_rl, q3_rl - q1_rl)
+
+            if has_mean:
+                try:
+                    mean_rl, se_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RLBarker CDLB Mean"], row["RLBarker CDLB SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_rl, se_rl = float("nan"), float("nan")
+
+                try:
+                    mean_lesjd, se_lesjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RLBarker LESJD Mean"], row["RLBarker LESJD SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_lesjd, se_lesjd = float("nan"), float("nan")
+
+                out_row["RLBarker LESJD Mean(SE)"] = fmt(mean_lesjd, se_lesjd)
+                out_row["RLBarker CDLB Mean(SE)"] = fmt(mean_rl, se_rl)
+
+            rows.append(out_row)
+
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def escape_underscores(text: str) -> str:
+        """
+        Escape underscores in non-LaTeX formatted strings.
+
+        Args:
+            text (str): Input string.
+
+        Returns:
+            str: String with underscores escaped.
+        """
+        if isinstance(text, str):
+            return re.sub(r"(?<!\\)_", r"\_", text)
+        return text
+
+    @staticmethod
+    def generate_latex_table(df: pd.DataFrame, output_path: str = "table.tex") -> None:
+        """
+        Generate a LaTeX table from a DataFrame and save it to a file.
+        No highlighting or bold text.
+        """
+        escaped_df = df.applymap(SimplifiedTableGenerator.escape_underscores)
+        column_format = "c" * len(escaped_df.columns)
+        header = escaped_df.columns.tolist()
+        rows = escaped_df.values.tolist()
+
+        latex_lines = [
+            "\\begin{tabular}{" + column_format + "}",
+            "\\hline",
+            " & ".join(header) + " \\\\",
+            "\\hline",
+        ]
+
+        for row in rows:
+            latex_lines.append(" & ".join(str(cell) for cell in row) + " \\\\")
+
+        latex_lines.extend(["\\hline", "\\end{tabular}"])
+
+        latex_code = "\n".join(latex_lines)
+
+        with open(output_path, "w") as f:
+            f.write(latex_code)
+        logger.info(f"LaTeX table saved to {output_path}")
+
+    @classmethod
+    def output(
+        cls,
+        input: str | pd.DataFrame,
+        output_path: str = "formatted_table.tex",
+    ) -> None:
+        """
+        Read a markdown table, clean it, format values, and output a LaTeX table.
+
+        Args:
+            input (str|pd.DataFrame): Path to the input markdown file or a pandas DataFrame.
+            output_path (str): Path where the output LaTeX table will be saved.
+        """
+        if isinstance(input, str) and input.endswith(".md"):
+            # Read Markdown Table
+            raw_df = cls.read_markdown_table(input)
+        elif isinstance(input, pd.DataFrame):
+            raw_df = input
+        else:
+            raise TypeError(
+                "Input must be a markdown file path ending with .md or a pandas DataFrame."
+            )
+
+        # Cleaning: Remove bold markers and column name spaces
+        raw_df = raw_df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        raw_df.columns = raw_df.columns.str.strip()
+
+        # Replace illegal values with NaN (such as '-' or spaces)
+        raw_df = raw_df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        raw_df = raw_df.replace(r"^\s*$", np.nan, regex=True)
+
+        # Convert format
+        final_df = cls.apply_simple_transformation(raw_df)
+
+        cls.generate_latex_table(final_df, output_path)
