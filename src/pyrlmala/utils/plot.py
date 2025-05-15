@@ -737,6 +737,36 @@ class GeneralPlot:
             plt.show()
 
     @staticmethod
+    def average_reward_plot(
+        reward: npt.NDArray[np.float64],
+        step_per_episode: int = 500,
+        title: Optional[str] = None,
+        save_path: Optional[str] = None,
+    ) -> None:
+        """
+        Plot the average reward. Save the plot if save_path is provided.
+
+        Args:
+            reward (npt.NDArray[np.float64]): Immediate reward per step.
+            step_per_episode (int, optional): Steps per episode. Defaults to 500.
+            save_path (Optional[str], optional): Save path. Defaults to None.
+        """
+        average_reward = reward.reshape(-1, step_per_episode).mean(axis=1)
+        plt.plot(average_reward)
+
+        plt.xlabel("Episode")
+        plt.ylabel("$r_n$")
+
+        if title:
+            plt.title(title)
+
+        if save_path is not None:
+            Toolbox.create_folder(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
+        else:
+            plt.show()
+
+    @staticmethod
     def target_plot_1d(
         x_range: Tuple[float, float, int],
         log_target_pdf: Callable[[npt.NDArray[np.float64]], np.float64],
