@@ -207,5 +207,8 @@ experiments/skew_t/flex/*.txt
 experiments/laplace_*/const/const_run_*
 experiments/laplace_*/const/run-const_*
 experiments/laplace_*/flex/*.txt
+experiments/heavy_light_tail/const/const_run_*
+experiments/heavy_light_tail/const/run-const_*
+experiments/heavy_light_tail/flex/*.txt
 experiments/whole_results*
 **/backup*
