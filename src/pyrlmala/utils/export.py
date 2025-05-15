@@ -667,7 +667,7 @@ class SimplifiedTableGenerator:
     def apply_simple_transformation(cls, df: pd.DataFrame) -> pd.DataFrame:
         """
         Apply transformation to the DataFrame to format values in scientific notation
-        without any comparison or highlighting. Processes both Mean(SE) and Mid(IQR) formats.
+        and highlight (bold) the smaller value when comparing RLBarker LESJD and RLBarker CDLB.
 
         Args:
             df (pd.DataFrame): Input DataFrame to be transformed.
@@ -680,14 +680,29 @@ class SimplifiedTableGenerator:
         df = df.replace(r"^\s*-+\s*$", np.nan, regex=True)
         df = df.replace(r"^\s*$", np.nan, regex=True)
 
-        def fmt(center: float, spread: float) -> str:
+        def fmt(center: float, spread: float, highlight: bool = False) -> str:
             """
-            Format the value in scientific notation.
+            Format the value in scientific notation and add bold if highlighted.
             """
             if pd.isna(center) or pd.isna(spread):
-                return "-"
+                result = "-"
             else:
-                return cls.format_scientific_with_error(center, spread)
+                result = cls.format_scientific_with_error(center, spread)
+
+            return f"\\textbf{{{result}}}" if highlight else result
+
+        def get_formatted_value(center: float, spread: float) -> float:
+            """
+            Parse the formatted scientific notation value as a float for comparison.
+            If the value is "-", return float('inf') for comparison.
+            """
+            if pd.isna(center) or pd.isna(spread):
+                return float("inf")
+
+            if center == 0:
+                return 0.0
+
+            return abs(center)  # Using absolute value for comparison
 
         has_median = all(
             col in df.columns
@@ -740,8 +755,22 @@ class SimplifiedTableGenerator:
                         float("nan"),
                     )
 
-                out_row["RLBarker LESJD Mid(IQR)"] = fmt(med_lesjd, q3_lesjd - q1_lesjd)
-                out_row["RLBarker CDLB Mid(IQR)"] = fmt(med_rl, q3_rl - q1_rl)
+                # Compare median values for highlighting
+                lesjd_med_value = get_formatted_value(med_lesjd, q3_lesjd - q1_lesjd)
+                cdlb_med_value = get_formatted_value(med_rl, q3_rl - q1_rl)
+
+                # Determine which one is smaller for highlighting
+                is_lesjd_smaller = lesjd_med_value < cdlb_med_value
+                is_cdlb_smaller = cdlb_med_value < lesjd_med_value
+
+                # If both are equal (or both are NaN), neither gets highlighted
+
+                out_row["RLBarker LESJD Mid(IQR)"] = fmt(
+                    med_lesjd, q3_lesjd - q1_lesjd, is_lesjd_smaller
+                )
+                out_row["RLBarker CDLB Mid(IQR)"] = fmt(
+                    med_rl, q3_rl - q1_rl, is_cdlb_smaller
+                )
 
             if has_mean:
                 try:
@@ -760,8 +789,19 @@ class SimplifiedTableGenerator:
                 except (ValueError, TypeError):
                     mean_lesjd, se_lesjd = float("nan"), float("nan")
 
-                out_row["RLBarker LESJD Mean(SE)"] = fmt(mean_lesjd, se_lesjd)
-                out_row["RLBarker CDLB Mean(SE)"] = fmt(mean_rl, se_rl)
+                # Compare mean values for highlighting
+                lesjd_mean_value = get_formatted_value(mean_lesjd, se_lesjd)
+                cdlb_mean_value = get_formatted_value(mean_rl, se_rl)
+
+                # Determine which one is smaller for highlighting
+                is_lesjd_smaller = lesjd_mean_value < cdlb_mean_value
+                is_cdlb_smaller = cdlb_mean_value < lesjd_mean_value
+
+                # If both are equal (or both are NaN), neither gets highlighted
+                out_row["RLBarker LESJD Mean(SE)"] = fmt(
+                    mean_lesjd, se_lesjd, is_lesjd_smaller
+                )
+                out_row["RLBarker CDLB Mean(SE)"] = fmt(mean_rl, se_rl, is_cdlb_smaller)
 
             rows.append(out_row)
 

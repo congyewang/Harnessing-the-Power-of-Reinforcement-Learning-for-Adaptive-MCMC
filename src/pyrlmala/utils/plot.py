@@ -34,6 +34,17 @@ if LATEX_STYLE:
         }
     )
 
+plt.rcParams.update(
+    {
+        "font.size": 24,
+        "axes.titlesize": 28,
+        "axes.labelsize": 26,
+        "xtick.labelsize": 22,
+        "ytick.labelsize": 22,
+        "legend.fontsize": 16,
+    }
+)
+
 
 class CleanPipeLine:
     @staticmethod
@@ -218,7 +229,7 @@ class PlotPipeLine:
 
         if save_path:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -322,7 +333,7 @@ class PolicyPlot:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -554,7 +565,7 @@ class AveragePolicy:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -611,7 +622,7 @@ class GeneralPlot:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -683,7 +694,7 @@ class GeneralPlot:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -713,7 +724,7 @@ class GeneralPlot:
         plt.plot(moving_averages, label="Moving average")
 
         plt.xlabel("Episode")
-        plt.ylabel("Reward")
+        plt.ylabel("$r_n$")
 
         plt.legend()
         if title:
@@ -721,7 +732,7 @@ class GeneralPlot:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -747,7 +758,7 @@ class GeneralPlot:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
@@ -782,7 +793,7 @@ class GeneralPlot:
 
         if save_path is not None:
             Toolbox.create_folder(save_path)
-            plt.savefig(save_path)
+            plt.savefig(save_path, bbox_inches="tight")
         else:
             plt.show()
 
