@@ -854,27 +854,27 @@ class AveragePolicy:
             shrink   : Colorbar shrink ratio
         """
         n = len(items)
-        # 验证每个 Z 的 shape 与它的 ranges 匹配
+        # Verify that the shape of each Z matches its ranges
         for Z, xr, yr, _ in items:
             nx, ny = xr[2], yr[2]
             if Z.shape != (nx, ny):
-                raise ValueError(f"矩阵 shape {Z.shape} != ranges 中 ({nx},{ny})")
+                raise ValueError(f"Matrix shape {Z.shape} != ranges ({nx},{ny})")
 
-        # 1) 计算边界
+        # 1) Calculate boundary
         if boundaries is None:
             all_vals = np.concatenate([Z.ravel() for Z, *_ in items])
             boundaries = np.percentile(all_vals, np.linspace(0, 100, 11))
 
         norm = colors.BoundaryNorm(boundaries, ncolors=256, clip=True)
 
-        # 2) 创建子图
+        # 2) Create a subgraph
         if figsize is None:
             figsize = (5 * n, 5)
         fig, axes = plt.subplots(1, n, figsize=figsize, sharey=False)
         if n == 1:
             axes = [axes]
 
-        # 3) 逐个绘制
+        # 3) Draw one by one
         first_im = None
         for ax, (Z, xr, yr, title) in zip(axes, items):
             im = ax.imshow(
@@ -890,7 +890,7 @@ class AveragePolicy:
             ax.set_ylabel("y")
             first_im = first_im or im
 
-        # 4) 统一 colorbar
+        # 4) Uniform colorbar
         cbar = fig.colorbar(
             first_im,
             ax=axes,
@@ -942,7 +942,7 @@ class AveragePolicy:
         # shape validation
         for Z, xr, yr, _ in items:
             if Z.shape != (xr[2], yr[2]):
-                raise ValueError(f"矩阵 shape {Z.shape} ≠ ranges 中 ({xr[2]},{yr[2]})")
+                raise ValueError(f"Matrix shape {Z.shape} ≠ ranges ({xr[2]},{yr[2]})")
 
         # 1) calculate levels
         if levels is None:
@@ -962,7 +962,7 @@ class AveragePolicy:
 
         # 3) Draw each heatmap (first generate RGBA, then imshow)
         for ax, (Z, xr, yr, title) in zip(axes, items):
-            # 转置后再映射，得到 (ny,nx,4)
+            # After transposing and remapping, obtain (ny,nx,4)
             Zt = Z.T
             rgba = cmap_nl(Zt)
             ax.imshow(
