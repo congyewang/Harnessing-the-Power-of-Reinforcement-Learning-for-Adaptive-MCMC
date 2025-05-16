@@ -210,9 +210,6 @@ class PlotPipeLine:
         flex_median: float | npt.NDArray[np.floating],
         flex_left_quantile: float | npt.NDArray[np.floating],
         flex_right_quantile: float | npt.NDArray[np.floating],
-        bootstrap_median: float | npt.NDArray[np.floating],
-        bootstrap_left_quantile: float | npt.NDArray[np.floating],
-        bootstrap_right_quantile: float | npt.NDArray[np.floating],
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
@@ -237,7 +234,6 @@ class PlotPipeLine:
         mcmc_env: str,
         const_dir: str,
         flex_file_path: str,
-        bootstrap_tuple: Tuple[float, float, float],
         title: Optional[str] = None,
         save_path: Optional[str] = None,
     ) -> None:
@@ -256,9 +252,6 @@ class PlotPipeLine:
             flex_median=flex_pipeline.median,
             flex_left_quantile=flex_pipeline.left_quantile,
             flex_right_quantile=flex_pipeline.right_quantile,
-            bootstrap_median=bootstrap_tuple[0],
-            bootstrap_left_quantile=bootstrap_tuple[1],
-            bootstrap_right_quantile=bootstrap_tuple[2],
             title=title,
             save_path=save_path,
         )

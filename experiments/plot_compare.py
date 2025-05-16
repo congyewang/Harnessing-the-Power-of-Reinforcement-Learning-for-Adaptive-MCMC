@@ -1,62 +1,27 @@
+import matplotlib.pyplot as plt
+
 from pyrlmala.utils.plot import PlotPipeLine
 
-
 model_list = [
-    "test-banana-test-banana",
-    "test-neals_funnel-test-neals_funnel",
-    "test-skew_t-test-skew_t",
     "test-laplace_1-test-laplace_1",
     "test-laplace_2-test-laplace_2",
+    "test-neals_funnel-test-neals_funnel",
+    "test-banana-test-banana",
+    "test-skew_t-test-skew_t",
 ]
 
 mcmc_env_list = ["mala"]
 
-bootstrap_res = {
-    "test-banana-test-banana": (
-        6.693579028532737e-05,
-        3.252257778818546e-05,
-        9.941779793612437e-05,
-    ),
-    "test-neals_funnel-test-neals_funnel": (
-        6.790319804189648e-05,
-        5.552418464618847e-05,
-        9.22387055656837e-05,
-    ),
-    "test-skew_t-test-skew_t": (
-        4.350704747890788e-05,
-        3.408956997466572e-05,
-        4.856453316870457e-05,
-    ),
-    "test-annulus-test-annulus": (
-        6.003918074098946e-05,
-        4.335330365598522e-05,
-        6.767102229762734e-05,
-    ),
-    "test-laplace_1-test-laplace_1": (
-        6.880791394087149e-05,
-        5.886874207775006e-05,
-        8.673648262561007e-05,
-    ),
-    "test-laplace_2-test-laplace_2": (
-        0.00010108379915718668,
-        5.5503480059976296e-05,
-        0.00012444663540062129,
-    ),
-    "test-laplace_4-test-laplace_4": (
-        5.535868116945952e-05,
-        4.547333266832765e-05,
-        8.727203370076375e-05,
-    ),
-}
 
-for model_name in model_list:
+fig, axes = plt.subplots(1, 5, figsize=(20, 4), constrained_layout=True)
+
+for idx, model_name in enumerate(model_list):
     model_dir_root_name = model_name.split("-")[1]
     const_dir = f"./{model_dir_root_name}/const"
     for mcmc_env in mcmc_env_list:
-        PlotPipeLine().execute(
+        PlotPipeLine(axes=axes[idx]).execute(
             mcmc_env=mcmc_env,
             const_dir=const_dir,
             flex_file_path=f"./{model_dir_root_name}/flex/{model_name}_{mcmc_env}_mmd.txt",
-            bootstrap_tuple=bootstrap_res[model_name],
             save_path=f"./{model_dir_root_name}/pic/{model_name}_{mcmc_env}_mmd.pdf",
         )
