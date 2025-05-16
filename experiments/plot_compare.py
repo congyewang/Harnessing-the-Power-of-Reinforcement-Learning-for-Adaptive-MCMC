@@ -1,6 +1,8 @@
+import glob
+
 import matplotlib.pyplot as plt
 
-from pyrlmala.utils.plot import PlotPipeLine
+from pyrlmala.utils.plot import FlexPipeLine, PlotPipeLine
 
 model_list = [
     "test-laplace_1-test-laplace_1",
@@ -9,19 +11,32 @@ model_list = [
     "test-banana-test-banana",
     "test-skew_t-test-skew_t",
 ]
+mcmc_env = "mala"
 
-mcmc_env_list = ["mala"]
+fig, axes = plt.subplots(1, 5, figsize=(20, 4), sharey=True, constrained_layout=True)
 
+for ax, model_name in zip(axes, model_list):
+    pp = PlotPipeLine(log_mode=True, axes=ax)
 
-fig, axes = plt.subplots(1, 5, figsize=(20, 4), constrained_layout=True)
+    const_dir = "./" + model_name.split("-")[1] + "/const"
+    for file_path in sorted(glob.glob(f"{const_dir}/*.csv")):
+        pp.store_to_dict(file_path)
 
-for idx, model_name in enumerate(model_list):
-    model_dir_root_name = model_name.split("-")[1]
-    const_dir = f"./{model_dir_root_name}/const"
-    for mcmc_env in mcmc_env_list:
-        PlotPipeLine(axes=axes[idx]).execute(
-            mcmc_env=mcmc_env,
-            const_dir=const_dir,
-            flex_file_path=f"./{model_dir_root_name}/flex/{model_name}_{mcmc_env}_mmd.txt",
-            save_path=f"./{model_dir_root_name}/pic/{model_name}_{mcmc_env}_mmd.pdf",
-        )
+    flex = FlexPipeLine(
+        input_file=f"./{model_name.split('-')[1]}/flex/{model_name}_{mcmc_env}_mmd.txt"
+    )
+
+    pp.plot_const(mcmc_env=mcmc_env)
+    pp.plot_flex(
+        median=flex.median,
+        left_quantile=flex.left_quantile,
+        right_quantile=flex.right_quantile,
+    )
+
+    ax.set_xlabel(r"$\epsilon$")
+    if ax is axes[0]:
+        ax.set_ylabel("MMD")
+    else:
+        ax.tick_params(labelleft=False)
+
+plt.savefig("policy_compare.pdf", bbox_inches="tight")
