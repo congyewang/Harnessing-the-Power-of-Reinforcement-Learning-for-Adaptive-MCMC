@@ -193,17 +193,6 @@ class PlotPipeLine:
             self.x_ranges, left_quantile, right_quantile, alpha=0.2, color="red"
         )
 
-    def plot_bootstrap(
-        self,
-        median: float | npt.NDArray[np.floating],
-        left_quantile: float | npt.NDArray[np.floating],
-        right_quantile: float | npt.NDArray[np.floating],
-    ) -> None:
-        self.ax.axhline(median, color="#8680A6", linestyle=":", label="Bootstrap")
-        self.ax.fill_between(
-            self.x_ranges, left_quantile, right_quantile, alpha=0.3, color="#8680A6"
-        )
-
     def plot_total(
         self,
         mcmc_env: str,
