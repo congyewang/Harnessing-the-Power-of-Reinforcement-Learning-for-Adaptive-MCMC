@@ -1,5 +1,5 @@
 [network]
-hidden_layers = [8, 8]
+hidden_layers = [8, 16, 16, 8]
 activation_function = "ReLU"
 
 [scheduler]

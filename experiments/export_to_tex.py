@@ -1,18 +1,24 @@
 import os
-
+from typing import Tuple
 import pandas as pd
 
 from pyrlmala.utils import Toolbox
-from pyrlmala.utils.export import PosteriorDBGenerator, TableGenerator
+from pyrlmala.utils.export import (
+    PosteriorDBGenerator,
+    TableGenerator,
+    SimplifiedTableGenerator,
+)
 from pyrlmala.utils.read import BaselineResultReader, MCMCResultReader
 
 
-def get_dataframe() -> pd.DataFrame:
+def get_dataframe() -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Generate a DataFrame containing the results from different methods.
+    Generate DataFrames for RMALA and RLBarker results.
 
     Returns:
-        pd.DataFrame: A DataFrame containing the results from different methods.
+        Tuple[pd.DataFrame, pd.DataFrame]: A tuple containing two DataFrames:
+            - The first DataFrame contains the results from RMALA AAR, RMALA ESJD, RMALA-RLMH CDLB, and RMALA-RLMH LESJD.
+            - The second DataFrame contains the results from RLBarker CDLB and RLBarker LESJD.
     """
     baseline_aar_reader = BaselineResultReader(
         results_dir="./baseline", method_name="RMALA AAR"
@@ -25,6 +31,13 @@ def get_dataframe() -> pd.DataFrame:
     )
     rl_esjd_reader = MCMCResultReader(
         results_dir="./whole_results_esjd", method_name="RMALA-RLMH LESJD"
+    )
+
+    rl_barker_cdlb_reader = MCMCResultReader(
+        results_dir="./whole_results_barker_cdlb", method_name="RLBarker CDLB"
+    )
+    rl_barker_esjd_reader = MCMCResultReader(
+        results_dir="./whole_results_barker_esjd", method_name="RLBarker LESJD"
     )
 
     baseline_aar_exporter = PosteriorDBGenerator(
@@ -40,16 +53,28 @@ def get_dataframe() -> pd.DataFrame:
         rl_esjd_reader, "./posteriordb/posterior_database"
     )
 
+    rl_barker_cdlb_exporter = PosteriorDBGenerator(
+        rl_barker_cdlb_reader, "./posteriordb/posterior_database"
+    )
+    rl_barker_esjd_exporter = PosteriorDBGenerator(
+        rl_barker_esjd_reader, "./posteriordb/posterior_database"
+    )
+
     baseline_aar_df = baseline_aar_exporter.get_result_dataframe()
     baseline_esjd_df = baseline_esjd_exporter.get_result_dataframe()
     rl_cdlb_df = rl_cdlb_exporter.get_result_dataframe()
     rl_esjd_df = rl_esjd_exporter.get_result_dataframe()
 
-    merged_df = pd.merge(baseline_aar_df, baseline_esjd_df, on=["Model", "d"])
-    merged_df = pd.merge(merged_df, rl_cdlb_df, on=["Model", "d"])
-    merged_df = pd.merge(merged_df, rl_esjd_df, on=["Model", "d"])
+    rl_barker_cdlb_df = rl_barker_cdlb_exporter.get_result_dataframe()
+    rl_barker_esjd_df = rl_barker_esjd_exporter.get_result_dataframe()
 
-    return merged_df
+    merged_df_mala = pd.merge(baseline_aar_df, baseline_esjd_df, on=["Model", "d"])
+    merged_df_mala = pd.merge(merged_df_mala, rl_cdlb_df, on=["Model", "d"])
+    merged_df_mala = pd.merge(merged_df_mala, rl_esjd_df, on=["Model", "d"])
+
+    merged_df_barker = pd.merge(rl_barker_esjd_df, rl_barker_cdlb_df, on=["Model", "d"])
+
+    return merged_df_mala, merged_df_barker
 
 
 def get_mean_sub_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -86,39 +111,77 @@ def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:
         mode (str): The mode to use for generating the table. Can be 'mean', 'median', or 'all'.
         output_root_dir (str): The root directory where the output file will be saved.
     """
-    df = get_dataframe()
+    df_mala, df_barker = get_dataframe()
 
     match mode:
         case "mean":
-            mean_df = get_mean_sub_dataframe(df)
-            mean_output_file_path = os.path.join(output_root_dir, "mean_results.tex")
+            mean_df_mala = get_mean_sub_dataframe(df_mala)
+            mean_output_file_path_mala = os.path.join(
+                output_root_dir, "mean_results.tex"
+            )
+            Toolbox.create_folder(mean_output_file_path_mala)
+            TableGenerator.output(mean_df_mala, mean_output_file_path_mala)
 
-            Toolbox.create_folder(mean_output_file_path)
-
-            TableGenerator.output(mean_df, mean_output_file_path)
+            mean_df_barker = get_mean_sub_dataframe(df_barker)
+            mean_output_file_path_barker = os.path.join(
+                output_root_dir, "mean_results_barker.tex"
+            )
+            Toolbox.create_folder(mean_output_file_path_barker)
+            SimplifiedTableGenerator.output(
+                mean_df_barker, mean_output_file_path_barker
+            )
         case "median":
-            median_df = get_median_sub_dataframe(df)
-            median_output_file_path = os.path.join(
+            median_df_mala = get_median_sub_dataframe(df_mala)
+            median_output_file_path_mala = os.path.join(
                 output_root_dir, "median_results.tex"
             )
+            Toolbox.create_folder(median_output_file_path_mala)
+            TableGenerator.output(median_df_mala, median_output_file_path_mala)
 
-            Toolbox.create_folder(median_output_file_path)
-
-            TableGenerator.output(median_df, median_output_file_path)
+            median_df_barker = get_median_sub_dataframe(df_barker)
+            median_output_file_path_barker = os.path.join(
+                output_root_dir, "median_results_barker.tex"
+            )
+            Toolbox.create_folder(median_output_file_path_barker)
+            SimplifiedTableGenerator.output(
+                median_df_barker, median_output_file_path_barker
+            )
         case "all":
-            median_df = get_median_sub_dataframe(df)
-            mean_df = get_mean_sub_dataframe(df)
+            median_df_mala = get_median_sub_dataframe(df_mala)
+            mean_df_mala = get_mean_sub_dataframe(df_mala)
 
-            mean_output_file_path = os.path.join(output_root_dir, "mean_results.tex")
-            median_output_file_path = os.path.join(
+            mean_output_file_path_mala = os.path.join(
+                output_root_dir, "mean_results.tex"
+            )
+            median_output_file_path_mala = os.path.join(
                 output_root_dir, "median_results.tex"
             )
 
-            Toolbox.create_folder(mean_output_file_path)
-            Toolbox.create_folder(median_output_file_path)
+            Toolbox.create_folder(mean_output_file_path_mala)
+            Toolbox.create_folder(median_output_file_path_mala)
 
-            TableGenerator.output(mean_df, mean_output_file_path)
-            TableGenerator.output(median_df, median_output_file_path)
+            TableGenerator.output(mean_df, mean_output_file_path_mala)
+            TableGenerator.output(median_df, median_output_file_path_mala)
+
+            median_df_barker = get_median_sub_dataframe(df_barker)
+            mean_df_barker = get_mean_sub_dataframe(df_barker)
+
+            mean_output_file_path_barker = os.path.join(
+                output_root_dir, "mean_results_barker.tex"
+            )
+            median_output_file_path_barker = os.path.join(
+                output_root_dir, "median_results_barker.tex"
+            )
+
+            Toolbox.create_folder(mean_output_file_path_barker)
+            Toolbox.create_folder(median_output_file_path_barker)
+
+            SimplifiedTableGenerator.output(
+                mean_df_barker, mean_output_file_path_barker
+            )
+            SimplifiedTableGenerator.output(
+                median_df_barker, median_output_file_path_barker
+            )
         case _:
             raise ValueError(f"Unknown mode: {mode}. Use 'mean', 'median' or 'all'.")
 
