@@ -1,12 +1,13 @@
 import os
 from typing import Tuple
+
 import pandas as pd
 
 from pyrlmala.utils import Toolbox
 from pyrlmala.utils.export import (
+    EnhancedTableGenerator,
     PosteriorDBGenerator,
     TableGenerator,
-    SimplifiedTableGenerator,
 )
 from pyrlmala.utils.read import BaselineResultReader, MCMCResultReader
 
@@ -33,6 +34,9 @@ def get_dataframe() -> Tuple[pd.DataFrame, pd.DataFrame]:
         results_dir="./whole_results_esjd", method_name="RMALA-RLMH LESJD"
     )
 
+    baseline_barker_reader = BaselineResultReader(
+        results_dir="./baseline_barker", method_name="Barker"
+    )
     rl_barker_cdlb_reader = MCMCResultReader(
         results_dir="./whole_results_barker_cdlb", method_name="RLBarker CDLB"
     )
@@ -53,6 +57,9 @@ def get_dataframe() -> Tuple[pd.DataFrame, pd.DataFrame]:
         rl_esjd_reader, "./posteriordb/posterior_database"
     )
 
+    baseline_barker_exporter = PosteriorDBGenerator(
+        baseline_barker_reader, "./posteriordb/posterior_database"
+    )
     rl_barker_cdlb_exporter = PosteriorDBGenerator(
         rl_barker_cdlb_reader, "./posteriordb/posterior_database"
     )
@@ -65,6 +72,7 @@ def get_dataframe() -> Tuple[pd.DataFrame, pd.DataFrame]:
     rl_cdlb_df = rl_cdlb_exporter.get_result_dataframe()
     rl_esjd_df = rl_esjd_exporter.get_result_dataframe()
 
+    baseline_barker_df = baseline_barker_exporter.get_result_dataframe()
     rl_barker_cdlb_df = rl_barker_cdlb_exporter.get_result_dataframe()
     rl_barker_esjd_df = rl_barker_esjd_exporter.get_result_dataframe()
 
@@ -72,7 +80,10 @@ def get_dataframe() -> Tuple[pd.DataFrame, pd.DataFrame]:
     merged_df_mala = pd.merge(merged_df_mala, rl_cdlb_df, on=["Model", "d"])
     merged_df_mala = pd.merge(merged_df_mala, rl_esjd_df, on=["Model", "d"])
 
-    merged_df_barker = pd.merge(rl_barker_esjd_df, rl_barker_cdlb_df, on=["Model", "d"])
+    merged_df_barker = pd.merge(
+        baseline_barker_df, rl_barker_cdlb_df, on=["Model", "d"]
+    )
+    merged_df_barker = pd.merge(merged_df_barker, rl_barker_esjd_df, on=["Model", "d"])
 
     return merged_df_mala, merged_df_barker
 
@@ -127,9 +138,7 @@ def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:
                 output_root_dir, "mean_results_barker.tex"
             )
             Toolbox.create_folder(mean_output_file_path_barker)
-            SimplifiedTableGenerator.output(
-                mean_df_barker, mean_output_file_path_barker
-            )
+            EnhancedTableGenerator.output(mean_df_barker, mean_output_file_path_barker)
         case "median":
             median_df_mala = get_median_sub_dataframe(df_mala)
             median_output_file_path_mala = os.path.join(
@@ -143,7 +152,7 @@ def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:
                 output_root_dir, "median_results_barker.tex"
             )
             Toolbox.create_folder(median_output_file_path_barker)
-            SimplifiedTableGenerator.output(
+            EnhancedTableGenerator.output(
                 median_df_barker, median_output_file_path_barker
             )
         case "all":
@@ -176,10 +185,8 @@ def output_tex(mode: str = "mean", output_root_dir: str = ".") -> None:
             Toolbox.create_folder(mean_output_file_path_barker)
             Toolbox.create_folder(median_output_file_path_barker)
 
-            SimplifiedTableGenerator.output(
-                mean_df_barker, mean_output_file_path_barker
-            )
-            SimplifiedTableGenerator.output(
+            EnhancedTableGenerator.output(mean_df_barker, mean_output_file_path_barker)
+            EnhancedTableGenerator.output(
                 median_df_barker, median_output_file_path_barker
             )
         case _:
@@ -190,7 +197,7 @@ def main() -> None:
     """
     Main function to generate LaTeX tables for the results of the experiments.
     """
-    output_tex("mean", ".")
+    output_tex("median", ".")
 
 
 if __name__ == "__main__":
