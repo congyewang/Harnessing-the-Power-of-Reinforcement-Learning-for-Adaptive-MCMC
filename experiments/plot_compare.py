@@ -7,13 +7,11 @@ from pyrlmala.utils.plot import FlexPipeLine, PlotPipeLine
 model_list = [
     "test-laplace_1-test-laplace_1",
     "test-laplace_2-test-laplace_2",
-    "test-neals_funnel-test-neals_funnel",
     "test-banana-test-banana",
-    "test-skew_t-test-skew_t",
 ]
 mcmc_env = "mala"
 
-fig, axes = plt.subplots(1, 5, figsize=(20, 4), sharey=True, constrained_layout=True)
+fig, axes = plt.subplots(1, 3, figsize=(15, 5), sharey=True, constrained_layout=True)
 
 for ax, model_name in zip(axes, model_list):
     pp = PlotPipeLine(log_mode=True, axes=ax)

@@ -955,9 +955,12 @@ class AveragePolicy:
             )
             ax.set_title(title)
 
+            ax.set_xticks([])
+            ax.set_yticks([])
+
         # 4) colorbar
         if cbar_axes is None:
-            cbar_axes = fig.add_axes([0.92, 0.15, 0.03, 0.7])
+            cbar_axes = fig.add_axes([0.92, 0.15, 0.01, 0.7])
         sm = cm.ScalarMappable(
             cmap=cmap0, norm=Normalize(vmin=levels.min(), vmax=levels.max())
         )
