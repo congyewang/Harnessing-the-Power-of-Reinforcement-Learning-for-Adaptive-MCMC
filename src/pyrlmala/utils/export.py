@@ -1013,6 +1013,14 @@ class EnhancedTableGenerator:
             dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
             out_row = {"Model": model, "d": dim}
 
+            # Initialize all output metrics to None
+            barker_mid_iqr = None
+            lesjd_mid_iqr = None
+            cdlb_mid_iqr = None
+            barker_mean_se = None
+            lesjd_mean_se = None
+            cdlb_mean_se = None
+
             # Default value for row highlighting
             should_highlight_row = False
 
@@ -1099,19 +1107,19 @@ class EnhancedTableGenerator:
 
                 # Format metrics with bold for the smallest value (unless all are equal)
                 if has_barker_median:
-                    out_row["Barker Mid(IQR)"] = fmt(
+                    barker_mid_iqr = fmt(
                         med_barker,
                         q3_barker - q1_barker,
                         (min_method == "Barker" and not all_equal),
                     )
 
-                out_row["RLBarker LESJD Mid(IQR)"] = fmt(
+                lesjd_mid_iqr = fmt(
                     med_lesjd,
                     q3_lesjd - q1_lesjd,
                     (min_method == "RLBarker LESJD" and not all_equal),
                 )
 
-                out_row["RLBarker CDLB Mid(IQR)"] = fmt(
+                cdlb_mid_iqr = fmt(
                     med_rl,
                     q3_rl - q1_rl,
                     (min_method == "RLBarker CDLB" and not all_equal),
@@ -1205,19 +1213,19 @@ class EnhancedTableGenerator:
 
                 # Format metrics with bold for the smallest value (unless all are equal)
                 if has_barker_mean:
-                    out_row["Barker Mean(SE)"] = fmt(
+                    barker_mean_se = fmt(
                         mean_barker,
                         se_barker,
                         (min_method == "Barker" and not all_equal),
                     )
 
-                out_row["RLBarker LESJD Mean(SE)"] = fmt(
+                lesjd_mean_se = fmt(
                     mean_lesjd,
                     se_lesjd,
                     (min_method == "RLBarker LESJD" and not all_equal),
                 )
 
-                out_row["RLBarker CDLB Mean(SE)"] = fmt(
+                cdlb_mean_se = fmt(
                     mean_rl, se_rl, (min_method == "RLBarker CDLB" and not all_equal)
                 )
 
@@ -1250,7 +1258,29 @@ class EnhancedTableGenerator:
                         except (ValueError, TypeError):
                             continue
 
-            rows.append(out_row)
+            # Add columns in the desired order
+            # First, add the required columns Model and d
+            ordered_output = {"Model": model, "d": dim}
+
+            # Add Barker columns if available
+            if has_barker_median:
+                ordered_output["Barker Mid(IQR)"] = barker_mid_iqr
+            if has_barker_mean:
+                ordered_output["Barker Mean(SE)"] = barker_mean_se
+
+            # Add RLBarker LESJD columns
+            if has_median:
+                ordered_output["RLBarker LESJD Mid(IQR)"] = lesjd_mid_iqr
+            if has_mean:
+                ordered_output["RLBarker LESJD Mean(SE)"] = lesjd_mean_se
+
+            # Add RLBarker CDLB columns
+            if has_median:
+                ordered_output["RLBarker CDLB Mid(IQR)"] = cdlb_mid_iqr
+            if has_mean:
+                ordered_output["RLBarker CDLB Mean(SE)"] = cdlb_mean_se
+
+            rows.append(ordered_output)
             row_highlights.append(should_highlight_row)
 
         result_df = pd.DataFrame(rows)
