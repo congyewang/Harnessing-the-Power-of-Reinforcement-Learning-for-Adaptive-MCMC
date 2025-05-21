@@ -70,7 +70,7 @@ critic_gradient_threshold = 1.0
 # the gradient clipping norm for the critic
 critic_gradient_norm = 2
 # the initial average reward of reward centering
-r_bar = 0.0
+r_bar = 1e-3
 # the update rate of reward centering
 r_bar_alpha = 0.0
 
