@@ -62,7 +62,6 @@ class AlgorithmGeneralConfig:
         critic_gradient_clipping (bool): Flag to enable critic gradient clipping.
         critic_gradient_threshold (float): Critic gradient threshold.
         critic_gradient_norm (int): Critic gradient norm.
-        reward_centering (bool): Flag to enable reward centering.
         r_bar (float): Initial average reward of reward centering.
         r_bar_alpha (float): Update rate of reward centering.
     """
@@ -89,7 +88,6 @@ class AlgorithmGeneralConfig:
     critic_gradient_clipping: bool
     critic_gradient_threshold: float
     critic_gradient_norm: int
-    reward_centering: bool
     r_bar: float
     r_bar_alpha: float
 

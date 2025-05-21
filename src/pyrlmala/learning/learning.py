@@ -97,7 +97,6 @@ class LearningInterface(ABC):
         tau: float = 0.005,
         random_seed: int = 42,
         num_of_top_policies: int = 5,
-        reward_centering: bool = True,
         r_bar: float = 0.0,
         r_bar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
@@ -234,7 +233,6 @@ class LearningInterface(ABC):
         self.event_manager = EventManager()
 
         # Reward Centering
-        self.reward_centering = reward_centering
         self.r_bar = r_bar
         self.r_bar_alpha = r_bar_alpha
 
@@ -545,7 +543,6 @@ class LearningDDPG(LearningInterface):
         tau: float = 0.005,
         random_seed: int = 42,
         num_of_top_policies: int = 5,
-        reward_centering: bool = True,
         r_bar: float = 0.0,
         r_bar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
@@ -612,7 +609,6 @@ class LearningDDPG(LearningInterface):
             tau=tau,
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
-            reward_centering=reward_centering,
             r_bar=r_bar,
             r_bar_alpha=r_bar_alpha,
             device=device,
@@ -714,10 +710,9 @@ class LearningDDPG(LearningInterface):
         self.obs = next_obs
 
         if self.current_step == self.learning_starts:
-            if self.reward_centering:
-                self.r_bar = np.mean(
-                    self.env.get_attr("store_reward")[0][0 : self.current_step]
-                )
+            self.r_bar = np.mean(
+                self.env.get_attr("store_reward")[0][0 : self.current_step]
+            )
         elif self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
@@ -725,15 +720,10 @@ class LearningDDPG(LearningInterface):
                 critic_next_target = self.target_critic(
                     data.next_observations, next_state_actions
                 )
-                if self.reward_centering:
-                    rewards_centered = data.rewards.flatten() - self.r_bar
-                    next_q_value = rewards_centered + (
-                        1 - data.dones.flatten()
-                    ) * self.gamma * critic_next_target.view(-1)
-                else:
-                    next_q_value = data.rewards.flatten() + (
-                        1 - data.dones.flatten()
-                    ) * self.gamma * (critic_next_target).view(-1)
+                rewards_centered = data.rewards.flatten() - self.r_bar
+                next_q_value = rewards_centered + (
+                    1 - data.dones.flatten()
+                ) * self.gamma * critic_next_target.view(-1)
 
             critic_a_values = self.critic(data.observations, data.actions).view(-1)
             critic_loss = F.mse_loss(critic_a_values, next_q_value)
@@ -765,10 +755,9 @@ class LearningDDPG(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-            if self.reward_centering:
-                batch_mean_r = data.rewards.flatten().mean().item()
-                delta = batch_mean_r - self.r_bar
-                self.r_bar += self.r_bar_alpha * delta
+            batch_mean_r = data.rewards.flatten().mean().item()
+            delta = batch_mean_r - self.r_bar
+            self.r_bar += self.r_bar_alpha * delta
 
             if (
                 self.current_step % 100 == 0
@@ -890,7 +879,6 @@ class LearningTD3(LearningInterface):
         policy_noise: float = 0.2,
         noise_clip: float = 0.5,
         num_of_top_policies: int = 5,
-        reward_centering: bool = True,
         r_bar: float = 0.0,
         r_bar_alpha: float = 1e-3,
         device: torch.device = torch.device("cpu"),
@@ -963,7 +951,6 @@ class LearningTD3(LearningInterface):
             tau=tau,
             random_seed=random_seed,
             num_of_top_policies=num_of_top_policies,
-            reward_centering=reward_centering,
             r_bar=r_bar,
             r_bar_alpha=r_bar_alpha,
             device=device,
@@ -1088,10 +1075,9 @@ class LearningTD3(LearningInterface):
         self.obs = next_obs
 
         if self.current_step == self.learning_starts:
-            if self.reward_centering:
-                self.r_bar = np.mean(
-                    self.env.get_attr("store_reward")[0][0 : self.current_step]
-                )
+            self.r_bar = np.mean(
+                self.env.get_attr("store_reward")[0][0 : self.current_step]
+            )
         elif self.current_step > self.learning_starts:
             data = self.replay_buffer.sample(self.batch_size)
             with torch.no_grad():
@@ -1113,15 +1099,10 @@ class LearningTD3(LearningInterface):
                     critic_next_target, critic2_next_target
                 )
 
-                if self.reward_centering:
-                    rewards_centered = data.rewards.flatten() - self.r_bar
-                    next_q_value = rewards_centered + (
-                        1 - data.dones.flatten()
-                    ) * self.gamma * (min_critic_next_target).view(-1)
-                else:
-                    next_q_value = data.rewards.flatten() + (
-                        1 - data.dones.flatten()
-                    ) * self.gamma * (min_critic_next_target).view(-1)
+                rewards_centered = data.rewards.flatten() - self.r_bar
+                next_q_value = rewards_centered + (
+                    1 - data.dones.flatten()
+                ) * self.gamma * (min_critic_next_target).view(-1)
 
             critic1_a_values = self.critic(data.observations, data.actions).view(-1)
             critic2_a_values = self.critic2(data.observations, data.actions).view(-1)
@@ -1162,10 +1143,9 @@ class LearningTD3(LearningInterface):
                         self.tau * param.data + (1 - self.tau) * target_param.data
                     )
 
-            if self.reward_centering:
-                batch_mean_r = data.rewards.flatten().mean().item()
-                delta = batch_mean_r - self.r_bar
-                self.r_bar += self.r_bar_alpha * delta
+            batch_mean_r = data.rewards.flatten().mean().item()
+            delta = batch_mean_r - self.r_bar
+            self.r_bar += self.r_bar_alpha * delta
 
             if self.current_step % 100 == 0:
                 self.writer.add_scalar(
