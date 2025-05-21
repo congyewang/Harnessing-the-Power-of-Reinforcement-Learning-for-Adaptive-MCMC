@@ -6,5 +6,5 @@ activation_function = "ReLU"
 type = "StepLR"
 
 [scheduler.params]
-step_size = 10
-gamma = 0.1
+step_size = 10000
+gamma = 0.5
