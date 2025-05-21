@@ -1374,3 +1374,198 @@ class EnhancedTableGenerator:
 
         # Generate LaTeX table with row highlighting
         cls.generate_latex_table(final_df, output_path)
+
+
+class SingleTableGenerator:
+    @staticmethod
+    def read_markdown_table(file_path: str) -> pd.DataFrame:
+        """
+        Read a markdown table from a file and convert it to a DataFrame.
+
+        Args:
+            file_path (str): Path to the markdown file.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the table data.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Find the line where the table starts (starts with |)
+        header_index = next(i for i, line in enumerate(lines) if re.match(r"^\|", line))
+        table_lines = lines[header_index:]
+
+        return (
+            pd.read_csv(io.StringIO("".join(table_lines)), sep="|", engine="python")
+            .dropna(axis=1, how="all")
+            .iloc[1:]
+            .reset_index(drop=True)
+        )
+
+    @staticmethod
+    def format_scientific_with_error(
+        center: Optional[float], spread: Optional[float]
+    ) -> str:
+        """
+        Format a number with its uncertainty in scientific notation.
+
+        Args:
+            center (Optional[float]): The central value.
+            spread (Optional[float]): The spread or uncertainty.
+
+        Returns:
+            str: Formatted string in scientific notation.
+        """
+        if pd.isna(center) or pd.isna(spread):
+            return "-"
+        if center == 0:
+            return "0.0(0.0)E0"
+        exp = int(np.floor(np.log10(abs(center))))
+        base = center / (10**exp)
+        relative_spread = spread / (10**exp)
+        return f"{base:.1f}({relative_spread:.1f})E{exp}"
+
+    @classmethod
+    def apply_simple_transformation(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply transformation to the DataFrame to format values in scientific notation.
+
+        Args:
+            df (pd.DataFrame): Input DataFrame to be transformed.
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame with formatted values.
+        """
+        df.columns = df.columns.str.strip()
+        df = df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        df = df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        df = df.replace(r"^\s*$", np.nan, regex=True)
+
+        def fmt(center: float, spread: float) -> str:
+            """
+            Format the value in scientific notation.
+            """
+            if pd.isna(center) or pd.isna(spread):
+                result = "-"
+            else:
+                result = cls.format_scientific_with_error(center, spread)
+
+            return result
+
+        rows: List[Dict[str, str]] = []
+
+        for _, row in df.iterrows():
+            model: str = row["Model"]
+            dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
+            out_row = {"Model": model, "d": dim}
+
+            # Handle median and IQR if those columns exist
+            if "RMALA-RLMH CDLB Median" in df.columns:
+                try:
+                    med_rl, q1_rl, q3_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RMALA-RLMH CDLB Median"],
+                            row["RMALA-RLMH CDLB Q1"],
+                            row["RMALA-RLMH CDLB Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_rl, q1_rl, q3_rl = float("nan"), float("nan"), float("nan")
+
+                out_row["RMALA-RLMH CDLB Mid(IQR)"] = fmt(med_rl, q3_rl - q1_rl)
+
+            # Handle mean and SE if those columns exist
+            if "RMALA-RLMH CDLB Mean" in df.columns:
+                try:
+                    mean_rl, se_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RMALA-RLMH CDLB Mean"], row["RMALA-RLMH CDLB SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_rl, se_rl = float("nan"), float("nan")
+
+                out_row["RMALA-RLMH CDLB Mean(SE)"] = fmt(mean_rl, se_rl)
+
+            rows.append(out_row)
+
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def escape_underscores(text: str) -> str:
+        """
+        Escape underscores in non-LaTeX formatted strings.
+
+        Args:
+            text (str): Input string.
+
+        Returns:
+            str: String with underscores escaped.
+        """
+        if isinstance(text, str):
+            return re.sub(r"(?<!\\)_", r"\_", text)
+        return text
+
+    @staticmethod
+    def generate_latex_table(df: pd.DataFrame, output_path: str = "table.tex") -> None:
+        """
+        Generate a LaTeX table from a DataFrame and save it to a file.
+        """
+        escaped_df = df.applymap(SimplifiedTableGenerator.escape_underscores)
+        column_format = "c" * len(escaped_df.columns)
+        header = escaped_df.columns.tolist()
+        rows = escaped_df.values.tolist()
+
+        latex_lines = [
+            "\\begin{tabular}{" + column_format + "}",
+            "\\hline",
+            " & ".join(header) + " \\\\",
+            "\\hline",
+        ]
+
+        for row in rows:
+            latex_lines.append(" & ".join(str(cell) for cell in row) + " \\\\")
+
+        latex_lines.extend(["\\hline", "\\end{tabular}"])
+
+        latex_code = "\n".join(latex_lines)
+
+        with open(output_path, "w") as f:
+            f.write(latex_code)
+        logger.info(f"LaTeX table saved to {output_path}")
+
+    @classmethod
+    def output(
+        cls,
+        input: str | pd.DataFrame,
+        output_path: str = "formatted_table.tex",
+    ) -> None:
+        """
+        Read a markdown table, clean it, format values, and output a LaTeX table.
+
+        Args:
+            input (str|pd.DataFrame): Path to the input markdown file or a pandas DataFrame.
+            output_path (str): Path where the output LaTeX table will be saved.
+        """
+        if isinstance(input, str) and input.endswith(".md"):
+            # Read Markdown Table
+            raw_df = cls.read_markdown_table(input)
+        elif isinstance(input, pd.DataFrame):
+            raw_df = input
+        else:
+            raise TypeError(
+                "Input must be a markdown file path ending with .md or a pandas DataFrame."
+            )
+
+        # Cleaning: Remove bold markers and column name spaces
+        raw_df = raw_df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        raw_df.columns = raw_df.columns.str.strip()
+
+        # Replace illegal values with NaN (such as '-' or spaces)
+        raw_df = raw_df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        raw_df = raw_df.replace(r"^\s*$", np.nan, regex=True)
+
+        # Convert format
+        final_df = cls.apply_simple_transformation(raw_df)
+
+        cls.generate_latex_table(final_df, output_path)
