@@ -162,8 +162,7 @@ class PosteriorDBToolbox:
         )
 
         hessian_matrix = hess_log_target_pdf(maximum.x)
-        hessian_positive_definite = NearestPD.nearest_positive_definite(hessian_matrix)
-        fisher_information_matrix = -np.linalg.inv(hessian_positive_definite)
+        fisher_information_matrix = -np.linalg.inv(hessian_matrix)
 
         return fisher_information_matrix
 
