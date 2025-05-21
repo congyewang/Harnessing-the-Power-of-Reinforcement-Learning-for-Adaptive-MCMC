@@ -22,7 +22,9 @@ gs = Toolbox.gold_standard(model_name, posteriordb_path)
 
 
 def run_mmd(random_seed: int) -> float:
-    initial_covariance = Toolbox.nearestPD(np.cov(gs, rowvar=False))
+    hessian_matrix = target.hess_log_target_pdf(gs.mean(axis=0))
+    initial_covariance = -np.linalg.inv(hessian_matrix)
+    # initial_covariance = Toolbox.nearestPD(np.cov(gs, rowvar=False))
     const_mala = mala_adapt(
         fp=fp,
         fg=fg,

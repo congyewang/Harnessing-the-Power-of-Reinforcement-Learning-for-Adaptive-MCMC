@@ -15,28 +15,58 @@ posteriordb_path = "{{ posteriordb_path }}"
 repeat_num = {{repeat_num}}
 
 
-def output_initial_step_size(model_name: str, l: float = 1.65) -> float:
+# def output_initial_step_size(model_name: str, l: float = 1.65) -> float:
+#     """
+#     Output a smooth initial step size based on model dimension using log-linear interpolation.
+
+#     Args:
+#         model_name (str): The name of the model.
+#         l (float, optional): The scaling factor. Defaults to 1.65.
+
+#     Returns:
+#         float: The initial step size for the model.
+#     """
+#     target = AutoStanTargetPDF(model_name, posteriordb_path)
+#     sigma_inv = -target.hess_log_target_pdf(
+#         Toolbox.gold_standard(model_name, posteriordb_path).mean(axis=0)
+#     )
+#     d = sigma_inv.shape[0]
+
+#     lam_max = np.linalg.eigvalsh(sigma_inv).max()
+#     eps0 = l / np.sqrt(lam_max * d ** (1 / 3))
+#     initial_step_size = 29.0168 * eps0**3 - 25.6180 * eps0**2 + 3.0239 * eps0 + 1.3476
+
+
+#     return initial_step_size.item()
+
+
+def output_initial(
+    model_name: str, l: float = 1.65
+) -> Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """
-    Output a smooth initial step size based on model dimension using log-linear interpolation.
+    Output a smooth initial sample, covariance matrix, and step size based on model dimension using log-linear interpolation.
 
     Args:
         model_name (str): The name of the model.
         l (float, optional): The scaling factor. Defaults to 1.65.
 
     Returns:
-        float: The initial step size for the model.
+        Tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+            A tuple containing the initial sample, covariance matrix, and step size.
     """
+    gs = Toolbox.gold_standard(model_name, posteriordb_path)
     target = AutoStanTargetPDF(model_name, posteriordb_path)
-    sigma_inv = -target.hess_log_target_pdf(
-        Toolbox.gold_standard(model_name, posteriordb_path).mean(axis=0)
-    )
+    sigma_inv = -target.hess_log_target_pdf(gs.mean(axis=0))
     d = sigma_inv.shape[0]
 
     lam_max = np.linalg.eigvalsh(sigma_inv).max()
     eps0 = l / np.sqrt(lam_max * d ** (1 / 3))
     initial_step_size = 29.0168 * eps0**3 - 25.6180 * eps0**2 + 3.0239 * eps0 + 1.3476
 
-    return initial_step_size.item()
+    hessian_matrix = target.hess_log_target_pdf(gs.mean(axis=0))
+    initial_covariance_matrix = -np.linalg.inv(hessian_matrix)
+
+    return gs[0], initial_covariance_matrix, initial_step_size.reshape(1)
 
 
 def get_samples(
@@ -46,9 +76,10 @@ def get_samples(
     gs = pdb_toolbox.get_gold_standard(model_name)
 
     sample_dim = gs.shape[1]
-    initial_sample = gs[0]
-    initial_step_size = np.array([output_initial_step_size(model_name)])
-    initial_covariance = np.cov(gs, rowvar=False)
+    # initial_sample = gs[0]
+    # initial_step_size = np.array([output_initial_step_size(model_name)])
+    # initial_covariance = np.cov(gs, rowvar=False)
+    initial_sample, initial_covariance, initial_step_size = output_initial(model_name)
     algorithm = "{{ rl_algorithm }}"
     mcmc_env = "{{ mcmc_env }}"
 
