@@ -886,3 +886,491 @@ class SimplifiedTableGenerator:
         final_df = cls.apply_simple_transformation(raw_df)
 
         cls.generate_latex_table(final_df, output_path)
+
+
+class EnhancedTableGenerator:
+    @staticmethod
+    def read_markdown_table(file_path: str) -> pd.DataFrame:
+        """
+        Read a markdown table from a file and convert it to a DataFrame.
+
+        Args:
+            file_path (str): Path to the markdown file.
+
+        Returns:
+            pd.DataFrame: DataFrame containing the table data.
+        """
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Find the line where the table starts (starts with |)
+        header_index = next(i for i, line in enumerate(lines) if re.match(r"^\|", line))
+        table_lines = lines[header_index:]
+
+        return (
+            pd.read_csv(io.StringIO("".join(table_lines)), sep="|", engine="python")
+            .dropna(axis=1, how="all")
+            .iloc[1:]
+            .reset_index(drop=True)
+        )
+
+    @staticmethod
+    def format_scientific_with_error(
+        center: Optional[float], spread: Optional[float]
+    ) -> str:
+        """
+        Format a number with its uncertainty in scientific notation.
+
+        Args:
+            center (Optional[float]): The central value.
+            spread (Optional[float]): The spread or uncertainty.
+
+        Returns:
+            str: Formatted string in scientific notation.
+        """
+        if pd.isna(center) or pd.isna(spread):
+            return "-"
+        if center == 0:
+            return "0.0(0.0)E0"
+        exp = int(np.floor(np.log10(abs(center))))
+        base = center / (10**exp)
+        relative_spread = spread / (10**exp)
+        return f"{base:.1f}({relative_spread:.1f})E{exp}"
+
+    @staticmethod
+    def get_formatted_value(center: float, spread: float) -> float:
+        """
+        Parse the formatted scientific notation value as a float for comparison.
+        If the value is "-", return float('inf') for comparison.
+        """
+        if pd.isna(center) or pd.isna(spread):
+            return float("inf")
+
+        if center == 0:
+            return 0.0
+
+        return abs(center)  # Using absolute value for comparison
+
+    @classmethod
+    def apply_enhanced_transformation(cls, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Apply transformation to the DataFrame to format values in scientific notation
+        and highlight (bold) the smallest value when comparing Barker, RLBarker LESJD, and RLBarker CDLB.
+
+        Also tracks if RMALA-RLMH methods have smaller metrics than both RMALA methods.
+
+        Args:
+            df (pd.DataFrame): Input DataFrame to be transformed.
+
+        Returns:
+            pd.DataFrame: Transformed DataFrame with formatted values and row highlighting info.
+        """
+        df.columns = df.columns.str.strip()
+        df = df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        df = df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        df = df.replace(r"^\s*$", np.nan, regex=True)
+
+        def fmt(center: float, spread: float, highlight: bool = False) -> str:
+            """
+            Format the value in scientific notation and add bold if highlighted.
+            """
+            if pd.isna(center) or pd.isna(spread):
+                result = "-"
+            else:
+                result = cls.format_scientific_with_error(center, spread)
+
+            return f"\\textbf{{{result}}}" if highlight else result
+
+        has_median = all(
+            col in df.columns
+            for col in [
+                "RLBarker LESJD Median",
+                "RLBarker CDLB Median",
+            ]
+        )
+
+        has_barker_median = "Barker Median" in df.columns
+
+        has_mean = all(
+            col in df.columns
+            for col in [
+                "RLBarker LESJD Mean",
+                "RLBarker CDLB Mean",
+            ]
+        )
+
+        has_barker_mean = "Barker Mean" in df.columns
+
+        # Check for RMALA-RLMH methods
+        rmala_rlmh_columns = [col for col in df.columns if "RMALA-RLMH" in col]
+        has_rmala_rlmh = len(rmala_rlmh_columns) > 0
+
+        rows: List[Dict[str, str]] = []
+        row_highlights: List[bool] = []
+
+        for _, row in df.iterrows():
+            model: str = row["Model"]
+            dim = int(row["d"]) if "d" in row and not pd.isna(row["d"]) else None
+            out_row = {"Model": model, "d": dim}
+
+            # Initialize all output metrics to None
+            barker_mid_iqr = None
+            lesjd_mid_iqr = None
+            cdlb_mid_iqr = None
+            barker_mean_se = None
+            lesjd_mean_se = None
+            cdlb_mean_se = None
+
+            # Default value for row highlighting
+            should_highlight_row = False
+
+            if has_median:
+                # Process RLBarker CDLB metrics
+                try:
+                    med_rl, q1_rl, q3_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RLBarker CDLB Median"],
+                            row["RLBarker CDLB Q1"],
+                            row["RLBarker CDLB Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_rl, q1_rl, q3_rl = float("nan"), float("nan"), float("nan")
+
+                # Process RLBarker LESJD metrics
+                try:
+                    med_lesjd, q1_lesjd, q3_lesjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (
+                            row["RLBarker LESJD Median"],
+                            row["RLBarker LESJD Q1"],
+                            row["RLBarker LESJD Q3"],
+                        ),
+                    )
+                except (ValueError, TypeError):
+                    med_lesjd, q1_lesjd, q3_lesjd = (
+                        float("nan"),
+                        float("nan"),
+                        float("nan"),
+                    )
+
+                # Process Barker metrics if available
+                med_barker, q1_barker, q3_barker = (
+                    float("nan"),
+                    float("nan"),
+                    float("nan"),
+                )
+                if has_barker_median:
+                    try:
+                        med_barker, q1_barker, q3_barker = map(
+                            lambda x: float(x) if not pd.isna(x) else float("nan"),
+                            (
+                                row["Barker Median"],
+                                row["Barker Q1"],
+                                row["Barker Q3"],
+                            ),
+                        )
+                    except (ValueError, TypeError):
+                        med_barker, q1_barker, q3_barker = (
+                            float("nan"),
+                            float("nan"),
+                            float("nan"),
+                        )
+
+                # Get formatted values for comparison
+                lesjd_med_value = cls.get_formatted_value(
+                    med_lesjd, q3_lesjd - q1_lesjd
+                )
+                cdlb_med_value = cls.get_formatted_value(med_rl, q3_rl - q1_rl)
+                barker_med_value = (
+                    cls.get_formatted_value(med_barker, q3_barker - q1_barker)
+                    if has_barker_median
+                    else float("inf")
+                )
+
+                # Compare all three values to find the smallest
+                values = [
+                    (lesjd_med_value, "RLBarker LESJD"),
+                    (cdlb_med_value, "RLBarker CDLB"),
+                ]
+
+                if has_barker_median:
+                    values.append((barker_med_value, "Barker"))
+
+                min_value, min_method = min(values, key=lambda x: x[0])
+
+                # Check if all values are equal
+                all_equal = all(
+                    val[0] == min_value for val in values if not np.isinf(val[0])
+                )
+
+                # Format metrics with bold for the smallest value (unless all are equal)
+                if has_barker_median:
+                    barker_mid_iqr = fmt(
+                        med_barker,
+                        q3_barker - q1_barker,
+                        (min_method == "Barker" and not all_equal),
+                    )
+
+                lesjd_mid_iqr = fmt(
+                    med_lesjd,
+                    q3_lesjd - q1_lesjd,
+                    (min_method == "RLBarker LESJD" and not all_equal),
+                )
+
+                cdlb_mid_iqr = fmt(
+                    med_rl,
+                    q3_rl - q1_rl,
+                    (min_method == "RLBarker CDLB" and not all_equal),
+                )
+
+                # Check RMALA-RLMH metrics for row highlighting
+                if has_rmala_rlmh:
+                    # Find RMALA-RLMH median columns
+                    rmala_rlmh_med_cols = [
+                        col for col in rmala_rlmh_columns if "Median" in col
+                    ]
+                    for col in rmala_rlmh_med_cols:
+                        try:
+                            med_rmala_rlmh = float(row[col])
+                            # Find corresponding Q1 and Q3 columns
+                            base_col = col.replace(" Median", "")
+                            q1_col = f"{base_col} Q1"
+                            q3_col = f"{base_col} Q3"
+                            if q1_col in df.columns and q3_col in df.columns:
+                                q1_rmala_rlmh = float(row[q1_col])
+                                q3_rmala_rlmh = float(row[q3_col])
+
+                                rmala_rlmh_value = cls.get_formatted_value(
+                                    med_rmala_rlmh, q3_rmala_rlmh - q1_rmala_rlmh
+                                )
+
+                                # If RMALA-RLMH has smaller metric than both RMALA methods
+                                if (
+                                    rmala_rlmh_value < lesjd_med_value
+                                    and rmala_rlmh_value < cdlb_med_value
+                                ):
+                                    should_highlight_row = True
+                                    break
+                        except (ValueError, TypeError):
+                            continue
+
+            if has_mean:
+                # Process RLBarker CDLB metrics
+                try:
+                    mean_rl, se_rl = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RLBarker CDLB Mean"], row["RLBarker CDLB SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_rl, se_rl = float("nan"), float("nan")
+
+                # Process RLBarker LESJD metrics
+                try:
+                    mean_lesjd, se_lesjd = map(
+                        lambda x: float(x) if not pd.isna(x) else float("nan"),
+                        (row["RLBarker LESJD Mean"], row["RLBarker LESJD SE"]),
+                    )
+                except (ValueError, TypeError):
+                    mean_lesjd, se_lesjd = float("nan"), float("nan")
+
+                # Process Barker metrics if available
+                mean_barker, se_barker = float("nan"), float("nan")
+                if has_barker_mean:
+                    try:
+                        mean_barker, se_barker = map(
+                            lambda x: float(x) if not pd.isna(x) else float("nan"),
+                            (row["Barker Mean"], row["Barker SE"]),
+                        )
+                    except (ValueError, TypeError):
+                        mean_barker, se_barker = float("nan"), float("nan")
+
+                # Get formatted values for comparison
+                lesjd_mean_value = cls.get_formatted_value(mean_lesjd, se_lesjd)
+                cdlb_mean_value = cls.get_formatted_value(mean_rl, se_rl)
+                barker_mean_value = (
+                    cls.get_formatted_value(mean_barker, se_barker)
+                    if has_barker_mean
+                    else float("inf")
+                )
+
+                # Compare all three values to find the smallest
+                values = [
+                    (lesjd_mean_value, "RLBarker LESJD"),
+                    (cdlb_mean_value, "RLBarker CDLB"),
+                ]
+
+                if has_barker_mean:
+                    values.append((barker_mean_value, "Barker"))
+
+                min_value, min_method = min(values, key=lambda x: x[0])
+
+                # Check if all values are equal
+                all_equal = all(
+                    val[0] == min_value for val in values if not np.isinf(val[0])
+                )
+
+                # Format metrics with bold for the smallest value (unless all are equal)
+                if has_barker_mean:
+                    barker_mean_se = fmt(
+                        mean_barker,
+                        se_barker,
+                        (min_method == "Barker" and not all_equal),
+                    )
+
+                lesjd_mean_se = fmt(
+                    mean_lesjd,
+                    se_lesjd,
+                    (min_method == "RLBarker LESJD" and not all_equal),
+                )
+
+                cdlb_mean_se = fmt(
+                    mean_rl, se_rl, (min_method == "RLBarker CDLB" and not all_equal)
+                )
+
+                # Check RMALA-RLMH metrics for row highlighting
+                if has_rmala_rlmh and not should_highlight_row:
+                    # Find RMALA-RLMH mean columns
+                    rmala_rlmh_mean_cols = [
+                        col for col in rmala_rlmh_columns if "Mean" in col
+                    ]
+                    for col in rmala_rlmh_mean_cols:
+                        try:
+                            mean_rmala_rlmh = float(row[col])
+                            # Find corresponding SE column
+                            base_col = col.replace(" Mean", "")
+                            se_col = f"{base_col} SE"
+                            if se_col in df.columns:
+                                se_rmala_rlmh = float(row[se_col])
+
+                                rmala_rlmh_value = cls.get_formatted_value(
+                                    mean_rmala_rlmh, se_rmala_rlmh
+                                )
+
+                                # If RMALA-RLMH has smaller metric than both RMALA methods
+                                if (
+                                    rmala_rlmh_value < lesjd_mean_value
+                                    and rmala_rlmh_value < cdlb_mean_value
+                                ):
+                                    should_highlight_row = True
+                                    break
+                        except (ValueError, TypeError):
+                            continue
+
+            # Add columns in the desired order
+            # First, add the required columns Model and d
+            ordered_output = {"Model": model, "d": dim}
+
+            # Add Barker columns if available
+            if has_barker_median:
+                ordered_output["Barker Mid(IQR)"] = barker_mid_iqr
+            if has_barker_mean:
+                ordered_output["Barker Mean(SE)"] = barker_mean_se
+
+            # Add RLBarker LESJD columns
+            if has_median:
+                ordered_output["RLBarker LESJD Mid(IQR)"] = lesjd_mid_iqr
+            if has_mean:
+                ordered_output["RLBarker LESJD Mean(SE)"] = lesjd_mean_se
+
+            # Add RLBarker CDLB columns
+            if has_median:
+                ordered_output["RLBarker CDLB Mid(IQR)"] = cdlb_mid_iqr
+            if has_mean:
+                ordered_output["RLBarker CDLB Mean(SE)"] = cdlb_mean_se
+
+            rows.append(ordered_output)
+            row_highlights.append(should_highlight_row)
+
+        result_df = pd.DataFrame(rows)
+        result_df.attrs["row_highlights"] = row_highlights
+        return result_df
+
+    @staticmethod
+    def escape_underscores(text: str) -> str:
+        """
+        Escape underscores in non-LaTeX formatted strings.
+
+        Args:
+            text (str): Input string.
+
+        Returns:
+            str: String with underscores escaped.
+        """
+        if isinstance(text, str):
+            return re.sub(r"(?<!\\)_", r"\_", text)
+        return text
+
+    @staticmethod
+    def generate_latex_table(df: pd.DataFrame, output_path: str = "table.tex") -> None:
+        """
+        Generate a LaTeX table from a DataFrame and save it to a file.
+        Applies row coloring based on the row_highlights attribute.
+        """
+        escaped_df = df.applymap(EnhancedTableGenerator.escape_underscores)
+        column_format = "c" * len(escaped_df.columns)
+        header = escaped_df.columns.tolist()
+        rows = escaped_df.values.tolist()
+
+        # Get row highlighting information
+        row_highlights = df.attrs.get("row_highlights", [False] * len(rows))
+
+        latex_lines = [
+            "\\begin{tabular}{" + column_format + "}",
+            "\\hline",
+            " & ".join(header) + " \\\\",
+            "\\hline",
+        ]
+
+        for i, row in enumerate(rows):
+            # Add row coloring command if needed
+            if i < len(row_highlights) and row_highlights[i]:
+                latex_lines.append("\\rowcolor{gray!20}")
+
+            latex_lines.append(" & ".join(str(cell) for cell in row) + " \\\\")
+
+        latex_lines.extend(["\\hline", "\\end{tabular}"])
+
+        latex_code = "\n".join(latex_lines)
+
+        with open(output_path, "w") as f:
+            f.write(latex_code)
+        logger.info(f"LaTeX table saved to {output_path}")
+
+    @classmethod
+    def output(
+        cls,
+        input: str | pd.DataFrame,
+        output_path: str = "formatted_table.tex",
+    ) -> None:
+        """
+        Read a markdown table, clean it, format values, and output a LaTeX table.
+
+        Args:
+            input (str|pd.DataFrame): Path to the input markdown file or a pandas DataFrame.
+            output_path (str): Path where the output LaTeX table will be saved.
+        """
+        if isinstance(input, str) and input.endswith(".md"):
+            # Read Markdown Table
+            raw_df = cls.read_markdown_table(input)
+        elif isinstance(input, pd.DataFrame):
+            raw_df = input
+        else:
+            raise TypeError(
+                "Input must be a markdown file path ending with .md or a pandas DataFrame."
+            )
+
+        # Cleaning: Remove bold markers and column name spaces
+        raw_df = raw_df.replace(r"\*\*(.*?)\*\*", r"\1", regex=True)
+        raw_df.columns = raw_df.columns.str.strip()
+
+        # Replace illegal values with NaN (such as '-' or spaces)
+        raw_df = raw_df.replace(r"^\s*-+\s*$", np.nan, regex=True)
+        raw_df = raw_df.replace(r"^\s*$", np.nan, regex=True)
+
+        # Apply enhanced transformation
+        final_df = cls.apply_enhanced_transformation(raw_df)
+
+        # Generate LaTeX table with row highlighting
+        cls.generate_latex_table(final_df, output_path)

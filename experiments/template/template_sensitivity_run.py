@@ -39,8 +39,7 @@ def output_initial(
     initial_step_size = 29.0168 * eps0**3 - 25.6180 * eps0**2 + 3.0239 * eps0 + 1.3476
 
     hessian_matrix = target.hess_log_target_pdf(gs.mean(axis=0))
-    hessian_positive_definite = Toolbox.nearestPD(hessian_matrix)
-    initial_covariance_matrix = -np.linalg.inv(hessian_positive_definite)
+    initial_covariance_matrix = -np.linalg.inv(hessian_matrix)
 
     return gs[0], initial_covariance_matrix, initial_step_size.reshape(1)
 
