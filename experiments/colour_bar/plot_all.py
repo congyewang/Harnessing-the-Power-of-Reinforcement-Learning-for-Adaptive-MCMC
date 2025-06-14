@@ -11,6 +11,28 @@ from numpy import typing as npt
 from pyrlmala.utils.plot import FlexPipeLine, PlotPipeLine
 from pyrlmala.utils.target import AutoStanTargetPDF
 
+LATEX_STYLE = True
+
+if LATEX_STYLE:
+    plt.rcParams.update(
+        {
+            "text.usetex": True,
+            "font.family": "serif",
+            "font.serif": ["Computer Modern Roman"],
+        }
+    )
+
+plt.rcParams.update(
+    {
+        "font.size": 36,
+        "axes.titlesize": 36,
+        "axes.labelsize": 36,
+        "xtick.labelsize": 36,
+        "ytick.labelsize": 36,
+        "legend.fontsize": 36,
+    }
+)
+
 fig, axes = plt.subplots(
     3, 3, figsize=(15, 15), constrained_layout=True, subplot_kw={"aspect": "auto"}
 )
