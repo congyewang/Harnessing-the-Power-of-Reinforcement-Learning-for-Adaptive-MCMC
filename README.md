@@ -2,7 +2,7 @@
   <a href="https://github.com/congyewang/pyrlmala" target="_blank">
   </a>
   <br>
-  <small>PyRLMALA - The python implementation of Reinforcement Learning for Adaptive MALA</small>
+  <small>Harnessing the Power of Reinforcement Learning for Adaptive MCMC</small>
 </h1>
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
