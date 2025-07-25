@@ -8,7 +8,7 @@ source /mnt/nfs/home/c2029946/Code/PythonProjects/pyrlmala/.venv/bin/activate
 
 python generate_batch_discount_factor.py
 
-cd whole_results
+cd whole_results_discount_factor
 rm -rf test-*
 cd -
 
