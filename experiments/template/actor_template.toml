@@ -1,0 +1,5 @@
+[network]
+hidden_layers = {{ hidden_layers }}
+activation_function = "ReLU"
+
+[scheduler]
