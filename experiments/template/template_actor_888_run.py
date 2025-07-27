@@ -9,7 +9,9 @@ from pyrlmala.learning import LearningFactory
 from pyrlmala.utils import Toolbox
 from pyrlmala.utils.posteriordb import PosteriorDBToolbox
 from pyrlmala.utils.target import AutoStanTargetPDF
+import warnings
 
+warnings.filterwarnings("ignore")
 model_name = "{{ model_name }}"
 posteriordb_path = "{{ posteriordb_path }}"
 repeat_num = {{repeat_num}}
