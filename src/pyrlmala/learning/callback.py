@@ -1,4 +1,5 @@
 import threading
+import time
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -204,3 +205,79 @@ class Callback(CallbackBase):
         learning_instance.event_manager.register(
             TrainEvents.WITHIN_TRAIN, self._callback
         )
+
+
+class TrainingTimer:
+    """
+    TrainingTimer is a class to measure the time taken for training.
+    """
+
+    def __init__(self) -> None:
+        """
+        Initializes the TrainingTimer with None values for start, end, and elapsed times.
+        """
+        self.start_time: Optional[float] = None
+        self.end_time: Optional[float] = None
+        self.elapsed_time: Optional[float] = None
+
+    def start_timing(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Function to start the timing of the training process.
+
+        Args:
+            *args (Any): Variable length argument list.
+            **kwargs (Any): Arbitrary keyword arguments.
+        """
+        self.start_time = time.perf_counter()
+        print(f"Training started at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+    def end_timing(self, *args: Any, **kwargs: Any) -> None:
+        """
+        Function to end the timing of the training process.
+
+        Args:
+            *args (Any): Variable length argument list.
+            **kwargs (Any): Arbitrary keyword arguments.
+        """
+        self.end_time = time.perf_counter()
+        if self.start_time is not None:
+            self.elapsed_time = self.end_time - self.start_time
+            print(f"Training completed at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"Total training time: {self.elapsed_time:.4f} seconds")
+            print(f"Total training time: {self.elapsed_time / 60:.2f} minutes")
+            print(f"Total training time: {self.elapsed_time / 3600:.2f} hours")
+        else:
+            print("Warning: Start time was not recorded!")
+
+    def get_elapsed_time(self) -> Optional[float]:
+        """
+        Returns the elapsed time of the training process.
+
+        Returns:
+            Optional[float]: The elapsed time in seconds, or None if timing has not been completed
+            yet.
+        """
+        return self.elapsed_time
+
+
+def register_timing_callbacks(learning_instance: LearningInterface) -> TrainingTimer:
+    """
+    Registers timing callbacks for the training process.
+
+    Args:
+        learning_instance (LearningInterface): The LearningInterface instance.
+
+    Returns:
+        TrainingTimer: The training timer instance for obtaining timing information.
+    """
+    timer = TrainingTimer()
+
+    # Register the callback for starting training
+    learning_instance.event_manager.register(
+        TrainEvents.BEFORE_TRAIN, timer.start_timing
+    )
+
+    # Register the callback for ending training
+    learning_instance.event_manager.register(TrainEvents.AFTER_TRAIN, timer.end_timing)
+
+    return timer
