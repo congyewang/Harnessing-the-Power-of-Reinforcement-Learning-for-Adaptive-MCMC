@@ -9,12 +9,12 @@ import time
 model_name = "{{  model_name }}"
 posteriordb_path = "{{ posteriordb_path }}"
 replicate_num = 1
-mmd_file_path = f"./results/baseline_{model_name}.csv"
-Toolbox.create_folder(mmd_file_path)
+cpu_file_path = f"./results/baseline_{model_name}.csv"
+Toolbox.create_folder(cpu_file_path)
 
 
-with open(mmd_file_path, "w") as f:
-    f.write("model_name,random_seed,mmd\n")
+with open(cpu_file_path, "w") as f:
+    f.write("model_name,random_seed,cpu_time\n")
 
 
 target = AutoStanTargetPDF(model_name, posteriordb_path)
@@ -66,7 +66,7 @@ def get_cpu_time(random_seed: int) -> float:
 for random_seed in range(replicate_num):
     np.random.seed(random_seed)
     cpu_time = get_cpu_time(random_seed)
-    print(f"Random seed: {random_seed}, MMD: {cpu_time}")
+    print(f"Random seed: {random_seed}, cpu_time: {cpu_time}")
 
-    with open(mmd_file_path, "a+") as f:
+    with open(cpu_file_path, "a+") as f:
         f.write(f"{model_name},{random_seed},{cpu_time}\n")
