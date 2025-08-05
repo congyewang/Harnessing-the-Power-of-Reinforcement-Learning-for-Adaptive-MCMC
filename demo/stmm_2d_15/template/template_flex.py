@@ -12,7 +12,7 @@ output_dir = "results/"
 model_name = "stmm_2d_40"
 
 
-stmm = StudentTMixtureModel(dim=2)
+stmm = StudentTMixtureModel(15, dim=2)
 
 log_prob_jit = jax.jit(stmm.log_prob)
 grad_log_target_pdf_jit = jax.jit(jax.jacrev(log_prob_jit))
