@@ -7,9 +7,11 @@ from jaxtarget.gmm40 import GMM40
 
 from pyrlmala.learning import LearningFactory
 from pyrlmala.utils import Toolbox
+import warnings
 
+warnings.filterwarnings("ignore")
 output_dir = "results/"
-model_name = "gmm_2d_40"
+model_name = "gmm_50d_40"
 
 
 gmm = GMM40(dim=50)
