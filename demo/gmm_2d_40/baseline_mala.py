@@ -1,6 +1,6 @@
 import jax
 import numpy as np
-from target.gmm40 import GMM40
+from jaxtarget.gmm40 import GMM40
 from jax import numpy as jnp
 from mcmclib.metropolis import mala_adapt
 
