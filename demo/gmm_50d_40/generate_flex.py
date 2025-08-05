@@ -95,7 +95,7 @@ def generate_files(
 
 
 if __name__ == "__main__":
-    model_name_list = "gmm_50d_40"
+    model_name_list = ["gmm_50d_40"]
 
     for model_name in model_name_list:
         repeat_num = 10

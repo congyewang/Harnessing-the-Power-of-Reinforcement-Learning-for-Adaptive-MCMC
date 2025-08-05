@@ -43,7 +43,7 @@ def hess_log_target_pdf(x):
 
 
 gs = np.array(gmm.sample(jax.random.PRNGKey(0), (5000,)))
-sample_dim = 2
+sample_dim = 50
 initial_sample = gs[0]
 initial_step_size = np.array([1.0])
 hessian_matrix = hess_log_target_pdf(gs.mean(axis=0))
